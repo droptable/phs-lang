@@ -1,0 +1,434 @@
+object(phs\Node)#8 (3) {
+  ["loc"]=>
+  object(phs\Location)#7 (3) {
+    ["file"]=>
+    string(4) "test"
+    ["pos"]=>
+    object(phs\Position)#4 (2) {
+      ["line"]=>
+      int(1)
+      ["coln"]=>
+      int(1)
+    }
+    ["range"]=>
+    array(2) {
+      [0]=>
+      object(phs\Position)#4 (2) {
+        ["line"]=>
+        int(1)
+        ["coln"]=>
+        int(1)
+      }
+      [1]=>
+      object(phs\Position)#5 (2) {
+        ["line"]=>
+        int(1)
+        ["coln"]=>
+        int(4)
+      }
+    }
+  }
+  ["kind"]=>
+  string(4) "unit"
+  ["body"]=>
+  object(phs\Node)#9 (3) {
+    ["loc"]=>
+    object(phs\Location)#7 (3) {
+      ["file"]=>
+      string(4) "test"
+      ["pos"]=>
+      object(phs\Position)#4 (2) {
+        ["line"]=>
+        int(1)
+        ["coln"]=>
+        int(1)
+      }
+      ["range"]=>
+      array(2) {
+        [0]=>
+        object(phs\Position)#4 (2) {
+          ["line"]=>
+          int(1)
+          ["coln"]=>
+          int(1)
+        }
+        [1]=>
+        object(phs\Position)#5 (2) {
+          ["line"]=>
+          int(1)
+          ["coln"]=>
+          int(4)
+        }
+      }
+    }
+    ["kind"]=>
+    string(7) "program"
+    ["body"]=>
+    array(1) {
+      [0]=>
+      object(phs\Node)#13 (3) {
+        ["loc"]=>
+        object(phs\Location)#12 (3) {
+          ["file"]=>
+          string(4) "test"
+          ["pos"]=>
+          object(phs\Position)#6 (2) {
+            ["line"]=>
+            int(1)
+            ["coln"]=>
+            int(5)
+          }
+          ["range"]=>
+          array(2) {
+            [0]=>
+            object(phs\Position)#6 (2) {
+              ["line"]=>
+              int(1)
+              ["coln"]=>
+              int(5)
+            }
+            [1]=>
+            object(phs\Position)#10 (2) {
+              ["line"]=>
+              int(1)
+              ["coln"]=>
+              int(6)
+            }
+          }
+        }
+        ["kind"]=>
+        string(8) "let_decl"
+        ["vars"]=>
+        array(1) {
+          [0]=>
+          object(phs\Node)#14 (4) {
+            ["loc"]=>
+            object(phs\Location)#12 (3) {
+              ["file"]=>
+              string(4) "test"
+              ["pos"]=>
+              object(phs\Position)#6 (2) {
+                ["line"]=>
+                int(1)
+                ["coln"]=>
+                int(5)
+              }
+              ["range"]=>
+              array(2) {
+                [0]=>
+                object(phs\Position)#6 (2) {
+                  ["line"]=>
+                  int(1)
+                  ["coln"]=>
+                  int(5)
+                }
+                [1]=>
+                object(phs\Position)#10 (2) {
+                  ["line"]=>
+                  int(1)
+                  ["coln"]=>
+                  int(6)
+                }
+              }
+            }
+            ["kind"]=>
+            string(8) "var_item"
+            ["pattern"]=>
+            object(phs\Node)#15 (3) {
+              ["loc"]=>
+              object(phs\Location)#12 (3) {
+                ["file"]=>
+                string(4) "test"
+                ["pos"]=>
+                object(phs\Position)#6 (2) {
+                  ["line"]=>
+                  int(1)
+                  ["coln"]=>
+                  int(5)
+                }
+                ["range"]=>
+                array(2) {
+                  [0]=>
+                  object(phs\Position)#6 (2) {
+                    ["line"]=>
+                    int(1)
+                    ["coln"]=>
+                    int(5)
+                  }
+                  [1]=>
+                  object(phs\Position)#10 (2) {
+                    ["line"]=>
+                    int(1)
+                    ["coln"]=>
+                    int(6)
+                  }
+                }
+              }
+              ["kind"]=>
+              string(11) "var_pattern"
+              ["items"]=>
+              array(3) {
+                [0]=>
+                object(phs\Node)#23 (3) {
+                  ["loc"]=>
+                  object(phs\Location)#22 (3) {
+                    ["file"]=>
+                    string(4) "test"
+                    ["pos"]=>
+                    object(phs\Position)#19 (2) {
+                      ["line"]=>
+                      int(1)
+                      ["coln"]=>
+                      int(7)
+                    }
+                    ["range"]=>
+                    array(2) {
+                      [0]=>
+                      object(phs\Position)#19 (2) {
+                        ["line"]=>
+                        int(1)
+                        ["coln"]=>
+                        int(7)
+                      }
+                      [1]=>
+                      object(phs\Position)#20 (2) {
+                        ["line"]=>
+                        int(1)
+                        ["coln"]=>
+                        int(8)
+                      }
+                    }
+                  }
+                  ["kind"]=>
+                  string(5) "ident"
+                  ["value"]=>
+                  string(1) "a"
+                }
+                [1]=>
+                object(phs\Node)#27 (3) {
+                  ["loc"]=>
+                  object(phs\Location)#26 (3) {
+                    ["file"]=>
+                    string(4) "test"
+                    ["pos"]=>
+                    object(phs\Position)#21 (2) {
+                      ["line"]=>
+                      int(1)
+                      ["coln"]=>
+                      int(9)
+                    }
+                    ["range"]=>
+                    array(2) {
+                      [0]=>
+                      object(phs\Position)#21 (2) {
+                        ["line"]=>
+                        int(1)
+                        ["coln"]=>
+                        int(9)
+                      }
+                      [1]=>
+                      object(phs\Position)#24 (2) {
+                        ["line"]=>
+                        int(1)
+                        ["coln"]=>
+                        int(10)
+                      }
+                    }
+                  }
+                  ["kind"]=>
+                  string(5) "ident"
+                  ["value"]=>
+                  string(1) "b"
+                }
+                [2]=>
+                object(phs\Node)#25 (3) {
+                  ["loc"]=>
+                  object(phs\Location)#17 (3) {
+                    ["file"]=>
+                    string(4) "test"
+                    ["pos"]=>
+                    object(phs\Position)#16 (2) {
+                      ["line"]=>
+                      int(1)
+                      ["coln"]=>
+                      int(10)
+                    }
+                    ["range"]=>
+                    array(2) {
+                      [0]=>
+                      object(phs\Position)#16 (2) {
+                        ["line"]=>
+                        int(1)
+                        ["coln"]=>
+                        int(10)
+                      }
+                      [1]=>
+                      object(phs\Position)#11 (2) {
+                        ["line"]=>
+                        int(1)
+                        ["coln"]=>
+                        int(11)
+                      }
+                    }
+                  }
+                  ["kind"]=>
+                  string(11) "var_pattern"
+                  ["items"]=>
+                  array(2) {
+                    [0]=>
+                    object(phs\Node)#35 (3) {
+                      ["loc"]=>
+                      object(phs\Location)#34 (3) {
+                        ["file"]=>
+                        string(4) "test"
+                        ["pos"]=>
+                        object(phs\Position)#31 (2) {
+                          ["line"]=>
+                          int(1)
+                          ["coln"]=>
+                          int(12)
+                        }
+                        ["range"]=>
+                        array(2) {
+                          [0]=>
+                          object(phs\Position)#31 (2) {
+                            ["line"]=>
+                            int(1)
+                            ["coln"]=>
+                            int(12)
+                          }
+                          [1]=>
+                          object(phs\Position)#32 (2) {
+                            ["line"]=>
+                            int(1)
+                            ["coln"]=>
+                            int(13)
+                          }
+                        }
+                      }
+                      ["kind"]=>
+                      string(5) "ident"
+                      ["value"]=>
+                      string(1) "c"
+                    }
+                    [1]=>
+                    object(phs\Node)#33 (3) {
+                      ["loc"]=>
+                      object(phs\Location)#18 (3) {
+                        ["file"]=>
+                        string(4) "test"
+                        ["pos"]=>
+                        object(phs\Position)#29 (2) {
+                          ["line"]=>
+                          int(1)
+                          ["coln"]=>
+                          int(13)
+                        }
+                        ["range"]=>
+                        array(2) {
+                          [0]=>
+                          object(phs\Position)#29 (2) {
+                            ["line"]=>
+                            int(1)
+                            ["coln"]=>
+                            int(13)
+                          }
+                          [1]=>
+                          object(phs\Position)#30 (2) {
+                            ["line"]=>
+                            int(1)
+                            ["coln"]=>
+                            int(14)
+                          }
+                        }
+                      }
+                      ["kind"]=>
+                      string(11) "var_pattern"
+                      ["items"]=>
+                      array(1) {
+                        [0]=>
+                        object(phs\Node)#43 (3) {
+                          ["loc"]=>
+                          object(phs\Location)#42 (3) {
+                            ["file"]=>
+                            string(4) "test"
+                            ["pos"]=>
+                            object(phs\Position)#39 (2) {
+                              ["line"]=>
+                              int(1)
+                              ["coln"]=>
+                              int(15)
+                            }
+                            ["range"]=>
+                            array(2) {
+                              [0]=>
+                              object(phs\Position)#39 (2) {
+                                ["line"]=>
+                                int(1)
+                                ["coln"]=>
+                                int(15)
+                              }
+                              [1]=>
+                              object(phs\Position)#40 (2) {
+                                ["line"]=>
+                                int(1)
+                                ["coln"]=>
+                                int(16)
+                              }
+                            }
+                          }
+                          ["kind"]=>
+                          string(5) "ident"
+                          ["value"]=>
+                          string(1) "d"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            ["init"]=>
+            object(phs\Node)#47 (4) {
+              ["loc"]=>
+              object(phs\Location)#37 (3) {
+                ["file"]=>
+                string(4) "test"
+                ["pos"]=>
+                object(phs\Position)#36 (2) {
+                  ["line"]=>
+                  int(1)
+                  ["coln"]=>
+                  int(22)
+                }
+                ["range"]=>
+                array(2) {
+                  [0]=>
+                  object(phs\Position)#36 (2) {
+                    ["line"]=>
+                    int(1)
+                    ["coln"]=>
+                    int(22)
+                  }
+                  [1]=>
+                  object(phs\Position)#38 (2) {
+                    ["line"]=>
+                    int(1)
+                    ["coln"]=>
+                    int(23)
+                  }
+                }
+              }
+              ["kind"]=>
+              string(7) "literal"
+              ["literal"]=>
+              int(3)
+              ["value"]=>
+              string(1) "0"
+            }
+          }
+        }
+      }
+    }
+  }
+}

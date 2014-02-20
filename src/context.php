@@ -1,0 +1,255 @@
+<?php
+
+namespace phs;
+
+const 
+  COM_GLOB = 1,
+  COM_LEX = 2,
+  COM_PSR = 3,
+  COM_GEN = 4
+;
+
+const 
+  ERR_INFO = 1,
+  ERR_WARN = 2,
+  ERR_ERROR = 3,
+  ERR_ABORT = 4
+;
+
+class Context
+{
+  // abort-flag
+  public $abort = false;
+  
+  // each compilation-step checks this flag and as long the value 
+  // stays `true` the compilation continues
+  public $valid = true;
+  
+  // options
+  private $opts = [];
+  
+  /**
+   * set a option
+   * 
+   * @param  string $name the option
+   * @param  mixed $value the option value
+   */
+  public function set_option($n, $v)
+  {
+    $this->opts[$n] = $v;
+  }
+  
+  /**
+   * return a option
+   * 
+   * @param  string $name the option
+   * @param  mixed $fallback a fallback
+   * @return mixed
+   */
+  public function get_option($n, $f = null)
+  {
+    return isset ($this->opts[$n]) ? $this->opts[$n] : $f;
+  }
+  
+  /**
+   * trigger an error
+   * 
+   * @param int $component
+   * @param int $error_type
+   * @param string $message
+   * @param mixed ... $arguments
+   */
+  public function error()
+  {
+    $args = func_get_args();
+    $send = [];
+    
+    // location
+    $send[] = null;
+    // component
+    $send[] = array_shift($args);
+    // error-type
+    $send[] = array_shift($args);
+    // message
+    $send[] = array_shift($args);
+    // ...args
+    $send[] = $args;
+    
+    call_user_func_array([ $this, 'verror_at' ], $send);
+  }
+  
+  /**
+   * trigger an error at a specific location
+   * 
+   * @param Location $location
+   * @param int $component
+   * @param int $error_type
+   * @param string $message
+   * @param mixed ... $arguments
+   */
+  public function error_at()
+  {
+    $args = func_get_args();
+    $send = [];
+    
+    // location
+    $send[] = array_shift($args);
+    // component
+    $send[] = array_shift($args);
+    // error-type
+    $send[] = array_shift($args);
+    // message
+    $send[] = array_shift($args);
+    // ...args
+    $send[] = $args;
+    
+    call_user_func_array([ $this, 'verror_at' ], $send);
+  }
+  
+  /**
+   * trigger an error (varidc)
+   * 
+   * @param int $component
+   * @param int $error_type
+   * @param string $message
+   * @param array $arguments
+   */
+  public function verror()
+  {
+    $send = func_get_args();
+    
+    // location
+    array_unshift($send, null);
+    
+    call_user_func_array([ $this, 'verror_at' ], $send);
+  }
+  
+  /**
+   * trigger an error at a specific location (varidc)
+   * 
+   * @param Location $location
+   * @param int $component
+   * @param int $error_type
+   * @param string $message
+   * @param array $arguments
+   */
+  public function verror_at()
+  {
+    $args = func_get_args();
+    list ($loc, $com, $err, $msg, $fmt) = $args;
+    
+    if ($err === ERR_ABORT) {
+      $this->abort = true;
+      $err = ERR_ERROR;
+    }
+    
+    if ($err === ERR_ERROR)
+      $this->valid = false;
+          
+    $log = '';
+    
+    switch ($err) {
+      case ERR_INFO:
+        $log .= '[info] ';
+        break;
+      case ERR_WARN:
+        $log .= '[warn] ';
+        break;
+      default:
+      case ERR_ERROR:
+        $log .= '[error]';
+        break;
+    }
+    
+    switch ($com) {
+      default:
+      case COM_GLOB:
+        $log .= ' glb';
+        break;
+      case COM_LEX:
+        $log .= ' lex';
+        break;
+      case COM_PSR:
+        $log .= ' prs';
+        break;
+      case COM_GEN:
+        $log .= ' gen';
+    }
+    
+    $log .= ': ';
+    
+    if ($loc !== null) {
+      assert($loc instanceof Location);
+      $log .= "{$loc->file}:{$loc->pos->line}:{$loc->pos->coln}: ";
+    }
+    
+    $log .= $this->format($msg, $fmt);
+    print "$log\n";
+  }
+  
+  /**
+   * formats a message
+   * 
+   * @param string $message
+   * @param array $arguments
+   * @return string
+   */
+  private function format($msg, $args)
+  {
+    if (empty($args))
+      return $msg;
+    
+    $r = '';
+    
+    for ($f = 0, $i = 0, $l = strlen($msg); $i < $l; ++$i) {
+      $c = $msg[$i];
+      
+      if ($c === '%') {
+        $t = '';
+        $s = 0;
+        for ($o = $i + 1; $o < $l; ++$o, ++$s) {
+          $n = $msg[$o];
+          if (!ctype_alpha($n)) break;
+          $t .= $n;
+        }
+        
+        if (!empty($t)) {
+          switch ($t) {
+            case 'node':
+            case 'symbol':
+              assert(!empty($args));
+              $i += $s;
+              $a = array_splice($args, $f, 1)[0];
+              $d = $this->{"format_$t"}($a);
+              
+              // deny "%..." results
+              if (preg_match('/(?<![%])[%](?![%])/', $d))
+                exit('a format-handler must not return format-able strings!'
+                   . 'result was: ' . $d);
+              
+              $r .= $d;
+              continue 2;
+          }
+        }
+        
+        ++$f;
+      }
+      
+      $r .= $c;
+    }
+    
+    return vsprintf($r, $args);
+  }
+  
+  // TODO:
+  private function format_node()
+  {
+    return 'node';
+  }
+  
+  // TODO:
+  private function format_symbol()
+  {
+    return 'symbol';
+  }
+}
