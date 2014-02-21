@@ -137,6 +137,9 @@
 /* end-token */
 %token T_END
 
+/* synchronizing token (not a real token, just for "smarter" error-recovery) */
+%token T_SYNC
+
 %%
 
 start
@@ -177,6 +180,7 @@ topex
   | let_decl       { $$ = $1; }
   | var_decl       { $$ = $1; }
   | require        { $$ = $1; }
+  | error T_SYNC   { $$ = null; }
   | T_END          { $$ = null; }
   | stmt           { $$ = $1; }
   ;
@@ -305,15 +309,17 @@ class_decl
   ;
   
 ext_opt
-  : /* empty */ { $$ = null; }
-  | ':' ext     { $$ = $2; }
-  | '(' ext ')' { $$ = $2; }
+  : /* empty */   { $$ = null; }
+  | ':' ext       { $$ = $2; }
+  | '(' ext ')'   { $$ = $2; }
+  | '(' error ')' { $$ = null; }
   ;
   
 exts_opt
-  : /* empty */  { $$ = null; }
-  | ':' exts     { $$ = $2; }
-  | '(' exts ')' { $$ = $2; }
+  : /* empty */   { $$ = null; }
+  | ':' exts      { $$ = $2; }
+  | '(' exts ')'  { $$ = $2; }
+  | '(' error ')' { $$ = null; }
   ;
   
 exts
@@ -328,6 +334,7 @@ ext
 impl_opt
   : /* empty */ { $$ = null; }
   | '~' impls   { $$ = $2; }
+  | '~' error   { $$ = null; }
   ;
   
 impls
@@ -404,8 +411,9 @@ inner
 comp
   : decl           { $$ = $1; }
   | stmt           { $$ = $1; }
-  | '@' error T_NL { $$ = null; }
   | comp_attr      { $$ = $1; }
+  | '@' error T_NL { $$ = null; }
+  | error T_SYNC   { $$ = null; }
   ;
 
 decl
@@ -463,10 +471,12 @@ params
   ;
   
 param
-  : ident                              { $$ = @Param(null, $1, null); }
-  | ident '=' rxpr                     { $$ = @Param(null, $1, $3); }
-  | hint ident                         { $$ = @Param($1, $2, null); }
-  | hint ident '=' rxpr                { $$ = @Param($1, $2, $4); }
+  : ident                              { $$ = @Param(null, $1, null, false); }
+  | ident '?'                          { $$ = @Param(null, $1, null, true); }
+  | ident '=' rxpr                     { $$ = @Param(null, $1, $3, false); }
+  | hint ident                         { $$ = @Param($1, $2, null, false); }
+  | hint ident '?'                     { $$ = @Param($1, $2, null, true); }
+  | hint ident '=' rxpr                { $$ = @Param($1, $2, $4, false); }
   | hint_opt T_THIS dot_ident          { $$ = @ThisParam($1, $3, null); }
   | hint_opt T_THIS dot_ident '=' rxpr { $$ = @ThisParam($1, $3, $5); }
   | hint_opt T_REST ident              { $$ = @RestParam($1, $3); }
@@ -672,9 +682,9 @@ lxpr
   | lxpr T_EQ rxpr          { $$ = @BinExpr($1, $2, $3); }
   | lxpr T_NEQ rxpr         { $$ = @BinExpr($1, $2, $3); } 
   | lxpr T_IN rxpr          { $$ = @BinExpr($1, $2, $3); }
-  | lxpr T_IS type          { $$ = @CheckExpr($1, $2, $3); }
-  | lxpr T_ISNT type        { $$ = @CheckExpr($1, $2, $3); }
-  | lxpr T_AS type          { $$ = @CastExpr($1, $3); }
+  | lxpr T_IS type_name     { $$ = @CheckExpr($1, $2, $3); }
+  | lxpr T_ISNT type_name   { $$ = @CheckExpr($1, $2, $3); }
+  | lxpr T_AS type_name     { $$ = @CastExpr($1, $3); }
   | lxpr T_INC              { $$ = @UpdateExpr(false, $1, $2); }
   | lxpr T_DEC              { $$ = @UpdateExpr(false, $1, $2); }
   | lxpr '=' rxpr           { $$ = @AssignExpr($1, $2, $3); }
@@ -705,8 +715,8 @@ lxpr
   | '!' rxpr                { $$ = @UnaryExpr($1, $2); }
   | T_INC rxpr              { $$ = @UpdateExpr(true, $2, $1); }
   | T_DEC rxpr              { $$ = @UpdateExpr(true, $2, $1); }
-  | T_NEW name              { $$ = @NewExpr($2, null); }
-  | T_NEW name pargs        { $$ = @NewExpr($2, $3); }
+  | T_NEW type_name         { $$ = @NewExpr($2, null); }
+  | T_NEW type_name pargs   { $$ = @NewExpr($2, $3); }
   | T_DEL ident             { $$ = @DelExpr($2); }
   | atom                    { $$ = $1; }
   | legacy_cast             { $$ = $1; }
@@ -739,9 +749,9 @@ rxpr
   | rxpr T_EQ rxpr          { $$ = @BinExpr($1, $2, $3); }
   | rxpr T_NEQ rxpr         { $$ = @BinExpr($1, $2, $3); } 
   | rxpr T_IN rxpr          { $$ = @BinExpr($1, $2, $3); }
-  | rxpr T_IS type          { $$ = @CheckExpr($1, $2, $3); }
-  | rxpr T_ISNT type        { $$ = @CheckExpr($1, $2, $3); }
-  | rxpr T_AS type          { $$ = @CastExpr($1, $3); }
+  | rxpr T_IS type_name     { $$ = @CheckExpr($1, $2, $3); }
+  | rxpr T_ISNT type_name   { $$ = @CheckExpr($1, $2, $3); }
+  | rxpr T_AS type_name     { $$ = @CastExpr($1, $3); }
   | rxpr T_INC              { $$ = @UpdateExpr(false, $1, $2); }
   | rxpr T_DEC              { $$ = @UpdateExpr(false, $1, $2); }
   | rxpr '=' rxpr           { $$ = @AssignExpr($1, $2, $3); }
@@ -773,8 +783,8 @@ rxpr
   | '!' rxpr                { $$ = @UnaryExpr($1, $2); }
   | T_INC rxpr              { $$ = @UpdateExpr(true, $2, $1); }
   | T_DEC rxpr              { $$ = @UpdateExpr(true, $2, $1); }
-  | T_NEW name              { $$ = @NewExpr($2, null); }
-  | T_NEW name pargs        { $$ = @NewExpr($2, $3); }
+  | T_NEW type_name         { $$ = @NewExpr($2, null); }
+  | T_NEW type_name pargs   { $$ = @NewExpr($2, $3); }
   | T_DEL ident             { $$ = @DelExpr($2); }
   | atom                    { $$ = $1; }
   | obj                     { $$ = $1; }
@@ -808,9 +818,9 @@ rxpr_noin
   | rxpr_noin T_SR rxpr_noin          { $$ = @BinExpr($1, $2, $3); }
   | rxpr_noin T_EQ rxpr_noin          { $$ = @BinExpr($1, $2, $3); }
   | rxpr_noin T_NEQ rxpr_noin         { $$ = @BinExpr($1, $2, $3); } 
-  | rxpr_noin T_IS type               { $$ = @CheckExpr($1, $2, $3); }
-  | rxpr_noin T_ISNT type             { $$ = @CheckExpr($1, $2, $3); }
-  | rxpr_noin T_AS type               { $$ = @CastExpr($1, $3); }
+  | rxpr_noin T_IS type_name          { $$ = @CheckExpr($1, $2, $3); }
+  | rxpr_noin T_ISNT type_name        { $$ = @CheckExpr($1, $2, $3); }
+  | rxpr_noin T_AS type_name          { $$ = @CastExpr($1, $3); }
   | rxpr_noin T_INC                   { $$ = @UpdateExpr(false, $1, $2); }
   | rxpr_noin T_DEC                   { $$ = @UpdateExpr(false, $1, $2); }
   | rxpr_noin '=' rxpr_noin           { $$ = @AssignExpr($1, $2, $3); }
@@ -842,8 +852,8 @@ rxpr_noin
   | '!' rxpr_noin                     { $$ = @UnaryExpr($1, $2); }
   | T_INC rxpr_noin                   { $$ = @UpdateExpr(true, $2, $1); }
   | T_DEC rxpr_noin                   { $$ = @UpdateExpr(true, $2, $1); }
-  | T_NEW name                        { $$ = @NewExpr($2, null); }
-  | T_NEW name pargs                  { $$ = @NewExpr($2, $3); }
+  | T_NEW type_name                   { $$ = @NewExpr($2, null); }
+  | T_NEW type_name pargs             { $$ = @NewExpr($2, $3); }
   | T_DEL ident                       { $$ = @DelExpr($2); }
   | atom                              { $$ = $1; }
   | obj                               { $$ = $1; }
@@ -852,19 +862,11 @@ rxpr_noin
   ;
   
 legacy_cast
-  : '(' T_TINT ')' rxpr    { $$ = @CastExpr($4, $2); $this->error_at($1->loc, ERR_WARN, 'legacy cast, use `expr as type` instead'); }
-  | '(' T_TBOOL ')' rxpr   { $$ = @CastExpr($4, $2); $this->error_at($1->loc, ERR_WARN, 'legacy cast, use `expr as type` instead'); }
-  | '(' T_TFLOAT ')' rxpr  { $$ = @CastExpr($4, $2); $this->error_at($1->loc, ERR_WARN, 'legacy cast, use `expr as type` instead'); }
-  | '(' T_TSTRING ')' rxpr { $$ = @CastExpr($4, $2); $this->error_at($1->loc, ERR_WARN, 'legacy cast, use `expr as type` instead'); }
-  | '(' T_TREGEXP ')' rxpr { $$ = @CastExpr($4, $2); $this->error_at($1->loc, ERR_WARN, 'legacy cast, use `expr as type` instead'); }
+  : '(' type ')' rxpr { $$ = @CastExpr($4, $2); $this->error_at($1->loc, ERR_WARN, 'legacy cast, use `expr as type` instead'); }
   ;
   
 legacy_cast_noin
-  : '(' T_TINT ')' rxpr_noin    { $$ = @CastExpr($4, $2); $this->error_at($1->loc, ERR_WARN, 'legacy cast, use `expr as type` instead'); }
-  | '(' T_TBOOL ')' rxpr_noin   { $$ = @CastExpr($4, $2); $this->error_at($1->loc, ERR_WARN, 'legacy cast, use `expr as type` instead'); }
-  | '(' T_TFLOAT ')' rxpr_noin  { $$ = @CastExpr($4, $2); $this->error_at($1->loc, ERR_WARN, 'legacy cast, use `expr as type` instead'); }
-  | '(' T_TSTRING ')' rxpr_noin { $$ = @CastExpr($4, $2); $this->error_at($1->loc, ERR_WARN, 'legacy cast, use `expr as type` instead'); }
-  | '(' T_TREGEXP ')' rxpr_noin { $$ = @CastExpr($4, $2); $this->error_at($1->loc, ERR_WARN, 'legacy cast, use `expr as type` instead'); }
+  : '(' type ')' rxpr_noin { $$ = @CastExpr($4, $2); $this->error_at($1->loc, ERR_WARN, 'legacy cast, use `expr as type` instead'); }
   ;
  
 pxpr
@@ -890,13 +892,13 @@ arg
   ;
   
 atom
-  : num     { $$ = $1; }
-  | reg     { $$ = $1; }
-  | arr     { $$ = $1; }
-  | name    { $$ = $1; }
-  | kwc     { $$ = $1; }
-  | str     { $$ = $1; }
-  | pxpr    { $$ = $1; }
+  : num  { $$ = $1; }
+  | reg  { $$ = $1; }
+  | arr  { $$ = $1; }
+  | name { $$ = $1; }
+  | kwc  { $$ = $1; }
+  | str  { $$ = $1; }
+  | pxpr { $$ = $1; }
   ;
  
 reg
@@ -909,9 +911,13 @@ name
   | name T_DDDOT ident { $1->add($3); $$ = $1; }
   ;
 
+type_name
+  : name { $$ = $1; }
+  | type { $$ = $1; }
+  ;
+
 type
-  : name      { $$ = $1; }
-  | T_TINT    { $$ = @TypeId($1); }
+  : T_TINT    { $$ = @TypeId($1); }
   | T_TBOOL   { $$ = @TypeId($1); }
   | T_TFLOAT  { $$ = @TypeId($1); }
   | T_TSTRING { $$ = @TypeId($1); }
@@ -994,9 +1000,9 @@ kwc
   | T_NULL    { $$ = @NullLit; }
   | T_TRUE    { $$ = @TrueLit; }
   | T_FALSE   { $$ = @FalseLit; }
-  | T_CFILE   { $$ = @StrLit($1->loc->file); }
-  | T_CLINE   { $$ = @StrLit($1->loc->pos->line); }
-  | T_CCOLN   { $$ = @StrLit($1->loc->pos->coln); }
+  | T_CFILE   { $$ = @StrLit($1->loc->file, 'c'); }
+  | T_CLINE   { $$ = @StrLit($1->loc->pos->line, 'c'); }
+  | T_CCOLN   { $$ = @StrLit($1->loc->pos->coln, 'c'); }
   | T_CFN     { $$ = @EngineConst($1->type); }
   | T_CCLASS  { $$ = @EngineConst($1->type); }
   | T_CMETHOD { $$ = @EngineConst($1->type); }
@@ -1004,7 +1010,7 @@ kwc
   ;
  
 str
-  : T_STRING { $$ = @StrLit($1->value); }
+  : T_STRING { $$ = @StrLit($1->value, $1->flag); }
   ;
   
 num

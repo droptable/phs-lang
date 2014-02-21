@@ -40,6 +40,9 @@ const
  */
 class Lexer
 {
+  // sync-mode
+  public $sync = false;
+  
   // the compiler context
   private $ctx;
   
@@ -59,7 +62,7 @@ class Lexer
   private $tnl = false;
   
   // end-of-file reached?
-  private $eof, $eof_token;
+  private $end = false, $eof = false, $eof_token;
   
   // scanner pattern
   private static $re;
@@ -123,9 +126,28 @@ class Lexer
   public function next()
   {
     if (!empty($this->queue))
-      return array_shift($this->queue);
+      $tok = array_shift($this->queue);
+    else
+      $tok = $this->scan();
     
-    return $this->scan();
+    // if the scanner is in sync-mode
+    if ($this->sync && in_array($tok->type, self::$sync_tok)) {
+      $loc = $tok->loc;
+      
+      if (!empty($this->queue)) 
+        array_unshift($this->queue, $tok);
+      else 
+        // token is new - or the queue is empty
+        array_push($this->queue, $tok);
+      
+      $tok = $this->token(T_SYNC, '<synchronizing token>', false);
+      $tok->loc = $loc;
+      
+      // not longer needed
+      $this->sync = false;
+    }
+    
+    return $tok;
   }
   
   /**
@@ -246,6 +268,11 @@ class Lexer
    */
   protected function scan()
   {        
+    if (!$this->eof && $this->end) {
+      $this->eof = true;
+      return $this->end;
+    }
+    
     if ($this->eof === true || $this->ends()) {
       eof:
       
@@ -320,14 +347,20 @@ class Lexer
       
       // if we scanned a string-literal: concat following strings
       // "foo" "bar" -> "foobar"
-      if ($sub[0] === '"') {
-        $sub = $this->scan_concat(substr($sub, 1, -1));
+      if ($sub[0] === '"' || substr($sub, 1, 1) === '"') {
+        $flg = $sub[0] !== '"' ? $sub[0] : null;
+        $beg = $flg ? 2 : 1;
+        $sub = $this->scan_concat(substr($sub, $beg, -1));
         $tok = $this->token(T_STRING, $sub);
-      } else if ($sub[0] === "'") {
+        $tok->flag = $flg;
+      } else if ($sub[0] === "'" || substr($sub, 1, 1) === "'") {
         // strings can be in single-quotes too.
         // note: concat only applies to double-quoted strings
-        $sub = substr($sub, 1, -1);
+        $flg = $sub[0] !== '"' ? $sub[0] : null;
+        $beg = $flg ? 2 : 1;
+        $sub = substr($sub, $beg, -1);
         $tok = $this->token(T_STRING, $sub);
+        $tok->flag = $flg;
       } else {
         // analyze match
         $tok = $this->analyze($sub);
@@ -338,8 +371,20 @@ class Lexer
         // track new lines if the current token was a '@'
         elseif ($tok->type === T_AT)
           $this->tnl = true;
-        elseif ($tok->type === T_END)
-          $this->eof = true;
+        elseif ($tok->type === T_END) {
+          // the __end__ marker behaves just like real-eof
+          $end = $tok;
+          
+          // produce one more ';'
+          $tok = $this->token(T_SEMI, ';', false);
+          $tok->implicit = true;
+          
+          $end->raw = $raw;
+          $end->loc = new Location($this->file, $pos);
+          
+          // push the end-token onto the queue
+          $this->end = $end;
+        }
       }
       
       break;
@@ -566,6 +611,48 @@ class Lexer
   }
   
   /* ------------------------------------ */
+  
+  private static $sync_tok = [
+    T_FN,
+    T_LET,
+    T_USE,
+    T_ENUM,
+    T_CLASS,
+    T_TRAIT,
+    T_IFACE,
+    T_MODULE,
+    T_REQUIRE,
+    T_DO,
+    T_IF,
+    T_ELSIF,
+    T_ELSE,
+    T_FOR,
+    T_TRY,
+    T_GOTO,
+    T_BREAK,
+    T_CONTINUE,
+    T_THROW,
+    T_CATCH,
+    T_FINALLY,
+    T_WHILE,
+    T_ASSERT,
+    T_SWITCH,
+    T_CASE,
+    T_DEFAULT,
+    T_RETURN,
+    T_CONST,
+    T_FINAL,
+    T_GLOBAL,
+    T_STATIC,
+    T_EXTERN,
+    T_PUBLIC,
+    T_PRIVATE,
+    T_PROTECTED,
+    T_SEALED,
+    T_INLINE,
+    T_PHP,
+    T_TEST
+  ];
   
   private static $rids = [   
     'fn' => T_FN,

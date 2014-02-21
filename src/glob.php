@@ -5,15 +5,19 @@ namespace phs;
 // token 
 class Token
 {
+  public $uid;
   public $loc;
   public $raw;
   public $type;
   public $value;
   
+  private static $uid_base = 0;
+  
   public function __construct($type, $value)
   {
     $this->type = $type;
     $this->value = $value;
+    $this->uid = ++self::$uid_base;
   }
   
   public function debug()

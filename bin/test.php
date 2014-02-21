@@ -9,4 +9,4 @@ $ctx = new phs\Context;
 $psr = new phs\Parser($ctx);
 $ast = $psr->parse_file('./test.phs', 'test');
 
-var_dump($ast);
+#var_dump($ast);

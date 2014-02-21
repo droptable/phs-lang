@@ -1,3 +1,12 @@
+fn foo() {
+  %&/()
+  return 0;
+}
+
+
+__end__
+
+
 module std;
 
 use std::io;

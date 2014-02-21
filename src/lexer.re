@@ -55,7 +55,7 @@
     (?:
       # single quote
       (?:
-        [']
+        [rc]?[']
         (?:
           # eat everything except '\\' and '\''
           [^\\']+ 
@@ -68,7 +68,7 @@
       
       # double quote
       | (?:
-        ["]
+        [rc]?["]
         (?:
           # eat everything except '\\' and '"'
           [^\\"]+ 
@@ -80,17 +80,14 @@
       )
     )
   |
-    # regexp literal start
-    re\s*[\/]
-  |
     # the "is" and "is not" operator
     (?:is!|(?:!is|is(?:no?t)?)(?=\s|$))
   |
     # words (identifiers)
-    [a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*
+    [a-zA-Z_\x7f-\xff\$][a-zA-Z0-9_\x7f-\xff\$]*
     
     # allow '?' and '!' as suffix on function-names or calls
-    (?:[?!]\s*(?=[\(]))?
+    # (?:[?!]\s*(?=[\(]))?
   | 
     # operators and punctuation
     (?:    
