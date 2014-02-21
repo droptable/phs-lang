@@ -38,8 +38,8 @@ function alias($name) {
 
 // ---------------------------
 
-$I = __DIR__ . '/yy-parser.y';
-$O = __DIR__ . '/yy-parser-tmp.y';
+$I = __DIR__ . '/parser.y';
+$O = __DIR__ . '/parser-tmp.y';
 
 $data = file_get_contents($I);
 
@@ -98,10 +98,10 @@ END_PHS
   );
   
   $S = realpath(__DIR__ . '/../src');
-  rename($P, "$S/yy-parser.php");
-  verbose($ctx, "-> $S/yy-parser.php");
+  rename($P, "$S/parser.php");
+  verbose($ctx, "-> $S/parser.php");
   
-  foreach ([ 'yy-parser-tmp.php', 'yy-parser-tmp.y' ] as $f)
+  foreach ([ 'parser-tmp.php', 'parser-tmp.y' ] as $f)
     if (is_file($f = __DIR__ . "/$f")) unlink($f);
   
   $ast = <<<END_AST
@@ -118,8 +118,8 @@ require_once 'ast/node.php';
 
 END_AST;
   
-  file_put_contents("$S/yy-ast.php", $ast);
-  verbose($ctx, "-> $S/yy-ast.php");
+  file_put_contents("$S/ast.php", $ast);
+  verbose($ctx, "-> $S/ast.php");
 }
 
 function verbose($ctx, $msg) {

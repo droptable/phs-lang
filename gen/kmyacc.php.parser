@@ -30,9 +30,9 @@ const %s = %n;
 require_once 'context.php';
 require_once 'parser_base.php';
 
-require_once 'yy-ast.php';
-require_once 'yy-glob.php';
-require_once 'yy-lexer.php';
+require_once 'ast.php';
+require_once 'glob.php';
+require_once 'lexer.php';
 
 use phs\ast\Node;
 /*@@ imports @@*/
