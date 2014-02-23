@@ -8,7 +8,7 @@ class IfaceDecl extends Node
   public $exts;
   public $members;
   
-  public function __construct($id, $exts, $mmebers)
+  public function __construct($id, $exts, $members)
   {
     $this->id = $id;
     $this->exts = $exts;

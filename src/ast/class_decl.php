@@ -10,6 +10,9 @@ class ClassDecl extends Node
   public $impl;
   public $members;
   
+  // class-scope
+  public $scope;
+  
   public function __construct($mods, $id, $ext, $impl, $members)
   {
     $this->mods = $mods;

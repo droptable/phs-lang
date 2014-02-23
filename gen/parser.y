@@ -8,8 +8,9 @@
    - 1x if-elsif resolved by shift
    - 1x elsif-elsif resolved by shift
    - 1x if-else resolved by shift
+   - 1x dangling T_END after a unit resolved by shift
 */ 
-%expect 3
+%expect 4
 
 %left ','
 %left T_APLUS 
@@ -143,8 +144,13 @@
 %%
 
 start
-  : /* empty */ { $$ = @Unit(null); }
-  | unit        { $$ = @Unit($1); }
+  : /* empty */   { $$ = @Unit(null); }
+  | unit end_opt  { $$ = @Unit($1); }
+  ;
+  
+end_opt
+  : /* empty */
+  | T_END
   ;
   
 unit
@@ -153,11 +159,34 @@ unit
   ;
 
 module
-  : T_MODULE name ';' program  { $$ = @Module($2, $4); }
-  | T_MODULE name '{' unit '}' { $$ = @Module($2, $4); $this->eat_semis(); }
-  | T_MODULE '{' unit '}'      { $$ = @Module(null, $3); $this->eat_semis(); }
+  : module_doc { $$ = $1; }
+  | module_nst { $$ = $1; }
   ;
-
+  
+module_doc
+  : T_MODULE name ';' program { $$ = @Module($2, $4); }
+  ;
+  
+module_nst
+  : T_MODULE name '{' module_items_opt '}' { $$ = @Module($2, $4); $this->eat_semis(); }
+  | T_MODULE '{' module_items_opt '}'      { $$ = @Module(null, $3); $this->eat_semis(); }
+  ;
+  
+module_items_opt
+  : /* empty */  { $$ = null; }
+  | module_items { $$ = $1; }
+  ;
+  
+module_items
+  : module_item              { $$ = [ $1 ]; }
+  | module_items module_item { $1[] = $2; $$ = $1; }
+  ;
+  
+module_item
+  : topex      { $$ = $1; }
+  | module_nst { $$ = $1; }
+  ;
+    
 program
   : toplvl { $$ = @Program($1); }
   ;
@@ -347,7 +376,7 @@ impl
   ;
   
 members_opt
-  : /* empty */ { $$ = null; }
+  : /* empty */ { $$ = []; }
   | members     { $$ = $1; }
   ;
   
@@ -521,6 +550,7 @@ stmt
   | T_ASSERT rxpr ':' str ';'                                 { $$ = @AssertStmt($2, $4); }
   | T_SWITCH pxpr '{' cases '}'                               { $$ = @SwitchStmt($2, $4); }
   | T_RETURN rxpr ';'                                         { $$ = @ReturnStmt($2); }
+  | T_RETURN ';'                                              { $$ = @ReturnStmt(null); }
   | ident ':' comp                                            { $$ = @LabeledStmt($1, $3); }
   | lxpr_stmt                                                 { $$ = $1; }
   | error ';'                                                 { $$ = null; }
@@ -704,6 +734,7 @@ lxpr
   | lxpr T_ASHIFT_L rxpr    { $$ = @AssignExpr($1, $2, $3); }
   | lxpr T_ASHIFT_R rxpr    { $$ = @AssignExpr($1, $2, $3); }
   | lxpr dot_ident          { $$ = @MemberExpr(false, $1, $2); }
+  | lxpr '.' '{' rxpr '}'   { $$ = @MemberExpr(false, $1, $4); }
   | lxpr '[' rxpr ']'       { $$ = @MemberExpr(true, $1, $3); }
   | lxpr '[' error ']'      { $$ = null; }
   | lxpr '?' rxpr ':' rxpr  { $$ = @CondExpr($1, $3, $5); } 
@@ -771,6 +802,7 @@ rxpr
   | rxpr T_ASHIFT_L rxpr    { $$ = @AssignExpr($1, $2, $3); }
   | rxpr T_ASHIFT_R rxpr    { $$ = @AssignExpr($1, $2, $3); }
   | rxpr dot_ident          { $$ = @MemberExpr(false, $1, $2); }
+  | rxpr '.' '{' rxpr '}'   { $$ = @MemberExpr(false, $1, $4); }
   | rxpr '[' rxpr ']'       { $$ = @MemberExpr(true, $1, $3); }
   | rxpr '[' error ']'      { $$ = null; }
   | rxpr '?' rxpr ':' rxpr  { $$ = @CondExpr($1, $3, $5); } 
@@ -840,6 +872,7 @@ rxpr_noin
   | rxpr_noin T_ASHIFT_L rxpr_noin    { $$ = @AssignExpr($1, $2, $3); }
   | rxpr_noin T_ASHIFT_R rxpr_noin    { $$ = @AssignExpr($1, $2, $3); }
   | rxpr_noin dot_ident               { $$ = @MemberExpr(false, $1, $2); }
+  | rxpr_noin '.' '{' rxpr '}'        { $$ = @MemberExpr(false, $1, $4); }
   | rxpr_noin '[' rxpr ']'            { $$ = @MemberExpr(true, $1, $3); }
   | rxpr_noin '[' error ']'           { $$ = null; }
   | rxpr_noin '?' rxpr ':' rxpr_noin  { $$ = @CondExpr($1, $3, $5); } 

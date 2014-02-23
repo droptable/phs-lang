@@ -3,10 +3,13 @@
 namespace phs;
 
 const 
-  COM_GLOB = 1,
-  COM_LEX = 2,
-  COM_PSR = 3,
-  COM_GEN = 4
+  COM_GLB = 1, // global (no specific context)
+  COM_LEX = 2, // lexer context
+  COM_PSR = 3, // parser context
+  COM_WLK = 4, // walker context
+  COM_ANL = 5, // analyze context
+  COM_RSV = 6, // resolve context
+  COM_TRS = 7  // translate context
 ;
 
 const 
@@ -27,6 +30,62 @@ class Context
   
   // options
   private $opts = [];
+  
+  // global scope
+  private $scope;
+  
+  // root modules
+  private $module;
+  
+  /**
+   * returns the global scope
+   * 
+   * @return Scope
+   */
+  public function get_scope()
+  {
+    if (!$this->scope) {
+      require_once 'scope.php';
+      $this->scope = new Scope;
+    }
+    
+    return $this->scope;
+  }
+  
+  /**
+   * sets the global scope
+   * 
+   * @param Scope $scope
+   */
+  public function set_scope(Scope $scope)
+  {
+    $this->scope = $scope;
+  }
+  
+  /**
+   * returns the global module
+   * 
+   * @return Module
+   */
+  public function get_module()
+  {
+    if (!$this->module) {
+      require_once 'module.php';
+      $this->module = new Module('<root>');
+    }
+    
+    return $this->module;
+  }
+  
+  /**
+   * sets the global module
+   * 
+   * @param Module $mod
+   */
+  public function set_module(Module $mod)
+  {
+    $this->module = $mod;
+  }
   
   /**
    * set a option
@@ -163,17 +222,13 @@ class Context
     
     switch ($com) {
       default:
-      case COM_GLOB:
-        $log .= ' glb';
-        break;
-      case COM_LEX:
-        $log .= ' lex';
-        break;
-      case COM_PSR:
-        $log .= ' prs';
-        break;
-      case COM_GEN:
-        $log .= ' gen';
+      case COM_GLB: $log .= ' glb'; break;
+      case COM_LEX: $log .= ' lex'; break;
+      case COM_PSR: $log .= ' prs'; break;
+      case COM_WLK: $log .= ' wlk'; break;
+      case COM_ANL: $log .= ' anl'; break;
+      case COM_RSV: $log .= ' rsv'; break;
+      case COM_TRS: $log .= ' trs'; break;
     }
     
     $log .= ': ';

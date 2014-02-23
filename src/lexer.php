@@ -73,13 +73,13 @@ class Lexer
    * @param string $file
    * @param string $data
    */
-  public function __construct(Context $ctx, $data, $file)
+  public function __construct(Context $ctx, Source $src)
   {
     $this->ctx = $ctx;
-    $this->data = $data;
     $this->line = 1;
     $this->coln = 1;
-    $this->file = $file;
+    $this->data = $src->get_text();
+    $this->file = $src->get_name();
     
     // load pattern
     if (!self::$re)
@@ -313,7 +313,7 @@ class Lexer
         // in this state we can not produce tokens (anymore)
         $this->eof = true;
         $this->adjust_line_coln_beg($this->data, 0);
-        $this->error(ERR_ABORT, 'invalid input');
+        $this->error(ERR_ABORT, 'invalid input near: ' . substr($this->data, 0, 10) . '...');
         goto eof;
       }
       
@@ -544,7 +544,7 @@ class Lexer
     static $re_lnum = '/^(\d+)([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)?/';
     static $re_base = '/^(?:0[xX][0-9A-Fa-f]+|0[0-7]+|0[bB][01]+)$/';
     
-    static $eq_err = "'===' or '!==' found, used '==' or '!=' instead";
+    static $eq_err = "found '%s', used '%s' instead";
     
     $tok = null;
     
@@ -562,7 +562,7 @@ class Lexer
     } else {
       // warn about '===' and '!=='
       if ($sub === '===' || $sub === '!==')
-        $this->error(ERR_WARN, $eq_err);
+        $this->error(ERR_WARN, sprintf($eq_err, $sub, substr($sub, 0, -1)));
       
       if (isset(self::$table[$sub]))         
         // lookup token-table and check if the token is separator/operator  
@@ -624,21 +624,15 @@ class Lexer
     T_REQUIRE,
     T_DO,
     T_IF,
-    T_ELSIF,
-    T_ELSE,
     T_FOR,
     T_TRY,
     T_GOTO,
     T_BREAK,
     T_CONTINUE,
     T_THROW,
-    T_CATCH,
-    T_FINALLY,
     T_WHILE,
     T_ASSERT,
     T_SWITCH,
-    T_CASE,
-    T_DEFAULT,
     T_RETURN,
     T_CONST,
     T_FINAL,
@@ -759,6 +753,7 @@ class Lexer
     '^^=' => T_ABOOL_XOR,
     '<<=' => T_ASHIFT_L,
     '>>=' => T_ASHIFT_R,
+    '**=' => T_APOW,
     
     '==' => T_EQ,
     '!=' => T_NEQ,

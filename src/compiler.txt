@@ -1,0 +1,23 @@
+
+  pass 1)
+    -> parse unit
+    -> analyze unit
+      -> generate symtables (modules or global-symbols [exports])
+      -> collect informations about symbols
+      -> validate everything
+      
+  pass 2)
+    -> resolve unit
+      -> mark references as resolved/unresolved
+      -> update informations about symbols if necessary
+  
+  pass 3)
+    -> improve unit
+      -> inline constant values and/or functions
+      -> reduce constant-expressions
+      -> optimize if possible
+  
+  pass 4)
+    -> translate unit (php/vm-opcode)
+    
+      

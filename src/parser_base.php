@@ -34,40 +34,15 @@ abstract class ParserBase
   abstract public function parse(Lexer $lex);
   
   /**
-   * parse a string (text)
+   * parse a source
    * 
-   * @param string $text
-   * @param string $file
+   * @param Source $src
    * @return Node
    */
-  public function parse_text($text, $file = '<unknown source>')
+  public function parse_source(Source $src)
   {
-    $lex = new Lexer($this->ctx, $text, $file);
+    $lex = new Lexer($this->ctx, $src);
     return $this->parse($lex);
-  }
-  
-  /**
-   * parse a file
-   * 
-   * @param string $file
-   * @return Node
-   */
-  public function parse_file($file)
-  {
-    $path = realpath($file);
-    
-    if (empty($path)) {
-      $this->error(ERR_ERROR, 'file %s not found', $file);
-      return null;
-    }
-    
-    if (!is_readable($path)) {
-      $this->error(ERR_ERROR, '%s: permission denied', $file);
-      return null;  
-    }
-    
-    $text = file_get_contents($path);
-    return $this->parse_text($text, $path);
   }
   
   /**

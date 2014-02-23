@@ -2,14 +2,14 @@
 
 namespace phs\ast;
 
-class EnumDecl
+class EnumDecl extends Node
 {
   public $mods;
-  public $vars;
+  public $members;
   
-  public function __construct($mods, $vars)
+  public function __construct($mods, $members)
   {
     $this->mods = $mods;
-    $this->vars = $vars;
+    $this->members = $members;
   }
 }

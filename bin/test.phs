@@ -1,16 +1,122 @@
-fn foo() {
-  %&/()
-  return 0;
+module {
+  module foo {
+    module bar {
+      module baz {
+        
+      }
+    }
+  }
+  
+  use foo::bar::baz::qrz::zzz as ogg;
 }
 
 
 __end__
 
-
 module std;
 
 use std::io;
 use std::ctype;
+
+do {
+  if (1+1 == 2) {
+    for (let { foo } in [ { foo: "bar" } ]) {
+      for (final [ a, b, c ] in [ 1, 2, 3 ]) {
+        for (i in { hello: "world" }) {
+          for {
+            for (;;) {
+              for (let i = 0;;) {
+                for (let i = 0; i < 10;) {
+                  for (let i = 0; i < 10; ++i) {
+                    try {
+                      try {
+                        try {
+                          try {
+                            __php__ {
+                              "str"
+                            }
+                            
+                            __php__ {
+                              use foo;
+                              "str"
+                            }
+                            
+                            goto label;
+                            
+                            __test__ {
+                              
+                            }
+                            
+                            __test__ "unit" {
+                              
+                            }
+                            
+                            break;
+                            break label;
+                            
+                            continue;
+                            continue label;
+                            
+                            throw foo;
+                            throw "bar";
+                            throw new Baz;
+                            
+                            while (foo) {
+                              yield foo;
+                              let bar = yield 10;
+                              
+                              assert 1;
+                              assert 2 : "foo";
+                              
+                              switch (foo) {
+                                case a:
+                                case "b":
+                                case 1:
+                                case new Foo:
+                                  foo();
+                                case -1:
+                                default:
+                                  bar();
+                                  
+                                  return;
+                                  return 10;
+                                  
+                                  foo:
+                                  bar();
+                              }
+                            }
+                          } catch (Error: e) {
+                            
+                          } catch (Error) {
+                            
+                          } catch {
+                            
+                          }
+                        } catch (Error) {
+                          
+                        }
+                      } catch {
+                        
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }  
+} while (false);
+
+trait foo {
+  
+}
+
+iface bar {
+  
+}
 
 require 'glob.phs';
 

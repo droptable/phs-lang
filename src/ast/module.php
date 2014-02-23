@@ -9,7 +9,7 @@ class Module extends Node
   
   public function __construct($name, $body)
   {
-    assert($body instanceof Module ||
+    assert($body === null || is_array($body) ||
            $body instanceof Program);
     
     $this->name = $name;
