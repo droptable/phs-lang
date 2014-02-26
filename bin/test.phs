@@ -1,122 +1,10 @@
-module {
-  module foo {
-    module bar {
-      module baz {
-        
-      }
-    }
-  }
-  
-  use foo::bar::baz::qrz::zzz as ogg;
-}
+//const foo = 'hello';
+//require foo ~ '/world';
 
-
-__end__
-
-module std;
+module phs;
 
 use std::io;
 use std::ctype;
-
-do {
-  if (1+1 == 2) {
-    for (let { foo } in [ { foo: "bar" } ]) {
-      for (final [ a, b, c ] in [ 1, 2, 3 ]) {
-        for (i in { hello: "world" }) {
-          for {
-            for (;;) {
-              for (let i = 0;;) {
-                for (let i = 0; i < 10;) {
-                  for (let i = 0; i < 10; ++i) {
-                    try {
-                      try {
-                        try {
-                          try {
-                            __php__ {
-                              "str"
-                            }
-                            
-                            __php__ {
-                              use foo;
-                              "str"
-                            }
-                            
-                            goto label;
-                            
-                            __test__ {
-                              
-                            }
-                            
-                            __test__ "unit" {
-                              
-                            }
-                            
-                            break;
-                            break label;
-                            
-                            continue;
-                            continue label;
-                            
-                            throw foo;
-                            throw "bar";
-                            throw new Baz;
-                            
-                            while (foo) {
-                              yield foo;
-                              let bar = yield 10;
-                              
-                              assert 1;
-                              assert 2 : "foo";
-                              
-                              switch (foo) {
-                                case a:
-                                case "b":
-                                case 1:
-                                case new Foo:
-                                  foo();
-                                case -1:
-                                default:
-                                  bar();
-                                  
-                                  return;
-                                  return 10;
-                                  
-                                  foo:
-                                  bar();
-                              }
-                            }
-                          } catch (Error: e) {
-                            
-                          } catch (Error) {
-                            
-                          } catch {
-                            
-                          }
-                        } catch (Error) {
-                          
-                        }
-                      } catch {
-                        
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }  
-} while (false);
-
-trait foo {
-  
-}
-
-iface bar {
-  
-}
 
 require 'glob.phs';
 
@@ -306,7 +194,7 @@ class Lexer {
       let beg = false;
       
       sub = tocstr(sub);
-      if (len === 0) len = strlen(sub);
+      if (len == 0) len = strlen(sub);
       
       for (let idx = 0; idx < len; ++idx) {
         let cur = sub[idx];
@@ -421,7 +309,7 @@ class Lexer {
           if (tok.type == T_SEMI)
             tok.implicit = false;
           // track new lines if the current token was a '@'
-          elsif (tok.type === T_AT)
+          elsif (tok.type == T_AT)
             tnl = true;
         }
         
@@ -500,7 +388,7 @@ class Lexer {
         else {
           if (cur == ']' && !esc)
             mrk = false; // end of brackets
-          elsif (cur === '\\') {
+          elsif (cur == '\\') {
             esc = true; // in escape-sequence
             continue;
           }
@@ -592,7 +480,7 @@ class Lexer {
         // integer (with optional suffix)
         let tid = m.len() > 2 ? T_SNUM : T_LNUM; 
         tok = new_token(tid, m[1]);
-        tok.suffix = tid === T_SNUM ? m[2] : null;
+        tok.suffix = tid == T_SNUM ? m[2] : null;
       } elsif (re_base.test(sub)) {
         tok = new_token(T_LNUM, sub);
         tok.suffix = null;

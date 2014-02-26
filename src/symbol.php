@@ -18,7 +18,38 @@ const
   SYM_FLAG_EXTERN     = 0x0200, // symbol is extern
   SYM_FLAG_ABSTRACT   = 0x0400, // symbol is abstract (for classes)
   SYM_FLAG_INCOMPLETE = 0x0800, // symbol is incomplete
-  SYM_FLAG_WEAK       = 0x1000  // symbol is weak (the type of this symbol was a assumption)
+  SYM_FLAG_WEAK       = 0x1000  // symbol is a weak reference (the type of this reference was a assumption)
+;
+
+const 
+  // not a real symbol
+  SYM_KIND_MODULE = 1, 
+  
+  // various symbol kinds
+  SYM_KIND_CLASS = 2,
+  SYM_KIND_TRAIT = 3,
+  SYM_KIND_IFACE = 4,
+  SYM_KIND_VAR = 5,
+  SYM_KIND_FN = 6,
+  
+  // extra symbols
+  SYM_KIND_VALUE = 7,
+  SYM_KIND_EMPTY = 8,
+  
+  // divider
+  SYM_REF_DIVIDER = 9,
+  
+  // reference kinds
+  REF_KIND_MODULE = 10,
+  REF_KIND_CLASS = 11,
+  REF_KIND_TRAIT = 12,
+  REF_KIND_IFACE = 13,
+  REF_KIND_VAR = 14,
+  REF_KIND_FN = 15,
+  
+  // invalid references
+  REF_KIND_VALUE = 16,
+  REF_KIND_EMPTY = 17
 ;
 
 abstract class Symbol 
@@ -38,39 +69,47 @@ abstract class Symbol
   // read-access tracker
   public $reads;
   
-  public function __construct($name, $flags, Location $loc = null)
+  // write-access tracker
+  public $writes;
+  
+  // the scope where this symbol is defined
+  public $scope;
+  
+  public function __construct($kind, $name, $flags, Location $loc = null)
   {
     $this->name = $name;
     $this->flags = $flags;
     $this->loc = $loc;
     $this->reads = 0;
-    $this->kind = 'symbol';
+    $this->kind = $kind;
   }
   
-  public function debug($dp) 
+  public function is_ref()
+  {
+    return $this->kind > SYM_REF_DIVIDER;
+  }
+  
+  public function debug($dp = '', $pf = '') 
   {
     $flags = symflags_to_str($this->flags);
-    print "$dp{$this->name} (flags=$flags)";
+    print "$dp$pf{$this->name} (flags=$flags)";
   }
 }
 
-/** a expression symbol */
-class ExprSym extends Symbol
+/** a variable symbol */
+class VarSym extends Symbol
 {
-  public $expr;
-  
-  public function __construct($name, $flags, $expr, Location $loc = null)
+  public function __construct($name, $flags, Location $loc = null)
   {
-    parent::__construct($name, $flags, $loc);
-    $this->expr = $expr;
+    parent::__construct(SYM_KIND_VAR, $name, $flags, $loc);
   }
   
   /* ------------------------------------ */
   
-  public function debug($dp)
+  public function debug($dp = '', $pf = '')
   {
-    $flags = symflags_to_str($this->flags);
-    print "$dp{$this->name} (flags={$flags}) (reads={$this->reads}) expr\n";
+    parent::debug($dp, $pf);
+    print " var\n";
   }
 }
 
@@ -81,15 +120,15 @@ class ValueSym extends Symbol
   
   public function __construct($name, $flags, $value, Location $loc = null)
   {
-    parent::__construct($name, $flags, $loc);
+    parent::__construct(SYM_KIND_VALUE, $name, $flags, $loc);
     $this->value = $value;
   }
   
   /* ------------------------------------ */
   
-  public function debug($dp)
+  public function debug($dp = '', $pf = '')
   {
-    parent::debug($dp);
+    parent::debug($dp, $pf);
     
     $value = $this->value;
     $value = $value ? $value->value : '(none)';
@@ -103,7 +142,7 @@ class EmptySym extends ValueSym
 {
   public function __construct($name, $flags, Location $loc = null)
   {
-    parent::__construct($name, $flags, null, $loc);
+    parent::__construct(SYM_KIND_EMPTY, $name, $flags, null, $loc);
   }
 }
 
@@ -115,22 +154,18 @@ class ClassSym extends Symbol
   
   public function __construct($name, $flags, Location $loc = null)
   {
-    parent::__construct($name, $flags, $loc);
+    parent::__construct(SYM_KIND_CLASS, $name, $flags, $loc);
     $this->mst = new SymTable;
-    $this->kind = 'class';
   }
   
   /* ------------------------------------ */
   
-  public function debug($dp)
+  public function debug($dp = '', $pf = '')
   {
-    parent::debug($dp);
+    parent::debug($dp, $pf);
     print " class\n";
     
-    if (substr($dp, -2) === '@ ')
-      $dp = substr($dp, 0, -2);
-    
-    $this->mst->debug("  $dp# ");
+    $this->mst->debug("  $dp", '# ');
     print "\n";
   }
 }
@@ -138,47 +173,64 @@ class ClassSym extends Symbol
 /** function symbol */
 class FnSym extends Symbol
 {
+  // function-scope 
+  public $fn_scope;
+  
   // param count
   public $params;
   
   public function __construct($name, $flags, Location $loc = null)
   {
-    parent::__construct($name, $flags, $loc);
+    parent::__construct(SYM_KIND_FN, $name, $flags, $loc);
     $this->params = 0;
-    $this->kind = 'fn';
   }
   
   /* ------------------------------------ */
   
-  public function debug($dp)
+  public function debug($dp = '', $pf = '')
   {
-    parent::debug($dp);
+    parent::debug($dp, $pf);
     print " fn\n";
+    
+    $this->fn_scope->debug("  $dp", '@ ');
   }
 }
 
-/** module reference */
-class ModuleRef extends Symbol
+/** a symbol reference */
+class SymRef extends Symbol
 {
-  // the base module
+  // the base module (can be <root>)
   public $base;
   
-  // the full name of this module
+  // the full name of this reference
   public $path;
   
-  public function __construct($name, $flags, Module $base, Name $path, Location $loc = null)
+  public function __construct($kind, $name, $flags, Module $base, Name $path, Location $loc = null)
   {
-    parent::__construct($name, $flags, $loc);
+    parent::__construct($kind, $name, $flags, $loc);
     $this->base = $base;
     $this->path = $path;
-    $this->kind = 'module';
   }
+    
+  /* ------------------------------------ */
   
-  public function debug($dp)
+  public function debug($dp = '', $pf = '')
   {
-    parent::debug($dp);
-    print " module ref (base={$this->base->name}) -> ";
+    parent::debug($dp, $pf);
+    
+    $kind = refkind_to_str($this->kind);
+    print " {$kind} (base={$this->base->name}) -> ";
     print path_to_str($this->path, false);
     print "\n";
+  }
+  
+  /* ------------------------------------ */
+  
+  public static function from(Symbol $sym, Module $base, Name $path, Location $loc)
+  {
+    assert($sym->kind < SYM_REF_DIVIDER);
+    $kind = SYM_REF_DIVIDER + $sym->kind;
+    
+    return new SymRef($kind, $sym->name, $sym->flags, $base, $path, $loc);
   }
 }

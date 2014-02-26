@@ -9,10 +9,12 @@ require '../src/parser.php';
 use phs\Parser;
 use phs\Context;
 use phs\Analyzer;
+use phs\FileSource;
 
 $ctx = new Context;
 $psr = new Parser($ctx);
-$ast = $psr->parse_source(new phs\FileSource(realpath(__DIR__ . '/test.phs')));
+$std = $psr->parse_source(new FileSource(realpath(__DIR__ . '/../stdlib/stdlib.phm')));
+$ast = $psr->parse_source(new FileSource(realpath(__DIR__ . '/test.phs')));
 
 if (!$ast) exit('failed');
 
@@ -21,6 +23,7 @@ require '../src/walker.php';
 require '../src/analyzer.php';
 
 $wlk = new Analyzer($ctx);
+$wlk->analyze($std);
 $wlk->analyze($ast);
 
 print "modules:\n";

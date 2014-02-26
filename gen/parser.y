@@ -468,24 +468,34 @@ var_decl_noin_nosemi
   ;
 
 fn_decl
-  : mods_opt T_FN ident pparams block          { $$ = @FnDecl($1, $3, $4, $5); }
-  | mods_opt T_FN ident pparams T_ARR rxpr ';' { $$ = @FnDecl($1, $3, $4, $6); $this->eat_semis(); }
-  | mods_opt T_FN ident pparams ';'            { $$ = @FnDecl($1, $3, $4, null); $this->eat_semis(); }
-  | mods_opt T_FN ident ';'                    { $$ = @FnDecl($1, $3, null, null); $this->eat_semis(); }
+  : mods_opt T_FN ident pparams fn_decl_body { $$ = @FnDecl($1, $3, $4, $5); }
+  | mods_opt T_FN ident pparams ';'          { $$ = @FnDecl($1, $3, $4, null); $this->eat_semis(); }
+  | mods_opt T_FN ident ';'                  { $$ = @FnDecl($1, $3, null, null); $this->eat_semis(); }
   ;
   
 fn_expr
-  : T_FN ident pparams block      { $$ = @FnExpr($2, $3, $4); }
-  | T_FN ident pparams T_ARR rxpr { $$ = @FnExpr($2, $3, $5); }
-  | T_FN pparams block            { $$ = @FnExpr(null, $2, $3); }
-  | T_FN pparams T_ARR rxpr       { $$ = @FnExpr(null, $2, $4); }
+  : T_FN ident pparams fn_expr_body { $$ = @FnExpr($2, $3, $4); }
+  | T_FN pparams fn_expr_body       { $$ = @FnExpr(null, $2, $3); }
   ;
   
 fn_expr_noin
-  : T_FN ident pparams block           { $$ = @FnExpr($2, $3, $4); }
-  | T_FN ident pparams T_ARR rxpr_noin { $$ = @FnExpr($2, $3, $5); }
-  | T_FN pparams block                 { $$ = @FnExpr(null, $2, $3); }
-  | T_FN pparams T_ARR rxpr_noin       { $$ = @FnExpr(null, $2, $4); }
+  : T_FN ident pparams fn_expr_body_noin { $$ = @FnExpr($2, $3, $4); }
+  | T_FN pparams fn_expr_body_noin       { $$ = @FnExpr(null, $2, $3); }
+  ;
+  
+fn_decl_body
+  : block          { $$ = $1; }
+  | T_ARR rxpr ';' { $$ = @Block([ @ReturnStmt($2) ]); $this->eat_semis(); }
+  ;
+  
+fn_expr_body
+  : block      { $$ = $1; }
+  | T_ARR rxpr { $$ = @Block([ @ReturnStmt($2) ]); }
+  ;
+  
+fn_expr_body_noin
+  : block           { $$ = $1; }
+  | T_ARR rxpr_noin { $$ = @Block([ @ReturnStmt($2) ]); }
   ;
 
 pparams
@@ -500,19 +510,25 @@ params
   ;
   
 param
-  : ident                              { $$ = @Param(null, $1, null, false); }
-  | ident '?'                          { $$ = @Param(null, $1, null, true); }
-  | ident '=' rxpr                     { $$ = @Param(null, $1, $3, false); }
-  | hint ident                         { $$ = @Param($1, $2, null, false); }
-  | hint ident '?'                     { $$ = @Param($1, $2, null, true); }
-  | hint ident '=' rxpr                { $$ = @Param($1, $2, $4, false); }
+  : ident                              { $$ = @Param(null, null, $1, null, false); }
+  | ident '?'                          { $$ = @Param(null, null, $1, null, true); }
+  | ident '=' rxpr                     { $$ = @Param(null, null, $1, $3, false); }
+  | hint ident                         { $$ = @Param(null, $1, $2, null, false); }
+  | hint ident '?'                     { $$ = @Param(null, $1, $2, null, true); }
+  | hint ident '=' rxpr                { $$ = @Param(null, $1, $2, $4, false); }
+  | mods ident                         { $$ = @Param($1, null, $2, null, false); }
+  | mods ident '?'                     { $$ = @Param($1, null, $2, null, true); }
+  | mods ident '=' rxpr                { $$ = @Param($1, null, $2, $4, false); }
+  | mods hint ident                    { $$ = @Param($1, $2, $3, null, false); }
+  | mods hint ident '?'                { $$ = @Param($1, $2, $3, null, true); }
+  | mods hint ident '=' rxpr           { $$ = @Param($1, $2, $3, $5, false); }
   | hint_opt T_THIS dot_ident          { $$ = @ThisParam($1, $3, null); }
   | hint_opt T_THIS dot_ident '=' rxpr { $$ = @ThisParam($1, $3, $5); }
   | hint_opt T_REST ident              { $$ = @RestParam($1, $3); }
   ;
   
 hint_opt
-  : /* empty */
+  : /* empty */ { $$ = null; }
   | hint        { $$ = $1; }
   ;
   
@@ -1062,9 +1078,9 @@ lit
   ;
 
 arr
-  : '[' ']'                                        { $$ = @ArrayLit(null); }
-  | '[' rxpr T_FOR '(' rxpr_noin T_IN rxpr ')' ']' { $$ = @ArrayGen($2, $5, $7); }
-  | '[' arr_vals ']'                               { $$ = @ArrayLit($2); }
+  : '[' ']'                                        { $$ = @ArrLit(null); }
+  | '[' rxpr T_FOR '(' rxpr_noin T_IN rxpr ')' ']' { $$ = @ArrGen($2, $5, $7); }
+  | '[' arr_vals ']'                               { $$ = @ArrLit($2); }
   | '[' error ']'                                  { $$ = null; }
   ;
   
@@ -1083,8 +1099,8 @@ arr_val
   ;
   
 obj
-  : '{' '}'           { $$ = @ObjectLit(null); }
-  | '{' obj_pairs '}' { $$ = @ObjectLit($2); }
+  : '{' '}'           { $$ = @ObjLit(null); }
+  | '{' obj_pairs '}' { $$ = @ObjLit($2); }
   | '{' error '}'     { $$ = null; }
   ;
     
@@ -1098,7 +1114,7 @@ obj_pairs_cs
   ;
   
 obj_pair
-  : obj_key ':' rxpr { $$ = @ObjectPair($1, $3); }
+  : obj_key ':' rxpr { $$ = @ObjPair($1, $3); }
   ;
   
 obj_key

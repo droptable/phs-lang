@@ -26,6 +26,12 @@ class Analyzer extends Walker
   // module stack
   private $mstack;
   
+  // flags from nested-mods
+  private $flags;
+  
+  // flag stack
+  private $fstack;
+  
   /**
    * constructor
    * 
@@ -48,6 +54,8 @@ class Analyzer extends Walker
     $this->sstack = [];
     $this->module = null;
     $this->mstack = [];
+    $this->flags = SYM_FLAG_NONE;
+    $this->fstack = [];
     
     $this->walk($unit);
   }
@@ -130,41 +138,63 @@ class Analyzer extends Walker
       if (!$add) return true; 
       
       // add symbol to scope
-      $sym = new ModuleRef($id, SYM_FLAG_NONE, $base, $name, $name->loc);
+      $sym = new SymRef(REF_KIND_MODULE, $id, SYM_FLAG_NONE, $base, $name, $name->loc);
       return $this->add_symbol($id, $sym);
     }
     
     if (!$base->has($last)) {
       // unknown import, this is a job for the resolver
-      $this->error_at($name->loc, ERR_WARN, 'unknown import `%s` from module %s', $last, $base->path());
+      $this->error_at($name->loc, ERR_ERROR, 'unknown import `%s` from module %s', $last, $base->path());
       
+      // TODO: allow unknown imports?
+      return false;
+      
+      /*
       // import a module
       if (!$add) return true;
       
       $this->error_at($name->loc, ERR_INFO, 'assuming <module> (default assumption)');
       
       // add symbol to scope
-      $sym = new ModuleRef($id, SYM_FLAG_WEAK, $base, $name, $name->loc);
+      $sym = new SymRef(REF_KIND_MODULE, $id, SYM_FLAG_WEAK, $base, $name, $name->loc);      
       return $this->add_symbol($id, $sym);
+      */
     }
     
     if (!$add) return true;
+    
     $sym = $base->get($last);
-    return $this->add_symbol($id, $sym);
+    $ref = SymRef::from($sym, $base, $name, $name->loc);
+    
+    // TODO: remove const/final flags?
+    
+    return $this->add_symbol($id, $ref);
   }
   
   /* ------------------------------------ */
   
   protected function add_symbol($id, $sym)
   {
+    // apply current flags
+    $sym->flags |= $this->flags;
+    
+    // get kind for error-messages
+    $kind = symkind_to_str($sym->kind);
+    
     # print "adding symbol $id\n";
-    $cur = $this->scope->get($id, false);
+    $cur = $this->scope->get($id, false, null, true);
     
     if (!$cur) {
       # print "no previous entry, adding it!\n";
       // simply add it
       $this->scope->add($id, $sym);
       return true;
+    }
+    
+    if ($cur instanceof SymRef) {
+      $this->error_at($sym->loc, ERR_ERROR, '%s %s collides with a referenced symbol', $kind, $sym->name);
+      $this->error_at($cur->loc, ERR_ERROR, 'reference was here');
+      return false;
     }
     
     $ninc = !!($sym->flags & SYM_FLAG_INCOMPLETE);
@@ -192,7 +222,7 @@ class Analyzer extends Walker
     // TODO: if kind is a class, check base class and interfaces as well   
     if ($cur->flags & SYM_FLAG_FINAL) {
       // whops, not allowed
-      $this->error_at($sym->loc, ERR_ERROR, '%s `%s` hides a final symbol', $sym->kind, $sym->name);
+      $this->error_at($sym->loc, ERR_ERROR, '%s `%s` hides a final symbol in this scope-chain', $kind, $sym->name);
       $this->error_at($cur->loc, ERR_ERROR, 'previous declaration was here');
       return false;
     }
@@ -210,7 +240,7 @@ class Analyzer extends Walker
     
     if ($cur->flags & SYM_FLAG_CONST) {
       // same as final, but only applies in the same scope
-      $this->error_at($sym->loc, ERR_ERROR, '%s `%s` overrides a constant symbol', $sym->kind, $sym->name);
+      $this->error_at($sym->loc, ERR_ERROR, '%s `%s` overrides a constant symbol in the same scope', $kind, $sym->name);
       $this->error_at($cur->loc, ERR_ERROR, 'previous declaration was here');
       return false;
     }
@@ -294,7 +324,7 @@ class Analyzer extends Walker
         $init = $member->init;
         
         // if its a simple value, create a ValueSym
-        // otherwise create a ExprSym
+        // otherwise create a VarSym
         switch ($init->kind()) {
           case 'lnum_lit':
           case 'dnum_lit':
@@ -308,7 +338,7 @@ class Analyzer extends Walker
             break;
           default:
             // must be reducible in a later state
-            $sym = new ExprSym($id, $flags, $init, $member->loc);
+            $sym = new VarSym($id, $flags, $init, $member->loc);
         }
       } else
         $sym = new EmptySym($id, $flags, $member->loc);
@@ -337,10 +367,13 @@ class Analyzer extends Walker
       
     $base = null;
     
-    if ($node->ext !== null) {
-      // the base class can be a name, so use the full blown module-lookup
-      exit('not implemented');
-    }
+    if ($node->ext !== null)
+      if (!$this->check_class_ext($node->ext))
+        return $this->drop();
+      
+    if ($node->impl !== null)
+      if (!$this->check_class_impl($node->impl))
+        return $this->drop();
         
     $cid = ident_to_str($node->id);
     $sym = new ClassSym($cid, $flags, $node->loc);
@@ -357,6 +390,22 @@ class Analyzer extends Walker
   {
     // back to prev scope
     $this->scope = array_pop($this->sstack);
+  }
+  
+  protected function enter_nested_mods($node)
+  {
+    if (!$this->check_mods($node->mods, true, false))
+      return $this->drop();
+    
+    $flags = mods_to_symflags($node->mods);
+    
+    array_push($this->fstack, $this->flags);
+    $this->flags |= $flags;
+  }
+  
+  protected function leave_nested_mods($node)
+  {
+    $this->flags = array_pop($this->fstack);
   }
   
   protected function enter_fn_decl($node)
@@ -388,6 +437,10 @@ class Analyzer extends Walker
     if (!($flags & SYM_FLAG_EXTERN) && $node->body === null)
       $flags |= SYM_FLAG_INCOMPLETE;
     
+    if ($node->params !== null)
+      if (!$this->check_params($node->params, false))
+        return $this->drop();
+    
     $fid = ident_to_str($node->id);
     $sym = new FnSym($fid, $flags, $node->loc);
     
@@ -397,15 +450,171 @@ class Analyzer extends Walker
     array_push($this->sstack, $this->scope);
     $node->scope = new FnScope($sym, $this->scope);
     $this->scope = $node->scope;
+    
+    // backup flags
+    array_push($this->fstack, $this->flags);
+    $this->flags = SYM_FLAG_NONE;
+    
+    // just for debugging
+    $sym->fn_scope = $this->scope;
+    
+    if ($node->params !== null)
+      $this->handle_params($node->params);
   }
   
   protected function leave_fn_decl($node)
   {
     // back to prev scope
     $this->scope = array_pop($this->sstack);
+    
+    // restore flags
+    $this->flags = array_pop($this->fstack);
+  }
+  
+  protected function visit_let_decl($node)
+  {
+    return $this->visit_var_decl($node);
+  }
+  
+  protected function visit_var_decl($node)
+  {
+    $flags = SYM_FLAG_NONE;
+    
+    if ($node->mods) {
+      if (!$this->check_mods($node->mods))
+        return $this->drop();
+      
+      $flags = mods_to_symflags($node->mods, $flags);
+    }
+    
+    foreach ($node->vars as $var)
+      $this->handle_var($var->dest, $flags);
   }
   
   /* ------------------------------------ */
+  
+  /**
+   * adds the given parameters to the current scope
+   * 
+   * @param  array $params
+   */
+  protected function handle_params($params)
+  {
+    foreach ($params as $param) {
+      $kind = $param->kind();
+      
+      if ($kind === 'param' || $kind === 'rest_param') {
+        $flags = SYM_FLAG_NONE;
+        
+        if ($param->mods !== null) {
+          if (!$this->check_mods($param->mods))
+            continue;
+          
+          $flags = mods_to_symflags($param->mods, $flags);
+        }
+        
+        $pid = ident_to_str($param->id);
+        $sym = new VarSym($pid, $flags, $param->loc);
+        
+        $this->add_symbol($pid, $sym);  
+      }
+    }
+  }
+  
+  /**
+   * check params
+   * 
+   * @param  array $params
+   * @param  bool $athis allow this-params
+   * @return boolean
+   */
+  protected function check_params($params, $athis)
+  {
+    $seen_rest = false;
+    $rest_loc = null;
+    $seen_error = false;
+    
+    foreach ($params as $param) {
+      $kind = $param->kind();
+      
+      if ($kind === 'rest_param') {
+        if ($seen_rest) {
+          $seen_error = true;
+          $this->error_at($param->loc, ERR_ERROR, 'duplicate rest-parameter');
+          $this->error_at($rest_loc, ERR_INFO, 'previous rest-parameter was here');
+        } else {
+          $seen_rest = true;
+          $rest_loc = $param->loc;
+        }
+      } 
+      
+      elseif ($kind === 'this_param' && !$athis) {
+        $seen_error = true;
+        $this->error_at($param->loc, ERR_ERROR, 'this-parameter not allowed here');
+      }
+    }
+    
+    return !$seen_error;
+  }
+  
+  /**
+   * handles a variable declaration
+   * 
+   * @param  Ident|ArrDestr|ObjDestr $var
+   * @param  int $flags
+   * @return boolean
+   */
+  protected function handle_var($var, $flags)
+  {    
+    switch ($var->kind()) {
+      case 'ident':
+        $vid = ident_to_str($var);        
+        $sym = new VarSym($vid, $flags, $var->loc);
+        return $this->add_symbol($vid, $sym);
+      case 'obj_destr':
+        return $this->handle_var_obj($var, $flags);
+      case 'arr_destr':
+        return $this->handle_var_arr($var, $flags);
+    }
+  }
+  
+  /**
+   * handles a variable-object-destructor
+   * 
+   * @param  ObjDestr $dest
+   * @param  int $flags
+   * @return boolean
+   */
+  protected function handle_var_obj($dest, $flags)
+  {
+    foreach ($dest->items as $item) {
+      $kind = $item->kind();
+      
+      if ($kind !== 'ident') {
+        $this->error_at($item->loc, ERR_ERROR, 'invalid property id');
+        continue;   
+      }
+      
+      $this->handle_var($item, $flags);
+    }
+    
+    return true;
+  }
+  
+  /**
+   * handles a variable-array-destructor
+   * 
+   * @param  ArrDestr $dest
+   * @param  int $flags
+   * @return boolean
+   */
+  protected function handle_var_arr($dest, $flags)
+  {
+    foreach ($dest->items as $item)
+      $this->handle_var($item, $flags);
+    
+    return true;
+  }
   
   /**
    * check a class and its members
@@ -418,6 +627,68 @@ class Analyzer extends Walker
   {
     $ext = !!($flags & SYM_FLAG_EXTERN);
     return $this->check_class_members($node->members, $flags, $ext);
+  }
+  
+  /**
+   * checks a class-extend
+   * 
+   * @param  Name $ext
+   * @return boolean
+   */
+  protected function check_class_ext($ext)
+  {    
+    $eid = ident_to_str($ext->base);
+    $scp = $ext->root ? $this->ctx->get_scope() : $this->scope;
+    $sym = $scp->get($eid, false, null, true);
+    
+    if ($sym === null) {
+      // the referenced symbol could be a module without a use-import
+      // check again
+      $scp = $ext->root || !$this->module ? $this->ctx->get_module() : $this->module;
+      $arr = name_to_stra($ext);
+      $eid = array_pop($arr);
+      $mod = $scp->fetch($arr);
+      
+      if ($mod->has_child($eid)) {
+        $this->error_at($ext->loc, ERR_ERROR, 'module %s::%s can not be used as a class', $mod->path(true), $eid);
+        return false;
+      }
+      
+      $sym = $mod->get($eid, false, null, false);
+      
+      if ($sym === null) {
+        $this->error_at($ext->loc, ERR_ERROR, 'undefined reference to %s (used as class)', path_to_str($ext));
+        return false;
+      }
+    }
+    
+    if ($sym->kind === REF_KIND_MODULE && $sym->flags & SYM_FLAG_WEAK) {
+      // modifiy symbol to class-ref
+      $this->error_at($ext->loc, ERR_INFO, 'weak module-ref transformed to fixed class-ref');
+      $sym->kind = SYM_KIND_CLASS;
+      $sym->flags &= ~SYM_FLAG_WEAK;
+    }
+    
+    if ($sym->kind !== REF_KIND_CLASS && $sym->kind !== SYM_KIND_CLASS) {
+      $kind = $sym instanceof SymRef ? refkind_to_str($sym->kind) : symkind_to_str($sym->kind);
+      $this->error_at($ext->loc, ERR_ERROR, '%s used as class', $kind);
+      return $this->drop();
+    }
+    
+    return true;
+  }
+  
+  /**
+   * checks a class-implement
+   * 
+   * @param  array $impl
+   * @return boolean
+   */
+  protected function check_class_impl($impl)
+  {
+    foreach ($impl as $imp) {
+      
+    }
   }
   
   /**

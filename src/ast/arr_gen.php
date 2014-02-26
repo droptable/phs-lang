@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class ArrayGen extends Node
+class ArrGen extends Node
 {
   public $expr;
   public $init;

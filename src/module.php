@@ -4,6 +4,9 @@ namespace phs;
 
 class Module extends Scope
 {
+  // this is the root-module
+  public $root;
+  
   // name of this module
   public $name;
   
@@ -19,6 +22,7 @@ class Module extends Scope
   {
     parent::__construct($prev);
     $this->name = $name;
+    $this->root = false;
   }
   
   /**
@@ -122,13 +126,46 @@ class Module extends Scope
   
   /* ------------------------------------ */
   
-  public function debug($dp = '')
+  // deny get() if this is the root-module
+  public function get($id, $track = true, Location $loc = null, $walk = false)
+  {
+    if ($this->root) return null;
+    return parent::get($id, $track, $loc, $walk);
+  }
+  
+  // deny add() if this is the root-module
+  public function add($name, Symbol $sym) 
+  {
+    assert(!$this->root);
+    return parent::add($name, $sym);
+  }
+  
+  // deny set() if this is the root-module
+  public function set($name, Symbol $sym)
+  {
+    assert(!$this->root);
+    return parent::set($name, $sym);
+  }
+  
+  // deny rem() if this is the root-module
+  public function rem($name)
+  {
+    assert(!$this->root);
+    return parent::rem($name);
+  }
+  
+  /* ------------------------------------ */
+  
+  public function debug($dp = '', $pf = '-> ')
   {       
-    print "{$dp}-> {$this->name}\n";
-    parent::debug("{$dp}   ");
+    print "{$dp}$pf{$this->name}\n";
+    
+    // the root-module has no symbols
+    if (!$this->root)
+      parent::debug("{$dp}   ", '@ ');
     
     if (!empty ($this->childs))
       foreach ($this->childs as $child)
-        $child->debug("$dp   ");
+        $child->debug("$dp   ", $pf);
   }
 }

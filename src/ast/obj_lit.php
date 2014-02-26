@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class ObjectLit extends Node
+class ObjLit extends Node
 {
   public $pairs;
   

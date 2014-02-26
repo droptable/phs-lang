@@ -55,6 +55,11 @@ class Location
   
   public function debug()
   {
-    print "{$this->file} {$this->pos->line}:{$this->pos->coln}\n";
+    print $this->__toString() . "\n";;
+  }
+  
+  public function __toString()
+  {
+    return "{$this->file}:{$this->pos->line}:{$this->pos->coln}";
   }
 }

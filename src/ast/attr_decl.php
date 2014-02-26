@@ -8,7 +8,8 @@ class AttrDecl extends Node
   
   public function __construct($attr)
   {
-    assert($attr instanceof CompAttr ||
+    assert($attr instanceof AttrDef ||
+           $attr instanceof CompAttr ||
            $attr instanceof TopexAttr);
     
     $this->attr = $attr;

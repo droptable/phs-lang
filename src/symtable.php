@@ -92,12 +92,12 @@ class SymTable
   
   /* ------------------------------------ */
   
-  public function debug($dp = '')
+  public function debug($dp = '', $pf = '')
   {
     if (empty ($this->syms))
-      print "$dp(empty symtable)\n";
+      print "$dp{$pf}(empty symtable)\n";
     else
       foreach ($this->syms as $sym)
-        $sym->debug($dp);
+        $sym->debug($dp, $pf);
   }
 }

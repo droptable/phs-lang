@@ -46,7 +46,7 @@ class Scope extends SymTable
     
     if (!$res) {
       if ($this->prev && $walk)
-        return $this->prev->get($id, $track, $loc);
+        return $this->prev->get($id, $track, $loc, $walk);
       
       // the symbol was not found and we do not have a parent scope!
       // add it as "unresolved-reference"
@@ -55,6 +55,28 @@ class Scope extends SymTable
     }
     
     return $res;
+  }
+  
+  /**
+   * add a symbol
+   * 
+   * @see SymTable#add
+   */
+  public function add($id, Symbol $sym)
+  {
+    $sym->scope = $this;
+    return parent::add($id, $sym);
+  }
+  
+  /**
+   * set (assign) a symbol
+   * 
+   * @see SymTable#set
+   */
+  public function set($id, Symbol $sym)
+  {
+    $sym->scope = $this;
+    return parent::set($id, $sym);
   }
   
   /**
@@ -104,9 +126,9 @@ class Scope extends SymTable
   
   /* ------------------------------------ */
   
-  public function debug($dp = '')
+  public function debug($dp = '', $pf = '@ ')
   {
-    parent::debug("$dp@ ");
+    parent::debug($dp, $pf);
   }
 }
 
@@ -168,15 +190,6 @@ class ClassScope extends Scope
     
     // use scope
     return parent::get($id, $track, $loc, $walk);
-  }
-  
-  /* ------------------------------------ */
-  
-  public function debug($dp = '')
-  {
-    print "DEBUG!";
-    // show class-members only
-    $this->csym->mst->debug("$dp# ");
   }
 }
 

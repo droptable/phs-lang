@@ -72,6 +72,7 @@ class Context
     if (!$this->module) {
       require_once 'module.php';
       $this->module = new Module('<root>');
+      $this->module->root = true;
     }
     
     return $this->module;

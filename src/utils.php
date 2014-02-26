@@ -137,3 +137,45 @@ function path_to_str($path, $root = true) {
 function abspath_to_str(Module $base, $path) {
   return $base->path() . '::' . path_to_str($path);
 }
+
+/**
+ * returns a symbol-kind as string
+ * 
+ * @param  int $kind
+ * @return string
+ */
+function symkind_to_str($kind) {
+  switch ($kind) {
+    case SYM_KIND_MODULE:
+      return 'module';
+    case SYM_KIND_CLASS:
+      return 'class';
+    case SYM_KIND_TRAIT:
+      return 'trait';
+    case SYM_KIND_IFACE:
+      return 'iface';
+    case SYM_KIND_VAR:
+      return 'var';
+    case SYM_KIND_FN:
+      return 'fn';
+    case SYM_KIND_VALUE:
+      return 'value';
+    case SYM_KIND_EMPTY:
+      return 'empty-value';
+    default:
+      return '(unknown kind=' . $kind . ')';
+  }
+}
+
+
+/**
+ * returns a reference-kind as string
+ * 
+ * @param  int $kind
+ * @return string
+ */
+function refkind_to_str($kind) {
+  assert($kind > SYM_REF_DIVIDER);
+  return symkind_to_str($kind - SYM_REF_DIVIDER) . '-ref';
+}
+

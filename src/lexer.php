@@ -353,10 +353,10 @@ class Lexer
         $sub = $this->scan_concat(substr($sub, $beg, -1));
         $tok = $this->token(T_STRING, $sub);
         $tok->flag = $flg;
-      } else if ($sub[0] === "'" || substr($sub, 1, 1) === "'") {
+      } elseif ($sub[0] === "'" || substr($sub, 1, 1) === "'") {
         // strings can be in single-quotes too.
         // note: concat only applies to double-quoted strings
-        $flg = $sub[0] !== '"' ? $sub[0] : null;
+        $flg = $sub[0] !== "'" ? $sub[0] : null;
         $beg = $flg ? 2 : 1;
         $sub = substr($sub, $beg, -1);
         $tok = $this->token(T_STRING, $sub);

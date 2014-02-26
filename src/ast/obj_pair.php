@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class ObjectPair extends Node
+class ObjPair extends Node
 {
   public $key;
   public $value;
