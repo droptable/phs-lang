@@ -13,7 +13,7 @@ use phs\FileSource;
 
 $ctx = new Context;
 $psr = new Parser($ctx);
-$std = $psr->parse_source(new FileSource(realpath(__DIR__ . '/../stdlib/stdlib.phm')));
+$std = $psr->parse_source(new FileSource(realpath(__DIR__ . '/../lib/std.phs')));
 $ast = $psr->parse_source(new FileSource(realpath(__DIR__ . '/test.phs')));
 
 if (!$ast) exit('failed');

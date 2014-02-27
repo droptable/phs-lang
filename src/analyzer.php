@@ -5,6 +5,7 @@ namespace phs;
 require_once 'utils.php';
 require_once 'walker.php';
 require_once 'symbol.php';
+require_once 'reducer.php';
 
 use phs\ast\Unit;
 use phs\ast\Name;
@@ -32,6 +33,9 @@ class Analyzer extends Walker
   // flag stack
   private $fstack;
   
+  // reducer used to handle constant-expressions
+  private $rdc;
+  
   /**
    * constructor
    * 
@@ -41,6 +45,7 @@ class Analyzer extends Walker
   {
     parent::__construct($ctx);
     $this->ctx = $ctx;
+    $this->rdc = new Reducer($this->ctx);
   }
   
   /**
@@ -411,10 +416,7 @@ class Analyzer extends Walker
   protected function enter_fn_decl($node)
   {
     $flags = SYM_FLAG_NONE;
-    $apppf = false;
-    
-    if ($this->scope instanceof ClassScope)
-      $apppf = true; // allow public/private/protected flags
+    $apppf = $this->scope instanceof ClassScope;
     
     if ($node->mods) {
       if (!$this->check_mods($node->mods, $apppf, !$apppf))
@@ -479,20 +481,32 @@ class Analyzer extends Walker
   protected function visit_var_decl($node)
   {
     $flags = SYM_FLAG_NONE;
+    $apppf = $this->scope instanceof ClassScope;
     
     if ($node->mods) {
-      if (!$this->check_mods($node->mods))
+      if (!$this->check_mods($node->mods, $apppf, !$apppf))
         return $this->drop();
       
       $flags = mods_to_symflags($node->mods, $flags);
     }
     
     foreach ($node->vars as $var)
-      $this->handle_var($var->dest, $flags);
+      $this->handle_var($var->dest, $var->init, $flags);
+  }
+  
+  protected function visit_require_decl($node)
+  {
+    // require must act as require_once
+    $path = $this->reduce($node->expr);
+    
+    if ($path === null)
+      exit("not a constant expression");
+    
+    exit("require {$path->value}");
   }
   
   /* ------------------------------------ */
-  
+    
   /**
    * adds the given parameters to the current scope
    * 
@@ -564,12 +578,13 @@ class Analyzer extends Walker
    * @param  int $flags
    * @return boolean
    */
-  protected function handle_var($var, $flags)
+  protected function handle_var($var, $init, $flags)
   {    
     switch ($var->kind()) {
       case 'ident':
-        $vid = ident_to_str($var);        
-        $sym = new VarSym($vid, $flags, $var->loc);
+        $vid = ident_to_str($var);
+        $val = $this->reduce($init);
+        $sym = new VarSym($vid, $val, $flags, $var->loc);
         return $this->add_symbol($vid, $sym);
       case 'obj_destr':
         return $this->handle_var_obj($var, $flags);
@@ -595,7 +610,7 @@ class Analyzer extends Walker
         continue;   
       }
       
-      $this->handle_var($item, $flags);
+      $this->handle_var($item, null, $flags);
     }
     
     return true;
@@ -611,7 +626,7 @@ class Analyzer extends Walker
   protected function handle_var_arr($dest, $flags)
   {
     foreach ($dest->items as $item)
-      $this->handle_var($item, $flags);
+      $this->handle_var($item, null, $flags);
     
     return true;
   }
@@ -701,6 +716,8 @@ class Analyzer extends Walker
    */
   protected function check_class_members($members, &$flags, $ext)
   {
+    $error = false;
+    
     foreach ($members as $mem) {
       $kind = $mem->kind();
       
@@ -708,7 +725,7 @@ class Analyzer extends Walker
         // extern + function-body is a no-no
         if ($ext && $mem->body !== null) {
           $this->error_at($mem->body->loc, ERR_ERROR, 'extern class-method can not have a body');
-          return false;
+          $error = true;
         }
         
         // mark the class itself as abstract
@@ -723,11 +740,11 @@ class Analyzer extends Walker
       elseif ($ext) {
         $this->error_at($mem->loc, ERR_ERROR, 'invalid member in extern class');
         $this->error_at($mem->loc, ERR_INFO, 'only abstract functions are allowed');
-        return false;
+        $error = true;
       }
     }
     
-    return true;
+    return !$error;
   }
   
   /**
@@ -763,6 +780,16 @@ class Analyzer extends Walker
     return true;
   }
   
+  /* ------------------------------------ */
+    
+  private function reduce($expr = null)
+  {
+    if ($expr === null)
+      return new Value(VAL_KIND_NULL);
+      
+    return $this->rdc->reduce($expr, $this->scope, $this->module);
+  }
+    
   /* ------------------------------------ */
     
   /**

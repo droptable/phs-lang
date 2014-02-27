@@ -40,7 +40,7 @@ class Scope extends SymTable
    * @param  boolean  $walk 
    * @return Symbol
    */
-  public function get($id, $track = true, Location $loc = null, $walk = false)
+  public function get($id, $track = true, Location $loc = null, $walk = true)
   {
     $res = parent::get($id, $track);
     

@@ -3498,19 +3498,19 @@ class Parser extends ParserBase
 
   private function yyn311() 
   {
-     $this->yyval = new MemberExpr(false, $this->yyastk[$this->yysp-(2-1)], $this->yyastk[$this->yysp-(2-2)]); 
+     $this->yyval = new MemberExpr(true, false, $this->yyastk[$this->yysp-(2-1)], $this->yyastk[$this->yysp-(2-2)]); 
   }
 
 
   private function yyn312() 
   {
-     $this->yyval = new MemberExpr(false, $this->yyastk[$this->yysp-(5-1)], $this->yyastk[$this->yysp-(5-4)]); 
+     $this->yyval = new MemberExpr(true, true, $this->yyastk[$this->yysp-(5-1)], $this->yyastk[$this->yysp-(5-4)]); 
   }
 
 
   private function yyn313() 
   {
-     $this->yyval = new MemberExpr(true, $this->yyastk[$this->yysp-(4-1)], $this->yyastk[$this->yysp-(4-3)]); 
+     $this->yyval = new MemberExpr(false, true, $this->yyastk[$this->yysp-(4-1)], $this->yyastk[$this->yysp-(4-3)]); 
   }
 
 
@@ -3870,19 +3870,19 @@ class Parser extends ParserBase
 
   private function yyn373() 
   {
-     $this->yyval = new MemberExpr(false, $this->yyastk[$this->yysp-(2-1)], $this->yyastk[$this->yysp-(2-2)]); 
+     $this->yyval = new MemberExpr(true, false, $this->yyastk[$this->yysp-(2-1)], $this->yyastk[$this->yysp-(2-2)]); 
   }
 
 
   private function yyn374() 
   {
-     $this->yyval = new MemberExpr(false, $this->yyastk[$this->yysp-(5-1)], $this->yyastk[$this->yysp-(5-4)]); 
+     $this->yyval = new MemberExpr(true, true, $this->yyastk[$this->yysp-(5-1)], $this->yyastk[$this->yysp-(5-4)]); 
   }
 
 
   private function yyn375() 
   {
-     $this->yyval = new MemberExpr(true, $this->yyastk[$this->yysp-(4-1)], $this->yyastk[$this->yysp-(4-3)]); 
+     $this->yyval = new MemberExpr(false, true, $this->yyastk[$this->yysp-(4-1)], $this->yyastk[$this->yysp-(4-3)]); 
   }
 
 
@@ -4254,19 +4254,19 @@ class Parser extends ParserBase
 
   private function yyn437() 
   {
-     $this->yyval = new MemberExpr(false, $this->yyastk[$this->yysp-(2-1)], $this->yyastk[$this->yysp-(2-2)]); 
+     $this->yyval = new MemberExpr(true, false, $this->yyastk[$this->yysp-(2-1)], $this->yyastk[$this->yysp-(2-2)]); 
   }
 
 
   private function yyn438() 
   {
-     $this->yyval = new MemberExpr(false, $this->yyastk[$this->yysp-(5-1)], $this->yyastk[$this->yysp-(5-4)]); 
+     $this->yyval = new MemberExpr(true, true, $this->yyastk[$this->yysp-(5-1)], $this->yyastk[$this->yysp-(5-4)]); 
   }
 
 
   private function yyn439() 
   {
-     $this->yyval = new MemberExpr(true, $this->yyastk[$this->yysp-(4-1)], $this->yyastk[$this->yysp-(4-3)]); 
+     $this->yyval = new MemberExpr(false, true, $this->yyastk[$this->yysp-(4-1)], $this->yyastk[$this->yysp-(4-3)]); 
   }
 
 

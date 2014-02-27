@@ -158,10 +158,6 @@ function symkind_to_str($kind) {
       return 'var';
     case SYM_KIND_FN:
       return 'fn';
-    case SYM_KIND_VALUE:
-      return 'value';
-    case SYM_KIND_EMPTY:
-      return 'empty-value';
     default:
       return '(unknown kind=' . $kind . ')';
   }

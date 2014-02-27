@@ -1,5 +1,16 @@
-//const foo = 'hello';
-//require foo ~ '/world';
+module {
+  module foo {
+    class Test {
+      const foo = 'hello';
+      const bar = 'world';
+    }
+  }
+  
+  use foo::Test;
+  let baz = Test.foo ~ ' ' ~ Test.bar;
+}
+
+__end__
 
 module phs;
 

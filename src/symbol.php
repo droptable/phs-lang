@@ -32,24 +32,16 @@ const
   SYM_KIND_VAR = 5,
   SYM_KIND_FN = 6,
   
-  // extra symbols
-  SYM_KIND_VALUE = 7,
-  SYM_KIND_EMPTY = 8,
-  
   // divider
-  SYM_REF_DIVIDER = 9,
+  SYM_REF_DIVIDER = 7,
   
   // reference kinds
-  REF_KIND_MODULE = 10,
-  REF_KIND_CLASS = 11,
-  REF_KIND_TRAIT = 12,
-  REF_KIND_IFACE = 13,
-  REF_KIND_VAR = 14,
-  REF_KIND_FN = 15,
-  
-  // invalid references
-  REF_KIND_VALUE = 16,
-  REF_KIND_EMPTY = 17
+  REF_KIND_MODULE = 8,
+  REF_KIND_CLASS = 9,
+  REF_KIND_TRAIT = 10,
+  REF_KIND_IFACE = 11,
+  REF_KIND_VAR = 12,
+  REF_KIND_FN = 13
 ;
 
 abstract class Symbol 
@@ -81,6 +73,7 @@ abstract class Symbol
     $this->flags = $flags;
     $this->loc = $loc;
     $this->reads = 0;
+    $this->writes = 0;
     $this->kind = $kind;
   }
   
@@ -99,28 +92,20 @@ abstract class Symbol
 /** a variable symbol */
 class VarSym extends Symbol
 {
-  public function __construct($name, $flags, Location $loc = null)
-  {
-    parent::__construct(SYM_KIND_VAR, $name, $flags, $loc);
-  }
-  
-  /* ------------------------------------ */
-  
-  public function debug($dp = '', $pf = '')
-  {
-    parent::debug($dp, $pf);
-    print " var\n";
-  }
-}
-
-/** value symbol */
-class ValueSym extends Symbol
-{
+  // the value
   public $value;
   
-  public function __construct($name, $flags, $value, Location $loc = null)
+  /**
+   * constructor
+   * 
+   * @param string $name
+   * @param Value $value
+   * @param int $flags
+   * @param Location $loc
+   */
+  public function __construct($name, Value $value, $flags, Location $loc = null)
   {
-    parent::__construct(SYM_KIND_VALUE, $name, $flags, $loc);
+    parent::__construct(SYM_KIND_VAR, $name, $flags, $loc);
     $this->value = $value;
   }
   
@@ -129,20 +114,10 @@ class ValueSym extends Symbol
   public function debug($dp = '', $pf = '')
   {
     parent::debug($dp, $pf);
+    print " var";
     
-    $value = $this->value;
-    $value = $value ? $value->value : '(none)';
-    
+    $value = $this->value ?: '(none)';
     print " value={$value}\n";
-  }
-}
-
-/** empty sym (like value-sym) but the value gets filled-in later */
-class EmptySym extends ValueSym
-{
-  public function __construct($name, $flags, Location $loc = null)
-  {
-    parent::__construct(SYM_KIND_EMPTY, $name, $flags, null, $loc);
   }
 }
 
