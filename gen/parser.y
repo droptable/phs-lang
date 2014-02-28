@@ -8,9 +8,8 @@
    - 1x if-elsif resolved by shift
    - 1x elsif-elsif resolved by shift
    - 1x if-else resolved by shift
-   - 1x dangling T_END after a unit resolved by shift
 */ 
-%expect 4
+%expect 3
 
 %left ','
 %left T_APLUS 
@@ -145,18 +144,13 @@
 %%
 
 start
-  : /* empty */   { $$ = @Unit(null); }
-  | unit end_opt  { $$ = @Unit($1); }
-  ;
-  
-end_opt
-  : /* empty */
-  | T_END
+  : /* empty */ { $$ = @Unit(null); }
+  | unit        { $$ = @Unit($1); }
   ;
   
 unit
-  : module  { $$ = $1; }
-  | program { $$ = $1; }
+  : module  { $$ = $1; $this->eat_end(); }
+  | program { $$ = $1; $this->eat_end(); }
   ;
 
 module
@@ -763,8 +757,10 @@ lxpr
   | '!' rxpr                { $$ = @UnaryExpr($1, $2); }
   | T_INC rxpr              { $$ = @UpdateExpr(true, $2, $1); }
   | T_DEC rxpr              { $$ = @UpdateExpr(true, $2, $1); }
-  | T_NEW type_name         { $$ = @NewExpr($2, null); }
-  | T_NEW type_name pargs   { $$ = @NewExpr($2, $3); }
+  | T_NEW type              { $$ = @NewExpr($1, null); }
+  | T_NEW type pargs        { $$ = @NewExpr($1, $2); }
+  | T_NEW nxpr              { $$ = @NewExpr($1, null); }
+  | T_NEW nxpr pargs        { $$ = @NewExpr($1, $2); }
   | T_DEL ident             { $$ = @DelExpr($2); }
   | atom                    { $$ = $1; }
   | legacy_cast             { $$ = $1; }
@@ -832,8 +828,10 @@ rxpr
   | '!' rxpr                { $$ = @UnaryExpr($1, $2); }
   | T_INC rxpr              { $$ = @UpdateExpr(true, $2, $1); }
   | T_DEC rxpr              { $$ = @UpdateExpr(true, $2, $1); }
-  | T_NEW type_name         { $$ = @NewExpr($2, null); }
-  | T_NEW type_name pargs   { $$ = @NewExpr($2, $3); }
+  | T_NEW type              { $$ = @NewExpr($1, null); }
+  | T_NEW type pargs        { $$ = @NewExpr($1, $2); }
+  | T_NEW nxpr              { $$ = @NewExpr($1, null); }
+  | T_NEW nxpr pargs        { $$ = @NewExpr($1, $2); }
   | T_DEL ident             { $$ = @DelExpr($2); }
   | atom                    { $$ = $1; }
   | obj                     { $$ = $1; }
@@ -902,8 +900,10 @@ rxpr_noin
   | '!' rxpr_noin                     { $$ = @UnaryExpr($1, $2); }
   | T_INC rxpr_noin                   { $$ = @UpdateExpr(true, $2, $1); }
   | T_DEC rxpr_noin                   { $$ = @UpdateExpr(true, $2, $1); }
-  | T_NEW type_name                   { $$ = @NewExpr($2, null); }
-  | T_NEW type_name pargs             { $$ = @NewExpr($2, $3); }
+  | T_NEW type                        { $$ = @NewExpr($1, null); }
+  | T_NEW type pargs                  { $$ = @NewExpr($1, $2); }
+  | T_NEW nxpr                        { $$ = @NewExpr($1, null); }
+  | T_NEW nxpr pargs                  { $$ = @NewExpr($1, $2); }
   | T_DEL ident                       { $$ = @DelExpr($2); }
   | atom                              { $$ = $1; }
   | obj                               { $$ = $1; }
@@ -912,11 +912,27 @@ rxpr_noin
   ;
   
 legacy_cast
-  : '(' type ')' rxpr { $$ = @CastExpr($4, $2); $this->error_at($1->loc, ERR_WARN, 'legacy cast, use `expr as type` instead'); }
+  : '(' type ')' rxpr 
+    { 
+      $$ = @CastExpr($4, $2); 
+      $this->error_at($1->loc, ERR_WARN, 'legacy cast, use `expr as type` instead'); 
+    }
   ;
   
 legacy_cast_noin
-  : '(' type ')' rxpr_noin { $$ = @CastExpr($4, $2); $this->error_at($1->loc, ERR_WARN, 'legacy cast, use `expr as type` instead'); }
+  : '(' type ')' rxpr_noin 
+    { 
+      $$ = @CastExpr($4, $2); 
+      $this->error_at($1->loc, ERR_WARN, 'legacy cast, use `expr as type` instead'); 
+    }
+  ;
+ 
+nxpr
+  : nxpr dot_ident        { $$ = @MemberExpr(true, false, $1, $2); }
+  | nxpr '.' '{' rxpr '}' { $$ = @MemberExpr(true, true, $1, $4); }
+  | nxpr '[' rxpr ']'     { $$ = @MemberExpr(false, true, $1, $3); }
+  | nxpr '[' error ']'    { $$ = null; }
+  | atom                  { $$ = $1; }
   ;
  
 pxpr

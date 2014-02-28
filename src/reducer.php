@@ -98,17 +98,21 @@ class Reducer
         return $this->reduce_unary_expr($expr);
       case 'bin_expr':
         return $this->reduce_bin_expr($expr);
+      /*
       case 'check_expr':
         return $this->reduce_check_expr($expr);
       case 'update_expr':
         return $this->reduce_update_expr($expr);
       case 'cast_expr':
         return $this->reduce_cast_expr($expr);
-        return false;  
+        return false;
+      */
       case 'member_expr':
         return $this->reduce_member_expr($expr);
+      /*
       case 'cond_expr':
         return $this->reduce_cond_expr($expr);
+      */
       case 'call_expr':
         // TODO: is this reducible? well, maybe it is, but its kinda hard to do so...
         return false;
@@ -164,7 +168,6 @@ class Reducer
       return false;
     
     $lhs = $this->value;
-    var_dump($lhs);
     
     if (!$this->reduce_expr($expr->right))
       return false;
@@ -388,7 +391,7 @@ class Reducer
     // best case: no more parts
     if (empty ($name->parts)) {
       if ($sym->kind === SYM_KIND_VAR) {
-        if ($sym->value !== null) {
+        if ($sym->flags & SYM_FLAG_CONST && $sym->value !== null) {
           $this->value = $sym->value;
           return true;
         }
@@ -468,7 +471,7 @@ class Reducer
       $sym = $sym->sym;
     
     if ($sym->kind === SYM_KIND_VAR) {
-      if ($sym->value !== null) {
+      if ($sym->flags & SYM_FLAG_CONST && $sym->value !== null) {
         $this->value = $sym->value;
         return true;
       }

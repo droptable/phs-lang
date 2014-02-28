@@ -302,6 +302,9 @@ class Analyzer extends Walker
   protected function visit_use_decl($node)
   {
     // this function is recursive
+    // TODO: base must be checked, because the import could
+    // be relative to a already imported module
+    // e.g.: use foo::bar; use bar::baz;
     $base = $this->ctx->get_module();
     return $this->handle_import($base, $node->item);
   }
@@ -317,6 +320,8 @@ class Analyzer extends Walker
       $flags = mods_to_symflags($node->mods, $flags);
     }
     
+    $base = 0;
+    
     foreach ($node->members as $member) {
       if ($member->dest->kind() !== 'ident') {
         $this->error_at($member->loc, ERR_ERROR, 'destructors are not allowed in enum-declarations');
@@ -324,30 +329,26 @@ class Analyzer extends Walker
       }
       
       $id = ident_to_str($member->dest);
+      $val = null;
       
       if ($member->init !== null) {
-        $init = $member->init;
+        $val = $this->reduce($member->init);
         
-        // if its a simple value, create a ValueSym
-        // otherwise create a VarSym
-        switch ($init->kind()) {
-          case 'lnum_lit':
-          case 'dnum_lit':
-          case 'snum_lit':
-          case 'null_lit':
-          case 'true_lit':
-          case 'false_lit':
-          case 'str_lit':
-          case 'engine_const':
-            $sym = new ValueSym($id, $flags, $init, $member->loc);
-            break;
-          default:
-            // must be reducible in a later state
-            $sym = new VarSym($id, $flags, $init, $member->loc);
+        if ($val->kind === VAL_KIND_UNKNOWN) {
+          $this->error_at($member->init->loc, ERR_ERROR, 'enum members must have constant values');
+          continue;
         }
+        
+        if ($val->kind !== VAL_KIND_LNUM) {
+          $this->error_at($member->init->loc, ERR_ERROR, 'enum members must be integers');
+          continue;
+        }
+        
+        $base = $val->value + 1;
       } else
-        $sym = new EmptySym($id, $flags, $member->loc);
-      
+        $val = new Value(VAL_KIND_LNUM, $base++);
+        
+      $sym = new VarSym($id, $val, $flags, $member->loc);      
       $this->add_symbol($id, $sym);
     }
   }
@@ -499,10 +500,11 @@ class Analyzer extends Walker
     // require must act as require_once
     $path = $this->reduce($node->expr);
     
-    if ($path === null)
-      exit("not a constant expression");
+    if ($path->kind !== VAL_KIND_STR) {
+      $this->error_at($node->loc, ERR_ERROR, 'require from unknown source');
+      return $this->drop();
+    }
     
-    exit("require {$path->value}");
   }
   
   /* ------------------------------------ */
@@ -528,7 +530,7 @@ class Analyzer extends Walker
         }
         
         $pid = ident_to_str($param->id);
-        $sym = new VarSym($pid, $flags, $param->loc);
+        $sym = new VarSym($pid, new Value(VAL_KIND_UNKNOWN), $flags, $param->loc);
         
         $this->add_symbol($pid, $sym);  
       }

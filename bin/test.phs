@@ -1,22 +1,10 @@
-module {
-  module foo {
-    module bar {
-      const foo = 1;
-      
-      module baz {
-        const bar = 2;
-        
-        module qrz {
-          class Test {
-            const zzz = 3;
-          }
-        }
-      }
-    }
-  }
-  
-  let baz = foo::bar::foo + foo::bar::baz::bar + foo::bar::baz::qrz::Test.zzz;
-}
+new foo.bar;
+new bar.baz(1,2,3);
+new foo::bar::baz.zzz();
+new (foo~'bar').baz();
+new foo~bar();
+new +foo();
+
 __end__
 
 module phs;
@@ -54,7 +42,7 @@ enum {
   T_EXCL = 33,     // '!'
   T_DDOT = 58,     // ':'
   T_EOF  = 0       // end of file
-}
+};
 
 /**
  * lexer class

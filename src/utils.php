@@ -155,9 +155,9 @@ function symkind_to_str($kind) {
     case SYM_KIND_IFACE:
       return 'iface';
     case SYM_KIND_VAR:
-      return 'var';
+      return 'variable';
     case SYM_KIND_FN:
-      return 'fn';
+      return 'function';
     default:
       return '(unknown kind=' . $kind . ')';
   }

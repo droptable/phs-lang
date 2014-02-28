@@ -117,7 +117,7 @@ class VarSym extends Symbol
   public function debug($dp = '', $pf = '')
   {
     parent::debug($dp, $pf);
-    print " var";
+    print " variable";
     
     $value = $this->value ?: '(none)';
     print " value={$value}\n";
@@ -168,7 +168,7 @@ class FnSym extends Symbol
   public function debug($dp = '', $pf = '')
   {
     parent::debug($dp, $pf);
-    print " fn\n";
+    print " function\n";
     
     $this->fn_scope->debug("  $dp", '@ ');
   }

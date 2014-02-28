@@ -207,6 +207,23 @@ class #(-p) extends ParserBase
   }
   
   /**
+   * consumes a T_END token
+   * 
+   * @void
+   */
+  private function eat_end()
+  {
+    $peek = $this->lex->peek();
+    
+    if ($peek->type === T_END) {
+      $this->lex->skip();
+#if -t
+      $this->trace('% Consumed T_END');
+#endif
+    }
+  }
+  
+  /**
    * parse function
    * 
    * @param  Lexer  $lex
