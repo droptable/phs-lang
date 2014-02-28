@@ -8,11 +8,10 @@ const
   VAL_KIND_LNUM = 4,
   VAL_KIND_DNUM = 5,
   VAL_KIND_SNUM = 6,
-  VAL_KIND_TRUE = 7,
-  VAL_KIND_FALSE = 8,
-  VAL_KIND_NULL = 9,
-  VAL_KIND_SYMBOL = 10,
-  VAL_KIND_UNKNOWN = 11
+  VAL_KIND_BOOL = 7,
+  VAL_KIND_NULL = 8,
+  VAL_KIND_SYMBOL = 9,
+  VAL_KIND_UNKNOWN = 10
 ;
 
 /** a value */
@@ -51,10 +50,8 @@ class Value
       case VAL_KIND_LNUM:
       case VAL_KIND_DNUM:
         return (string) $this->value;
-      case VAL_KIND_TRUE:
-        return 'true';
-      case VAL_KIND_FALSE:
-        return 'false';
+      case VAL_KIND_BOOL:
+        return $this->value ? 'true' : 'false';
       case VAL_KIND_NULL:
         return 'null';
       case VAL_KIND_SYMBOL:

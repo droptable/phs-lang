@@ -18,7 +18,8 @@ $ast = $psr->parse_source(new FileSource(realpath(__DIR__ . '/test.phs')));
 
 if (!$ast) exit('failed');
 
-#var_dump($ast);
+// var_dump($ast);
+// exit;
 require '../src/walker.php';
 require '../src/analyzer.php';
 

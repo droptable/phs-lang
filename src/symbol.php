@@ -21,6 +21,9 @@ const
   SYM_FLAG_WEAK       = 0x1000  // symbol is a weak reference (the type of this reference was a assumption)
 ;
 
+// typo recover
+const SYM_FLAGS_NONE = SYM_FLAG_NONE;
+
 const 
   // not a real symbol
   SYM_KIND_MODULE = 1, 
@@ -172,18 +175,18 @@ class FnSym extends Symbol
 }
 
 /** a symbol reference */
-class SymRef extends Symbol
+class SymbolRef extends Symbol
 {
-  // the base module (can be <root>)
-  public $base;
+  // the symbol
+  public $sym;
   
   // the full name of this reference
   public $path;
   
-  public function __construct($kind, $name, $flags, Module $base, Name $path, Location $loc = null)
+  public function __construct($kind, $name, Symbol $sym, Name $path, Location $loc = null)
   {
-    parent::__construct($kind, $name, $flags, $loc);
-    $this->base = $base;
+    parent::__construct($kind, $name, SYM_FLAG_NONE, $loc);
+    $this->sym = $sym;
     $this->path = $path;
   }
     
@@ -194,18 +197,47 @@ class SymRef extends Symbol
     parent::debug($dp, $pf);
     
     $kind = refkind_to_str($this->kind);
-    print " {$kind} (base={$this->base->name}) -> ";
+    print " {$kind} -> ";
     print path_to_str($this->path, false);
     print "\n";
   }
   
   /* ------------------------------------ */
   
-  public static function from(Symbol $sym, Module $base, Name $path, Location $loc)
+  public static function from($id, Symbol $sym, Name $path, Location $loc)
   {
     assert($sym->kind < SYM_REF_DIVIDER);
     $kind = SYM_REF_DIVIDER + $sym->kind;
     
-    return new SymRef($kind, $sym->name, $sym->flags, $base, $path, $loc);
+    return new SymbolRef($kind, $id, $sym, $path, $loc);
+  }
+}
+
+/** module refernece */
+class ModuleRef extends Symbol
+{
+  // the module
+  public $mod;
+  
+  // full path of this reference
+  public $path;
+  
+  public function __construct($name, Module $mod, Name $path, Location $loc)
+  {
+    parent::__construct(REF_KIND_MODULE, $name, SYM_FLAG_NONE, $loc);
+    $this->mod = $mod;
+    $this->path = $path;
+  }
+  
+  /* ------------------------------------ */
+  
+  public function debug($dp = '', $pf = '') 
+  {
+    parent::debug($dp, $pf);
+    
+    $kind = refkind_to_str($this->kind);
+    print " {$kind} -> ";
+    print path_to_str($this->path, false);
+    print "\n";
   }
 }

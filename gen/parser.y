@@ -41,12 +41,13 @@
 %left T_EQ T_NEQ
 %left T_IN T_IS T_ISNT T_GTE T_LTE '>' '<'
 %left T_SL T_SR
-%left '+' '-'
+/* '~' is used in concat (binary) and bitwise-not (unary) */
+%left '+' '-' '~'
 %left '*' '/' '%'
 %right T_POW
 %left T_AS T_ARR T_REST
 %right T_DEL
-%right '!' '~' 
+%right '!' 
 %nonassoc T_INC T_DEC
 %right T_NEW
 %left '.' T_DDDOT '[' ']'
@@ -756,9 +757,9 @@ lxpr
   | lxpr '?' rxpr ':' rxpr  { $$ = @CondExpr($1, $3, $5); } 
   | lxpr '?' ':' rxpr       { $$ = @CondExpr($1, null, $4); }
   | lxpr pargs              { $$ = @CallExpr($1, $2); }
-  | '-' rxpr %prec '~'      { $$ = @UnaryExpr($1, $2); }
-  | '+' rxpr %prec '~'      { $$ = @UnaryExpr($1, $2); }
-  | '~' rxpr                { $$ = @UnaryExpr($1, $2); }
+  | '-' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
+  | '+' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
+  | '~' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
   | '!' rxpr                { $$ = @UnaryExpr($1, $2); }
   | T_INC rxpr              { $$ = @UpdateExpr(true, $2, $1); }
   | T_DEC rxpr              { $$ = @UpdateExpr(true, $2, $1); }
@@ -825,9 +826,9 @@ rxpr
   | rxpr '?' ':' rxpr       { $$ = @CondExpr($1, null, $4); }
   | rxpr pargs              { $$ = @CallExpr($1, $2); }
   | T_YIELD rxpr            { $$ = @YieldExpr($2); }
-  | '-' rxpr %prec '~'      { $$ = @UnaryExpr($1, $2); }
-  | '+' rxpr %prec '~'      { $$ = @UnaryExpr($1, $2); }
-  | '~' rxpr                { $$ = @UnaryExpr($1, $2); }
+  | '-' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
+  | '+' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
+  | '~' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
   | '!' rxpr                { $$ = @UnaryExpr($1, $2); }
   | T_INC rxpr              { $$ = @UpdateExpr(true, $2, $1); }
   | T_DEC rxpr              { $$ = @UpdateExpr(true, $2, $1); }
@@ -895,9 +896,9 @@ rxpr_noin
   | rxpr_noin '?' ':' rxpr_noin       { $$ = @CondExpr($1, null, $4); }
   | rxpr_noin pargs                   { $$ = @CallExpr($1, $2); }
   | T_YIELD rxpr_noin                 { $$ = @YieldExpr($2); }
-  | '-' rxpr_noin %prec '~'           { $$ = @UnaryExpr($1, $2); }
-  | '+' rxpr_noin %prec '~'           { $$ = @UnaryExpr($1, $2); }
-  | '~' rxpr_noin                     { $$ = @UnaryExpr($1, $2); }
+  | '-' rxpr_noin %prec '!'           { $$ = @UnaryExpr($1, $2); }
+  | '+' rxpr_noin %prec '!'           { $$ = @UnaryExpr($1, $2); }
+  | '~' rxpr_noin %prec '!'           { $$ = @UnaryExpr($1, $2); }
   | '!' rxpr_noin                     { $$ = @UnaryExpr($1, $2); }
   | T_INC rxpr_noin                   { $$ = @UpdateExpr(true, $2, $1); }
   | T_DEC rxpr_noin                   { $$ = @UpdateExpr(true, $2, $1); }

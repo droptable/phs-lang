@@ -9,7 +9,9 @@ const
   COM_WLK = 4, // walker context
   COM_ANL = 5, // analyze context
   COM_RSV = 6, // resolve context
-  COM_TRS = 7  // translate context
+  COM_TRS = 7, // translate context
+  COM_RDC = 8, // reduce context
+  COM_IMP = 9  // improve context
 ;
 
 const 
@@ -230,6 +232,8 @@ class Context
       case COM_ANL: $log .= ' anl'; break;
       case COM_RSV: $log .= ' rsv'; break;
       case COM_TRS: $log .= ' trs'; break;
+      case COM_RDC: $log .= ' rdc'; break;
+      case COM_IMP: $log .= ' imp'; break;
     }
     
     $log .= ': ';

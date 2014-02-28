@@ -143,7 +143,7 @@ class Analyzer extends Walker
       if (!$add) return true; 
       
       // add symbol to scope
-      $sym = new SymRef(REF_KIND_MODULE, $id, SYM_FLAG_NONE, $base, $name, $name->loc);
+      $sym = new ModuleRef($id, $base->get_child($last), $name, $name->loc);
       return $this->add_symbol($id, $sym);
     }
     
@@ -161,7 +161,7 @@ class Analyzer extends Walker
       $this->error_at($name->loc, ERR_INFO, 'assuming <module> (default assumption)');
       
       // add symbol to scope
-      $sym = new SymRef(REF_KIND_MODULE, $id, SYM_FLAG_WEAK, $base, $name, $name->loc);      
+      $sym = new ModuleRef($id, $base->get_child($last), $name, $name->loc, REF_WEAK);      
       return $this->add_symbol($id, $sym);
       */
     }
@@ -169,7 +169,7 @@ class Analyzer extends Walker
     if (!$add) return true;
     
     $sym = $base->get($last);
-    $ref = SymRef::from($sym, $base, $name, $name->loc);
+    $ref = SymbolRef::from($id, $sym, $name, $name->loc);
     
     // TODO: remove const/final flags?
     
