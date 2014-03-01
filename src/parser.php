@@ -1719,13 +1719,19 @@ class Parser extends ParserBase
 
   private function yyn8() 
   {
-     $this->yyval = new Module($this->yyastk[$this->yysp-(5-2)], $this->yyastk[$this->yysp-(5-4)]); $this->eat_semis(); 
+     
+      $this->yyval = new Module($this->yyastk[$this->yysp-(5-2)], $this->yyastk[$this->yysp-(5-4)]); 
+      $this->eat_semis(); 
+    
   }
 
 
   private function yyn9() 
   {
-     $this->yyval = new Module(null, $this->yyastk[$this->yysp-(4-3)]); $this->eat_semis(); 
+     
+      $this->yyval = new Module(null, $this->yyastk[$this->yysp-(4-3)]); 
+      $this->eat_semis(); 
+    
   }
 
 
@@ -1875,19 +1881,28 @@ class Parser extends ParserBase
 
   private function yyn34() 
   {
-     $this->yyval = new RequireDecl(false, $this->yyastk[$this->yysp-(3-2)]); $this->eat_semis(); 
+     
+      $this->yyval = new RequireDecl(false, $this->yyastk[$this->yysp-(3-2)]); 
+      $this->eat_semis(); 
+    
   }
 
 
   private function yyn35() 
   {
-     $this->yyval = new RequireDecl(true, $this->yyastk[$this->yysp-(4-3)]); $this->eat_semis(); 
+     
+      $this->yyval = new RequireDecl(true, $this->yyastk[$this->yysp-(4-3)]); 
+      $this->eat_semis(); 
+    
   }
 
 
   private function yyn36() 
   {
-     $this->yyval = new AttrDecl($this->yyastk[$this->yysp-(4-2)]); $this->eat_semis(); 
+     
+      $this->yyval = new AttrDecl($this->yyastk[$this->yysp-(4-2)]); 
+      $this->eat_semis(); 
+    
   }
 
 
@@ -1935,19 +1950,28 @@ class Parser extends ParserBase
 
   private function yyn44() 
   {
-     $this->yyval = new UseDecl($this->yyastk[$this->yysp-(3-2)]); $this->eat_semis(); 
+     
+      $this->yyval = new UseDecl($this->yyastk[$this->yysp-(3-2)]); 
+      $this->eat_semis(); 
+    
   }
 
 
   private function yyn45() 
   {
-     $this->yyval = new UseDecl(new UseAlias($this->yyastk[$this->yysp-(5-2)], $this->yyastk[$this->yysp-(5-4)])); $this->eat_semis(); 
+     
+      $this->yyval = new UseDecl(new UseAlias($this->yyastk[$this->yysp-(5-2)], $this->yyastk[$this->yysp-(5-4)])); 
+      $this->eat_semis(); 
+    
   }
 
 
   private function yyn46() 
   {
-     $this->yyval = new UseDecl(new UseUnpack($this->yyastk[$this->yysp-(5-2)], $this->yyastk[$this->yysp-(5-4)])); $this->eat_semis(); 
+     
+      $this->yyval = new UseDecl(new UseUnpack($this->yyastk[$this->yysp-(5-2)], $this->yyastk[$this->yysp-(5-4)])); 
+      $this->eat_semis(); 
+    
   }
 
 
@@ -2073,7 +2097,10 @@ class Parser extends ParserBase
 
   private function yyn67() 
   {
-     $this->yyval = new EnumDecl($this->yyastk[$this->yysp-(5-1)], $this->yyastk[$this->yysp-(5-4)]); $this->eat_semis(); 
+     
+      $this->yyval = new EnumDecl($this->yyastk[$this->yysp-(5-1)], $this->yyastk[$this->yysp-(5-4)]); 
+      $this->eat_semis(); 
+    
   }
 
 
@@ -2175,13 +2202,19 @@ class Parser extends ParserBase
 
   private function yyn84() 
   {
-     $this->yyval = new ClassDecl($this->yyastk[$this->yysp-(8-1)], $this->yyastk[$this->yysp-(8-3)], $this->yyastk[$this->yysp-(8-4)], $this->yyastk[$this->yysp-(8-5)], $this->yyastk[$this->yysp-(8-7)]); $this->eat_semis(); 
+     
+      $this->yyval = new ClassDecl($this->yyastk[$this->yysp-(8-1)], $this->yyastk[$this->yysp-(8-3)], $this->yyastk[$this->yysp-(8-4)], $this->yyastk[$this->yysp-(8-5)], $this->yyastk[$this->yysp-(8-7)]); 
+      $this->eat_semis(); 
+    
   }
 
 
   private function yyn85() 
   {
-     $this->yyval = new ClassDecl($this->yyastk[$this->yysp-(6-1)], $this->yyastk[$this->yysp-(6-3)], $this->yyastk[$this->yysp-(6-4)], $this->yyastk[$this->yysp-(6-5)], null); $this->eat_semis(); 
+     
+      $this->yyval = new ClassDecl($this->yyastk[$this->yysp-(6-1)], $this->yyastk[$this->yysp-(6-3)], $this->yyastk[$this->yysp-(6-4)], $this->yyastk[$this->yysp-(6-5)], null); 
+      $this->eat_semis(); 
+    
   }
 
 
@@ -2343,7 +2376,10 @@ class Parser extends ParserBase
 
   private function yyn112() 
   {
-     $this->yyval = new CtorDecl($this->yyastk[$this->yysp-(4-1)], $this->yyastk[$this->yysp-(4-3)], null); $this->eat_semis(); 
+     
+      $this->yyval = new CtorDecl($this->yyastk[$this->yysp-(4-1)], $this->yyastk[$this->yysp-(4-3)], null); 
+      $this->eat_semis(); 
+    
   }
 
 
@@ -2355,7 +2391,10 @@ class Parser extends ParserBase
 
   private function yyn114() 
   {
-     $this->yyval = new DtorDecl($this->yyastk[$this->yysp-(4-1)], $this->yyastk[$this->yysp-(4-3)], null); $this->eat_semis(); 
+     
+      $this->yyval = new DtorDecl($this->yyastk[$this->yysp-(4-1)], $this->yyastk[$this->yysp-(4-3)], null); 
+      $this->eat_semis(); 
+    
   }
 
 
@@ -2373,7 +2412,10 @@ class Parser extends ParserBase
 
   private function yyn117() 
   {
-     $this->yyval = new GetterDecl($this->yyastk[$this->yysp-(6-2)], $this->yyastk[$this->yysp-(6-3)], $this->yyastk[$this->yysp-(6-5)]); $this->eat_semis(); 
+     
+      $this->yyval = new GetterDecl($this->yyastk[$this->yysp-(6-2)], $this->yyastk[$this->yysp-(6-3)], $this->yyastk[$this->yysp-(6-5)]); 
+      $this->eat_semis(); 
+    
   }
 
 
@@ -2385,7 +2427,10 @@ class Parser extends ParserBase
 
   private function yyn119() 
   {
-     $this->yyval = new GetterDecl($this->yyastk[$this->yysp-(6-2)], $this->yyastk[$this->yysp-(6-3)], $this->yyastk[$this->yysp-(6-5)]); $this->eat_semis(); 
+     
+      $this->yyval = new GetterDecl($this->yyastk[$this->yysp-(6-2)], $this->yyastk[$this->yysp-(6-3)], $this->yyastk[$this->yysp-(6-5)]); 
+      $this->eat_semis(); 
+    
   }
 
 
@@ -2397,13 +2442,19 @@ class Parser extends ParserBase
 
   private function yyn121() 
   {
-     $this->yyval = new TraitUse($this->yyastk[$this->yysp-(3-2)], null, null); $this->eat_semis(); 
+     
+      $this->yyval = new TraitUse($this->yyastk[$this->yysp-(3-2)], null, null); 
+      $this->eat_semis(); 
+    
   }
 
 
   private function yyn122() 
   {
-     $this->yyval = new TraitUse($this->yyastk[$this->yysp-(5-2)], $this->yyastk[$this->yysp-(5-4)], null); $this->eat_semis(); 
+     
+      $this->yyval = new TraitUse($this->yyastk[$this->yysp-(5-2)], $this->yyastk[$this->yysp-(5-4)], null); 
+      $this->eat_semis(); 
+    
   }
 
 
@@ -2427,37 +2478,55 @@ class Parser extends ParserBase
 
   private function yyn126() 
   {
-     $this->yyval = new TraitItem($this->yyastk[$this->yysp-(3-1)], $this->yyastk[$this->yysp-(3-2)], null, null); $this->eat_semis(); 
+     
+      $this->yyval = new TraitItem($this->yyastk[$this->yysp-(3-1)], $this->yyastk[$this->yysp-(3-2)], null, null); 
+      $this->eat_semis(); 
+    
   }
 
 
   private function yyn127() 
   {
-     $this->yyval = new TraitItem($this->yyastk[$this->yysp-(6-1)], $this->yyastk[$this->yysp-(6-2)], $this->yyastk[$this->yysp-(6-4)], $this->yyastk[$this->yysp-(6-6)]); $this->eat_semis(); 
+     
+      $this->yyval = new TraitItem($this->yyastk[$this->yysp-(6-1)], $this->yyastk[$this->yysp-(6-2)], $this->yyastk[$this->yysp-(6-4)], $this->yyastk[$this->yysp-(6-6)]); 
+      $this->eat_semis(); 
+    
   }
 
 
   private function yyn128() 
   {
-     $this->yyval = new TraitDecl($this->yyastk[$this->yysp-(5-2)], $this->yyastk[$this->yysp-(5-4)]); $this->eat_semis(); 
+     
+      $this->yyval = new TraitDecl($this->yyastk[$this->yysp-(5-2)], $this->yyastk[$this->yysp-(5-4)]); 
+      $this->eat_semis(); 
+    
   }
 
 
   private function yyn129() 
   {
-     $this->yyval = new TraitDecl($this->yyastk[$this->yysp-(3-2)], null); $this->eat_semis(); 
+     
+      $this->yyval = new TraitDecl($this->yyastk[$this->yysp-(3-2)], null); 
+      $this->eat_semis(); 
+    
   }
 
 
   private function yyn130() 
   {
-     $this->yyval = new IfaceDecl($this->yyastk[$this->yysp-(6-2)], $this->yyastk[$this->yysp-(6-3)], $this->yyastk[$this->yysp-(6-5)]); $this->eat_semis(); 
+     
+      $this->yyval = new IfaceDecl($this->yyastk[$this->yysp-(6-2)], $this->yyastk[$this->yysp-(6-3)], $this->yyastk[$this->yysp-(6-5)]); 
+      $this->eat_semis(); 
+    
   }
 
 
   private function yyn131() 
   {
-     $this->yyval = new IfaceDecl($this->yyastk[$this->yysp-(4-2)], $this->yyastk[$this->yysp-(4-3)], null); $this->eat_semis(); 
+     
+      $this->yyval = new IfaceDecl($this->yyastk[$this->yysp-(4-2)], $this->yyastk[$this->yysp-(4-3)], null); 
+      $this->eat_semis(); 
+    
   }
 
 
@@ -2523,13 +2592,19 @@ class Parser extends ParserBase
 
   private function yyn142() 
   {
-     $this->yyval = new LetDecl($this->yyastk[$this->yysp-(4-1)], $this->yyastk[$this->yysp-(4-3)]); $this->eat_semis(); 
+     
+      $this->yyval = new LetDecl($this->yyastk[$this->yysp-(4-1)], $this->yyastk[$this->yysp-(4-3)]); 
+      $this->eat_semis(); 
+    
   }
 
 
   private function yyn143() 
   {
-     $this->yyval = new VarDecl($this->yyastk[$this->yysp-(3-1)], $this->yyastk[$this->yysp-(3-2)]); $this->eat_semis(); 
+     
+      $this->yyval = new VarDecl($this->yyastk[$this->yysp-(3-1)], $this->yyastk[$this->yysp-(3-2)]); 
+      $this->eat_semis(); 
+    
   }
 
 
@@ -2553,13 +2628,19 @@ class Parser extends ParserBase
 
   private function yyn147() 
   {
-     $this->yyval = new FnDecl($this->yyastk[$this->yysp-(5-1)], $this->yyastk[$this->yysp-(5-3)], $this->yyastk[$this->yysp-(5-4)], null); $this->eat_semis(); 
+     
+      $this->yyval = new FnDecl($this->yyastk[$this->yysp-(5-1)], $this->yyastk[$this->yysp-(5-3)], $this->yyastk[$this->yysp-(5-4)], null); 
+      $this->eat_semis(); 
+    
   }
 
 
   private function yyn148() 
   {
-     $this->yyval = new FnDecl($this->yyastk[$this->yysp-(4-1)], $this->yyastk[$this->yysp-(4-3)], null, null); $this->eat_semis(); 
+     
+      $this->yyval = new FnDecl($this->yyastk[$this->yysp-(4-1)], $this->yyastk[$this->yysp-(4-3)], null, null); 
+      $this->eat_semis(); 
+    
   }
 
 
@@ -2595,7 +2676,11 @@ class Parser extends ParserBase
 
   private function yyn154() 
   {
-     $this->yyval = new Block([ new ReturnStmt($this->yyastk[$this->yysp-(3-2)]) ]); $this->eat_semis(); 
+     
+      /* FIXME */
+      $this->yyval = new Block([ new ReturnStmt($this->yyastk[$this->yysp-(3-2)]) ]); 
+      $this->eat_semis(); 
+    
   }
 
 
@@ -2607,7 +2692,10 @@ class Parser extends ParserBase
 
   private function yyn156() 
   {
-     $this->yyval = new Block([ new ReturnStmt($this->yyastk[$this->yysp-(2-2)]) ]); 
+     
+      /* FIXME */
+      $this->yyval = new Block([ new ReturnStmt($this->yyastk[$this->yysp-(2-2)]) ]); 
+    
   }
 
 
@@ -2619,7 +2707,10 @@ class Parser extends ParserBase
 
   private function yyn158() 
   {
-     $this->yyval = new Block([ new ReturnStmt($this->yyastk[$this->yysp-(2-2)]) ]); 
+     
+      /* FIXME */
+      $this->yyval = new Block([ new ReturnStmt($this->yyastk[$this->yysp-(2-2)]) ]); 
+    
   }
 
 
@@ -3189,13 +3280,19 @@ class Parser extends ParserBase
 
   private function yyn253() 
   {
-     $this->yyval = new ExprStmt($this->yyastk[$this->yysp-(2-1)]); $this->eat_semis(); 
+     
+      $this->yyval = new ExprStmt($this->yyastk[$this->yysp-(2-1)]); 
+      $this->eat_semis(); 
+    
   }
 
 
   private function yyn254() 
   {
-     $this->yyval = new ExprStmt(null); $this->eat_semis(); 
+     
+      $this->yyval = new ExprStmt(null); 
+      $this->eat_semis(); 
+    
   }
 
 

@@ -162,8 +162,16 @@ module_doc
   ;
   
 module_nst
-  : T_MODULE name '{' module_items_opt '}' { $$ = @Module($2, $4); $this->eat_semis(); }
-  | T_MODULE '{' module_items_opt '}'      { $$ = @Module(null, $3); $this->eat_semis(); }
+  : T_MODULE name '{' module_items_opt '}' 
+    { 
+      $$ = @Module($2, $4); 
+      $this->eat_semis(); 
+    }
+  | T_MODULE '{' module_items_opt '}'      
+    { 
+      $$ = @Module(null, $3); 
+      $this->eat_semis(); 
+    }
   ;
   
 module_items_opt
@@ -209,12 +217,24 @@ topex
   ;
   
 require
-  : T_REQUIRE rxpr ';'       { $$ = @RequireDecl(false, $2); $this->eat_semis(); }
-  | T_REQUIRE T_PHP rxpr ';' { $$ = @RequireDecl(true, $3); $this->eat_semis(); }
+  : T_REQUIRE rxpr ';'       
+    { 
+      $$ = @RequireDecl(false, $2); 
+      $this->eat_semis(); 
+    }
+  | T_REQUIRE T_PHP rxpr ';' 
+    { 
+      $$ = @RequireDecl(true, $3); 
+      $this->eat_semis(); 
+    }
   ;
 
 attr_decl
-  : '@' attr_def ';' T_NL { $$ = @AttrDecl($2); $this->eat_semis(); }
+  : '@' attr_def ';' T_NL 
+    { 
+      $$ = @AttrDecl($2); 
+      $this->eat_semis(); 
+    }
   ;
 
 comp_attr
@@ -237,9 +257,21 @@ attr_val
   ;
 
 use_decl
-  : T_USE use_name ';'               { $$ = @UseDecl($2); $this->eat_semis(); }
-  | T_USE use_name T_AS ident ';'    { $$ = @UseDecl(@UseAlias($2, $4)); $this->eat_semis(); }
-  | T_USE use_name '{' use_items '}' { $$ = @UseDecl(@UseUnpack($2, $4)); $this->eat_semis(); }
+  : T_USE use_name ';'               
+    { 
+      $$ = @UseDecl($2); 
+      $this->eat_semis(); 
+    }
+  | T_USE use_name T_AS ident ';'    
+    { 
+      $$ = @UseDecl(@UseAlias($2, $4)); 
+      $this->eat_semis(); 
+    }
+  | T_USE use_name '{' use_items '}' 
+    { 
+      $$ = @UseDecl(@UseUnpack($2, $4)); 
+      $this->eat_semis(); 
+    }
   ;
   
 use_items
@@ -281,7 +313,11 @@ mod
   ;
 
 enum_decl
-  : mods_opt T_ENUM '{' vars_opt '}' { $$ = @EnumDecl($1, $4); $this->eat_semis(); }
+  : mods_opt T_ENUM '{' vars_opt '}' 
+    { 
+      $$ = @EnumDecl($1, $4); 
+      $this->eat_semis(); 
+    }
   ;
   
 vars_opt
@@ -326,9 +362,15 @@ destr_item
 
 class_decl
   : mods_opt T_CLASS ident ext_opt impl_opt '{' members_opt '}'
-      { $$ = @ClassDecl($1, $3, $4, $5, $7); $this->eat_semis(); }
+    { 
+      $$ = @ClassDecl($1, $3, $4, $5, $7); 
+      $this->eat_semis(); 
+    }
   | mods_opt T_CLASS ident ext_opt impl_opt ';'               
-      { $$ = @ClassDecl($1, $3, $4, $5, null); $this->eat_semis(); }
+    { 
+      $$ = @ClassDecl($1, $3, $4, $5, null); 
+      $this->eat_semis(); 
+    }
   ;
   
 ext_opt
@@ -385,20 +427,44 @@ member
   | var_decl                           { $$ = $1; }
   | enum_decl                          { $$ = $1; }
   | trait_usage                        { $$ = $1; }
-  | mods_opt T_NEW pparams ';'         { $$ = @CtorDecl($1, $3, null); $this->eat_semis(); }
+  | mods_opt T_NEW pparams ';'         
+    { 
+      $$ = @CtorDecl($1, $3, null); 
+      $this->eat_semis(); 
+    }
   | mods_opt T_NEW pparams block       { $$ = @CtorDecl($1, $3, $4); }
-  | mods_opt T_DEL pparams ';'         { $$ = @DtorDecl($1, $3, null); $this->eat_semis(); }
+  | mods_opt T_DEL pparams ';'         
+    { 
+      $$ = @DtorDecl($1, $3, null); 
+      $this->eat_semis(); 
+    }
   | mods_opt T_DEL pparams block       { $$ = @DtorDecl($1, $3, $4); }
   | T_GET ident pparams block          { $$ = @GetterDecl($2, $3, $4); }
-  | T_GET ident pparams T_ARR rxpr ';' { $$ = @GetterDecl($2, $3, $5); $this->eat_semis(); }
+  | T_GET ident pparams T_ARR rxpr ';' 
+    { 
+      $$ = @GetterDecl($2, $3, $5); 
+      $this->eat_semis(); 
+    }
   | T_SET ident pparams block          { $$ = @SetterDecl($2, $3, $4); }
-  | T_SET ident pparams T_ARR rxpr ';' { $$ = @GetterDecl($2, $3, $5); $this->eat_semis(); }
+  | T_SET ident pparams T_ARR rxpr ';' 
+    { 
+      $$ = @GetterDecl($2, $3, $5); 
+      $this->eat_semis(); 
+    }
   | mods '{' members_opt '}'           { $$ = @NestedMods($1, $3); }
   ;
   
 trait_usage
-  : T_USE name ';'                       { $$ = @TraitUse($2, null, null); $this->eat_semis(); }
-  | T_USE name T_AS ident ';'            { $$ = @TraitUse($2, $4, null); $this->eat_semis(); }
+  : T_USE name ';'                       
+    { 
+      $$ = @TraitUse($2, null, null); 
+      $this->eat_semis(); 
+    }
+  | T_USE name T_AS ident ';'            
+    { 
+      $$ = @TraitUse($2, $4, null); 
+      $this->eat_semis(); 
+    }
   | T_USE name '{' trait_usage_items '}' { $$ = @TraitUse($2, null, $4); }
   ;
   
@@ -409,21 +475,41 @@ trait_usage_items
   
 trait_usage_item
   : mods_opt ident ';'                     
-      { $$ = @TraitItem($1, $2, null, null); $this->eat_semis(); }
+    { 
+      $$ = @TraitItem($1, $2, null, null); 
+      $this->eat_semis(); 
+    }
   | mods_opt ident T_AS mods_opt ident ';' 
-      { $$ = @TraitItem($1, $2, $4, $6); $this->eat_semis(); }
+    { 
+      $$ = @TraitItem($1, $2, $4, $6); 
+      $this->eat_semis(); 
+    }
   ;
   
 trait_decl
-  : T_TRAIT ident '{' members_opt '}' { $$ = @TraitDecl($2, $4); $this->eat_semis(); }
-  | T_TRAIT ident ';'                 { $$ = @TraitDecl($2, null); $this->eat_semis(); } /* allowed? */
+  : T_TRAIT ident '{' members_opt '}' 
+    { 
+      $$ = @TraitDecl($2, $4); 
+      $this->eat_semis(); 
+    }
+  | T_TRAIT ident ';'  /* allowed? */
+    { 
+      $$ = @TraitDecl($2, null); 
+      $this->eat_semis(); 
+    }
   ;
 
 iface_decl
   : T_IFACE ident exts_opt '{' members_opt '}' 
-      { $$ = @IfaceDecl($2, $3, $5); $this->eat_semis(); }
-  | T_IFACE ident exts_opt ';'                
-      { $$ = @IfaceDecl($2, $3, null); $this->eat_semis(); } /* allowed? */
+    { 
+      $$ = @IfaceDecl($2, $3, $5); 
+      $this->eat_semis(); 
+    }
+  | T_IFACE ident exts_opt ';' /* allowed? */                
+    { 
+      $$ = @IfaceDecl($2, $3, null); 
+      $this->eat_semis(); 
+    } 
   ;
 
 inner
@@ -446,11 +532,19 @@ decl
   ;
 
 let_decl
-  : mods_opt T_LET vars ';' { $$ = @LetDecl($1, $3); $this->eat_semis(); }
+  : mods_opt T_LET vars ';' 
+    { 
+      $$ = @LetDecl($1, $3); 
+      $this->eat_semis(); 
+    }
   ;
 
 var_decl
-  : mods vars ';' { $$ = @VarDecl($1, $2); $this->eat_semis(); }
+  : mods vars ';' 
+    { 
+      $$ = @VarDecl($1, $2); 
+      $this->eat_semis(); 
+    }
   ;
   
 let_decl_noin_nosemi 
@@ -463,8 +557,16 @@ var_decl_noin_nosemi
 
 fn_decl
   : mods_opt T_FN ident pparams fn_decl_body { $$ = @FnDecl($1, $3, $4, $5); }
-  | mods_opt T_FN ident pparams ';'          { $$ = @FnDecl($1, $3, $4, null); $this->eat_semis(); }
-  | mods_opt T_FN ident ';'                  { $$ = @FnDecl($1, $3, null, null); $this->eat_semis(); }
+  | mods_opt T_FN ident pparams ';'
+    { 
+      $$ = @FnDecl($1, $3, $4, null); 
+      $this->eat_semis(); 
+    }
+  | mods_opt T_FN ident ';'
+    { 
+      $$ = @FnDecl($1, $3, null, null); 
+      $this->eat_semis(); 
+    }
   ;
   
 fn_expr
@@ -479,17 +581,30 @@ fn_expr_noin
   
 fn_decl_body
   : block          { $$ = $1; }
-  | T_ARR rxpr ';' { $$ = @Block([ @ReturnStmt($2) ]); $this->eat_semis(); }
+  | T_ARR rxpr ';' 
+    { 
+      /* FIXME */
+      $$ = @Block([ @ReturnStmt($2) ]); 
+      $this->eat_semis(); 
+    }
   ;
   
 fn_expr_body
   : block      { $$ = $1; }
-  | T_ARR rxpr { $$ = @Block([ @ReturnStmt($2) ]); }
+  | T_ARR rxpr 
+    { 
+      /* FIXME */
+      $$ = @Block([ @ReturnStmt($2) ]); 
+    }
   ;
   
 fn_expr_body_noin
   : block           { $$ = $1; }
-  | T_ARR rxpr_noin { $$ = @Block([ @ReturnStmt($2) ]); }
+  | T_ARR rxpr_noin 
+    { 
+      /* FIXME */
+      $$ = @Block([ @ReturnStmt($2) ]); 
+    }
   ;
 
 pparams
@@ -531,39 +646,39 @@ hint
   ;
   
 stmt
-  : block                                                     { $$ = $1; }
-  | T_DO stmt T_WHILE pxpr ';'                                { $$ = @DoStmt($2, $4); }
-  | T_IF pxpr stmt elsifs_opt else_opt                        { $$ = @IfStmt($2, $3, $4, $5); }
-  | T_FOR '(' let_decl_noin_nosemi T_IN rxpr ')' stmt         { $$ = @ForInStmt($3, $5, $7); }
-  | T_FOR '(' var_decl_noin_nosemi T_IN rxpr ')' stmt         { $$ = @ForInStmt($3, $5, $7); }
-  | T_FOR '(' rseq_noin T_IN rxpr ')' stmt                    { $$ = @ForInStmt($3, $5, $7); }
-  | T_FOR '(' for_expr_noin for_expr ')' stmt                 { $$ = @ForStmt($3, $4, null, $6); }
-  | T_FOR '(' for_expr_noin for_expr rseq ')' stmt            { $$ = @ForStmt($3, $4, $5, $7); }
-  | T_FOR '(' error ')' stmt                                  { $$ = null; }
-  | T_FOR block                                               { $$ = @ForStmt(null, null, null, $2); }
-  | T_TRY block                                               { $$ = @TryStmt($2, null, null); }
-  | T_TRY block catches                                       { $$ = @TryStmt($2, $3, null); }
-  | T_TRY block finally                                       { $$ = @TryStmt($2, null, $3); }
-  | T_TRY block catches finally                               { $$ = @TryStmt($2, $3, $4); }
-  | T_PHP '{' php_usage_opt str '}'                           { $$ = @PhpStmt($3, $4); }
-  | T_GOTO ident ';'                                          { $$ = @GotoStmt($2); }
-  | T_TEST block                                              { $$ = @TestStmt(null, $2); }
-  | T_TEST str block                                          { $$ = @TestStmt($2, $3); }
-  | T_BREAK ';'                                               { $$ = @BreakStmt(null); }
-  | T_BREAK ident ';'                                         { $$ = @BreakStmt($2); }
-  | T_CONTINUE ';'                                            { $$ = @ContinueStmt(null); }
-  | T_CONTINUE ident ';'                                      { $$ = @ContinueStmt($2); }
-  | T_THROW rxpr ';'                                          { $$ = @ThrowStmt($2); }
-  | T_WHILE pxpr stmt                                         { $$ = @WhileStmt($2, $3); }
-  | T_YIELD rxpr ';'                                          { $$ = @YieldStmt($2); }
-  | T_ASSERT rxpr ';'                                         { $$ = @AssertStmt($2, null); }
-  | T_ASSERT rxpr ':' str ';'                                 { $$ = @AssertStmt($2, $4); }
-  | T_SWITCH pxpr '{' cases '}'                               { $$ = @SwitchStmt($2, $4); }
-  | T_RETURN rxpr ';'                                         { $$ = @ReturnStmt($2); }
-  | T_RETURN ';'                                              { $$ = @ReturnStmt(null); }
-  | ident ':' comp                                            { $$ = @LabeledStmt($1, $3); }
-  | lxpr_stmt                                                 { $$ = $1; }
-  | error ';'                                                 { $$ = null; }
+  : block                                             { $$ = $1; }
+  | T_DO stmt T_WHILE pxpr ';'                        { $$ = @DoStmt($2, $4); }
+  | T_IF pxpr stmt elsifs_opt else_opt                { $$ = @IfStmt($2, $3, $4, $5); }
+  | T_FOR '(' let_decl_noin_nosemi T_IN rxpr ')' stmt { $$ = @ForInStmt($3, $5, $7); }
+  | T_FOR '(' var_decl_noin_nosemi T_IN rxpr ')' stmt { $$ = @ForInStmt($3, $5, $7); }
+  | T_FOR '(' rseq_noin T_IN rxpr ')' stmt            { $$ = @ForInStmt($3, $5, $7); }
+  | T_FOR '(' for_expr_noin for_expr ')' stmt         { $$ = @ForStmt($3, $4, null, $6); }
+  | T_FOR '(' for_expr_noin for_expr rseq ')' stmt    { $$ = @ForStmt($3, $4, $5, $7); }
+  | T_FOR '(' error ')' stmt                          { $$ = null; }
+  | T_FOR block                                       { $$ = @ForStmt(null, null, null, $2); }
+  | T_TRY block                                       { $$ = @TryStmt($2, null, null); }
+  | T_TRY block catches                               { $$ = @TryStmt($2, $3, null); }
+  | T_TRY block finally                               { $$ = @TryStmt($2, null, $3); }
+  | T_TRY block catches finally                       { $$ = @TryStmt($2, $3, $4); }
+  | T_PHP '{' php_usage_opt str '}'                   { $$ = @PhpStmt($3, $4); }
+  | T_GOTO ident ';'                                  { $$ = @GotoStmt($2); }
+  | T_TEST block                                      { $$ = @TestStmt(null, $2); }
+  | T_TEST str block                                  { $$ = @TestStmt($2, $3); }
+  | T_BREAK ';'                                       { $$ = @BreakStmt(null); }
+  | T_BREAK ident ';'                                 { $$ = @BreakStmt($2); }
+  | T_CONTINUE ';'                                    { $$ = @ContinueStmt(null); }
+  | T_CONTINUE ident ';'                              { $$ = @ContinueStmt($2); }
+  | T_THROW rxpr ';'                                  { $$ = @ThrowStmt($2); }
+  | T_WHILE pxpr stmt                                 { $$ = @WhileStmt($2, $3); }
+  | T_YIELD rxpr ';'                                  { $$ = @YieldStmt($2); }
+  | T_ASSERT rxpr ';'                                 { $$ = @AssertStmt($2, null); }
+  | T_ASSERT rxpr ':' str ';'                         { $$ = @AssertStmt($2, $4); }
+  | T_SWITCH pxpr '{' cases '}'                       { $$ = @SwitchStmt($2, $4); }
+  | T_RETURN rxpr ';'                                 { $$ = @ReturnStmt($2); }
+  | T_RETURN ';'                                      { $$ = @ReturnStmt(null); }
+  | ident ':' comp                                    { $$ = @LabeledStmt($1, $3); }
+  | lxpr_stmt                                         { $$ = $1; }
+  | error ';'                                         { $$ = null; }
   ;
   
 for_expr
@@ -665,18 +780,26 @@ block
   ;
  
 lxpr_stmt
-  : lseq ';' { $$ = @ExprStmt($1); $this->eat_semis(); }
-  | ';'      { $$ = @ExprStmt(null); $this->eat_semis(); }
+  : lseq ';' 
+    { 
+      $$ = @ExprStmt($1); 
+      $this->eat_semis(); 
+    }
+  | ';' 
+    { 
+      $$ = @ExprStmt(null); 
+      $this->eat_semis(); 
+    }
   ;
 
 rxpr_stmt
-  : rseq ';' { $$ = @ExprStmt($1); } /* no eat_semis() */
-  | ';'      { $$ = @ExprStmt(null); } /* no eat_semis() */
+  : rseq ';' { $$ = @ExprStmt($1); }
+  | ';'      { $$ = @ExprStmt(null); }
   ;
 
 rxpr_stmt_noin
-  : rseq_noin ';' { $$ = @ExprStmt($1); } /* no eat_semis() */
-  | ';'           { $$ = @ExprStmt(null); } /* no eat_semis() */
+  : rseq_noin ';' { $$ = @ExprStmt($1); }
+  | ';'           { $$ = @ExprStmt(null); }
   ;
 
 lseq
@@ -967,7 +1090,8 @@ atom
   ;
  
 reg
-  : '/' { $this->lex->scan_regexp($1); } T_REGEXP %prec '!' { $$ = @RegexpLit($3->value); }
+  : '/'                { $this->lex->scan_regexp($1); } 
+    T_REGEXP %prec '!' { $$ = @RegexpLit($3->value); }
   ;
   
 name
