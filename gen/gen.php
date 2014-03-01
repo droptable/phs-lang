@@ -41,10 +41,7 @@ function alias($name) {
 $I = __DIR__ . '/parser.y';
 $O = __DIR__ . '/parser-tmp.y';
 
-$data = file_get_contents($I);
-
-class Context 
-{ 
+class Context { 
   public $buf, $len, $idx, $use;
   public $req, $imp; 
   public $opts;
@@ -57,6 +54,8 @@ if (isset ($ctx->opts['?']) ||
     isset ($ctx->opts['-h']) ||
     isset ($ctx->opts['--help']))
   usage();
+
+$data = file_get_contents($I);
 
 // prepare context
 prepare($data, $ctx);
