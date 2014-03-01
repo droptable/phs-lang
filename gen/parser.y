@@ -968,7 +968,7 @@ atom
   ;
  
 reg
-  : '/' { $this->lex->scan_regexp($1); } T_REGEXP %prec '~' { $$ = @RegexpLit($3->value); }
+  : '/' { $this->lex->scan_regexp($1); } T_REGEXP %prec '!' { $$ = @RegexpLit($3->value); }
   ;
   
 name
