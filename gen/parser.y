@@ -12,24 +12,23 @@
 %expect 3
 
 %left ','
-%left T_APLUS 
-      T_AMINUS 
-      T_AMUL 
-      T_ADIV
-      T_AMOD
-      T_APOW
-      T_ABIT_NOT 
-      T_ABIT_OR 
-      T_ABIT_AND 
-      T_ABIT_XOR
-      T_ABOOL_OR 
-      T_ABOOL_AND
-      T_ABOOL_XOR
-      T_ASHIFT_L
-      T_ASHIFT_R 
-      '='
-%right T_RANGE
-%right T_YIELD
+%right T_APLUS 
+       T_AMINUS 
+       T_AMUL 
+       T_ADIV
+       T_AMOD
+       T_APOW
+       T_ABIT_NOT 
+       T_ABIT_OR 
+       T_ABIT_AND 
+       T_ABIT_XOR
+       T_ABOOL_OR 
+       T_ABOOL_AND
+       T_ABOOL_XOR
+       T_ASHIFT_L
+       T_ASHIFT_R 
+       '='
+%right T_RANGE T_YIELD T_THROW
 %right '?' ':'
 %left T_BOOL_OR
 %left T_BOOL_XOR
@@ -38,19 +37,20 @@
 %left '^'
 %left '&'
 %left T_EQ T_NEQ
-%left T_IN T_IS T_ISNT T_GTE T_LTE '>' '<'
+%nonassoc T_IN T_IS T_ISNT T_GTE T_LTE '>' '<'
 %left T_SL T_SR
-/* '~' is used in concat (binary) and bitwise-not (unary) */
 %left '+' '-' '~'
 %left '*' '/' '%'
 %right T_POW
-%left T_AS T_ARR T_REST
+%right T_AS 
+%right T_REST
 %right T_DEL
+%right T_INC T_DEC
 %right '!' 
-%nonassoc T_INC T_DEC
 %right T_NEW
-%left '.' T_DDDOT '[' ']'
-%nonassoc '(' ')'
+%left '.' '[' ']'
+%nonassoc '(' ')' T_ARR
+%nonassoc T_DDDOT
 
 %token T_FN
 %token T_LET
@@ -86,7 +86,6 @@
 %token T_GOTO
 %token T_BREAK
 %token T_CONTINUE
-%token T_THROW
 %token T_CATCH
 %token T_FINALLY
 %token T_WHILE
@@ -726,8 +725,8 @@ lxpr
   | lxpr T_IS type_name     { $$ = @CheckExpr($1, $2, $3); }
   | lxpr T_ISNT type_name   { $$ = @CheckExpr($1, $2, $3); }
   | lxpr T_AS type_name     { $$ = @CastExpr($1, $3); }
-  | lxpr T_INC              { $$ = @UpdateExpr(false, $1, $2); }
-  | lxpr T_DEC              { $$ = @UpdateExpr(false, $1, $2); }
+  | lxpr T_INC %prec '.'    { $$ = @UpdateExpr(false, $1, $2); }
+  | lxpr T_DEC %prec '.'    { $$ = @UpdateExpr(false, $1, $2); }
   | lxpr '=' rxpr           { $$ = @AssignExpr($1, $2, $3); }
   | lxpr T_APLUS rxpr       { $$ = @AssignExpr($1, $2, $3); }
   | lxpr T_AMINUS rxpr      { $$ = @AssignExpr($1, $2, $3); }
@@ -755,8 +754,8 @@ lxpr
   | '+' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
   | '~' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
   | '!' rxpr                { $$ = @UnaryExpr($1, $2); }
-  | T_INC rxpr              { $$ = @UpdateExpr(true, $2, $1); }
-  | T_DEC rxpr              { $$ = @UpdateExpr(true, $2, $1); }
+  | T_INC rxpr %prec '!'    { $$ = @UpdateExpr(true, $2, $1); }
+  | T_DEC rxpr %prec '!'    { $$ = @UpdateExpr(true, $2, $1); }
   | T_NEW type              { $$ = @NewExpr($1, null); }
   | T_NEW type pargs        { $$ = @NewExpr($1, $2); }
   | T_NEW nxpr              { $$ = @NewExpr($1, null); }
@@ -796,8 +795,8 @@ rxpr
   | rxpr T_IS type_name     { $$ = @CheckExpr($1, $2, $3); }
   | rxpr T_ISNT type_name   { $$ = @CheckExpr($1, $2, $3); }
   | rxpr T_AS type_name     { $$ = @CastExpr($1, $3); }
-  | rxpr T_INC              { $$ = @UpdateExpr(false, $1, $2); }
-  | rxpr T_DEC              { $$ = @UpdateExpr(false, $1, $2); }
+  | rxpr T_INC %prec '.'    { $$ = @UpdateExpr(false, $1, $2); }
+  | rxpr T_DEC %prec '.'    { $$ = @UpdateExpr(false, $1, $2); }
   | rxpr '=' rxpr           { $$ = @AssignExpr($1, $2, $3); }
   | rxpr T_APLUS rxpr       { $$ = @AssignExpr($1, $2, $3); }
   | rxpr T_AMINUS rxpr      { $$ = @AssignExpr($1, $2, $3); }
@@ -826,8 +825,8 @@ rxpr
   | '+' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
   | '~' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
   | '!' rxpr                { $$ = @UnaryExpr($1, $2); }
-  | T_INC rxpr              { $$ = @UpdateExpr(true, $2, $1); }
-  | T_DEC rxpr              { $$ = @UpdateExpr(true, $2, $1); }
+  | T_INC rxpr %prec '!'    { $$ = @UpdateExpr(true, $2, $1); }
+  | T_DEC rxpr %prec '!'    { $$ = @UpdateExpr(true, $2, $1); }
   | T_NEW type              { $$ = @NewExpr($1, null); }
   | T_NEW type pargs        { $$ = @NewExpr($1, $2); }
   | T_NEW nxpr              { $$ = @NewExpr($1, null); }
@@ -868,8 +867,8 @@ rxpr_noin
   | rxpr_noin T_IS type_name          { $$ = @CheckExpr($1, $2, $3); }
   | rxpr_noin T_ISNT type_name        { $$ = @CheckExpr($1, $2, $3); }
   | rxpr_noin T_AS type_name          { $$ = @CastExpr($1, $3); }
-  | rxpr_noin T_INC                   { $$ = @UpdateExpr(false, $1, $2); }
-  | rxpr_noin T_DEC                   { $$ = @UpdateExpr(false, $1, $2); }
+  | rxpr_noin T_INC %prec '.'         { $$ = @UpdateExpr(false, $1, $2); }
+  | rxpr_noin T_DEC %prec '.'         { $$ = @UpdateExpr(false, $1, $2); }
   | rxpr_noin '=' rxpr_noin           { $$ = @AssignExpr($1, $2, $3); }
   | rxpr_noin T_APLUS rxpr_noin       { $$ = @AssignExpr($1, $2, $3); }
   | rxpr_noin T_AMINUS rxpr_noin      { $$ = @AssignExpr($1, $2, $3); }
@@ -898,8 +897,8 @@ rxpr_noin
   | '+' rxpr_noin %prec '!'           { $$ = @UnaryExpr($1, $2); }
   | '~' rxpr_noin %prec '!'           { $$ = @UnaryExpr($1, $2); }
   | '!' rxpr_noin                     { $$ = @UnaryExpr($1, $2); }
-  | T_INC rxpr_noin                   { $$ = @UpdateExpr(true, $2, $1); }
-  | T_DEC rxpr_noin                   { $$ = @UpdateExpr(true, $2, $1); }
+  | T_INC rxpr_noin %prec '!'         { $$ = @UpdateExpr(true, $2, $1); }
+  | T_DEC rxpr_noin %prec '!'         { $$ = @UpdateExpr(true, $2, $1); }
   | T_NEW type                        { $$ = @NewExpr($1, null); }
   | T_NEW type pargs                  { $$ = @NewExpr($1, $2); }
   | T_NEW nxpr                        { $$ = @NewExpr($1, null); }
