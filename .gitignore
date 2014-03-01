@@ -1,7 +1,9 @@
 gen/y.output
 gen/parser-tmp.y
 gen/kmyacc.exe
+bin/test.bat
 bin/test.log
 bin/test.phs
 bin/test.php
+test/
 lib/
