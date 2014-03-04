@@ -7,6 +7,7 @@ namespace phs;
  * See: gen/gen.php
  */
 require_once 'ast/node.php';
+require_once 'ast/expr.php';
 require_once 'ast/unit.php';
 require_once 'ast/module.php';
 require_once 'ast/program.php';

@@ -32,6 +32,16 @@ function name_to_stra(Name $name) {
 }
 
 /**
+ * returns a string-representation of a name
+ * 
+ * @param Name $name
+ * @return string
+ */
+function name_to_str(Name $name) {
+  return implode('::', name_to_stra($name));
+}
+
+/**
  * converts symbol-flags to a readable string
  * 
  * @param  int $flags

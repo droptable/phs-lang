@@ -14,6 +14,7 @@ const
   T_DIV = 47,      // '/'
   T_MUL = 42,      // '*'
   T_MOD = 37,      // '%'
+  T_CONCAT = 126,  // '~'
   T_BIT_NOT = 126, // '~'
   T_BIT_OR = 124,  // '|'
   T_BIT_AND = 38,  // '&'
@@ -703,6 +704,7 @@ class Lexer
     '__php__' => T_PHP,
     '__test__' => T_TEST,
     
+    '__dir__' => T_CDIR,
     '__file__' => T_CFILE,
     '__line__' => T_CLINE,
     '__coln__' => T_CCOLN,

@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class YieldExpr extends Node
+class YieldExpr extends Expr
 {
   public $expr;
   

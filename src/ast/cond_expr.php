@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class CondExpr extends Node
+class CondExpr extends Expr
 {
   public $test;
   public $then;

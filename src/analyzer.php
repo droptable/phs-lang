@@ -6,6 +6,7 @@ require_once 'utils.php';
 require_once 'walker.php';
 require_once 'symbol.php';
 require_once 'reducer.php';
+require_once 'validator.php';
 
 use phs\ast\Unit;
 use phs\ast\Name;
@@ -14,6 +15,9 @@ class Analyzer extends Walker
 {
   // context
   private $ctx;
+  
+  // the compiler
+  private $com;
   
   // current scope
   private $scope;
@@ -36,16 +40,24 @@ class Analyzer extends Walker
   // reducer used to handle constant-expressions
   private $rdc;
   
+  // validation state
+  private $valid;
+  
+  // a value carried around to reduce constant-expressions
+  private $value;
+  
   /**
    * constructor
    * 
    * @param Context $ctx
    */
-  public function __construct(Context $ctx)
+  public function __construct(Context $ctx, Compiler $com)
   {
     parent::__construct($ctx);
     $this->ctx = $ctx;
-    $this->rdc = new Reducer($this->ctx);
+    $this->com = $com;
+    // $this->rdc = new Reducer($this->ctx);
+    // $this->vld = new Validator($this->ctx);
   }
   
   /**
@@ -61,6 +73,7 @@ class Analyzer extends Walker
     $this->mstack = [];
     $this->flags = SYM_FLAG_NONE;
     $this->fstack = [];
+    $this->valid = true;
     
     $this->walk($unit);
   }
@@ -332,10 +345,10 @@ class Analyzer extends Walker
       $val = null;
       
       if ($member->init !== null) {
-        $val = $this->reduce($member->init);
+        $val = $this->handle_expr($member->init);
         
         if ($val->kind === VAL_KIND_UNKNOWN) {
-          $this->error_at($member->init->loc, ERR_ERROR, 'enum members must have constant values');
+          $this->error_at($member->init->loc, ERR_ERROR, 'enum member-initalizer must be reducible to constant value');
           continue;
         }
         
@@ -505,6 +518,57 @@ class Analyzer extends Walker
       return $this->drop();
     }
     
+    $path = $path->value;
+    
+    require_once 'parser.php';
+    require_once 'source.php';
+    
+    // require is always relative, except if the path starts with an '/'
+    // or on windows [letter]:/ or [letter]:\
+    static $abs_re_nix = '/^\//';
+    static $abs_re_win = '/^(?:[a-z]:)?(?:\/|\\\\)/i';
+    
+    /*
+    print "path: $path\n";
+    var_dump(preg_match($abs_re_nix, $path));
+    var_dump(preg_match($abs_re_win, $path));
+    */
+    
+    if (!preg_match((PHP_OS === 'WINNT') ? $abs_re_win : $abs_re_nix, $path))
+      // make realtive path
+      $path = dirname($node->loc->file) . DIRECTORY_SEPARATOR . $path;
+    
+    switch (substr(strrchr($path, '.'), 1)) {
+      case 'phs': case 'phm';
+        break;
+      
+      default:
+        // try 'phm', then fallback to 'phs'
+        if (!is_file($path . '.phm'))
+          $path .= '.phs';
+    }
+    
+    if (!is_file($path)) {
+      $this->error_at($node->loc, ERR_ERROR, 'unable to import file "%s"', $path);
+      return $this->drop();
+    }
+    
+    // cache parser?
+    $psr = new Parser($this->ctx);
+    $src = new FileSource($path);
+    
+    $ast = $psr->parse_source($src);
+    
+    if ($ast) {
+      $ast->dest = $src->get_dest();
+      $anl = new Analyzer($this->ctx);
+      
+      // analyze unit
+      $anl->analyze($ast);
+          
+      // add it to the compiler
+      $this->com->add_unit($ast);
+    }
   }
   
   /* ------------------------------------ */
@@ -516,15 +580,19 @@ class Analyzer extends Walker
    */
   protected function handle_params($params)
   {
+    $error = false;
+    
     foreach ($params as $param) {
       $kind = $param->kind();
       
-      if ($kind === 'param' || $kind === 'rest_param') {
+      if ($kind === 'param' || $kind === 'rest_param') {        
         $flags = SYM_FLAG_NONE;
         
         if ($param->mods !== null) {
-          if (!$this->check_mods($param->mods))
+          if (!$this->check_mods($param->mods)) {
+            $error = true;
             continue;
+          }
           
           $flags = mods_to_symflags($param->mods, $flags);
         }
@@ -532,9 +600,12 @@ class Analyzer extends Walker
         $pid = ident_to_str($param->id);
         $sym = new VarSym($pid, new Value(VAL_KIND_UNKNOWN), $flags, $param->loc);
         
-        $this->add_symbol($pid, $sym);  
+        if (!$this->add_symbol($pid, $sym))
+          $error = true;  
       }
     }
+    
+    return !$error;
   }
   
   /**
@@ -567,6 +638,13 @@ class Analyzer extends Walker
       elseif ($kind === 'this_param' && !$athis) {
         $seen_error = true;
         $this->error_at($param->loc, ERR_ERROR, 'this-parameter not allowed here');
+        $this->error_at($param->loc, ERR_INFO, 'only contructor-methods can handle this-parameters');
+      }
+      
+      elseif ($seen_rest) {
+        $seen_error = true;
+        $this->error_at($param->loc, 'parameter after rest-parameter');
+        $this->error_at($rest_loc, ERR_INIO, 'rest-parameter was here');
       }
     }
     
@@ -585,7 +663,13 @@ class Analyzer extends Walker
     switch ($var->kind()) {
       case 'ident':
         $vid = ident_to_str($var);
-        $val = $this->reduce($init);
+        $val = $this->handle_expr($init);
+        
+        if ($val->kind === VAL_KIND_UNKNOWN && $flags & SYM_FLAG_CONST) {
+          $this->error_at($var->loc, ERR_ERROR, 'constant variables must be reducible at compile-time');
+          return false;
+        }
+        
         $sym = new VarSym($vid, $val, $flags, $var->loc);
         return $this->add_symbol($vid, $sym);
       case 'obj_destr':
@@ -706,6 +790,8 @@ class Analyzer extends Walker
     foreach ($impl as $imp) {
       
     }
+    
+    return true;
   }
   
   /**
@@ -783,13 +869,964 @@ class Analyzer extends Walker
   }
   
   /* ------------------------------------ */
-    
-  private function reduce($expr = null)
+  
+  protected function handle_expr($expr)
   {
-    if ($expr === null)
-      return new Value(VAL_KIND_NULL);
+    $this->walk_some($expr);
+    return $this->value;
+  }
+  
+  /* ------------------------------------ */
+  
+  protected function visit_expr_stmt($node)
+  {
+    $this->handle_expr($node->expr);
+  }
+  
+  protected function visit_bin_expr($node) 
+  {
+    $lhs = $this->handle_expr($node->left);
+    $rhs = $this->handle_expr($node->right);
+    
+    if ($lhs->kind !== VAL_KIND_UNKNOWN) {
+      // optimize for the translator
+      $node->left->value = $lhs;
       
-    return $this->rdc->reduce($expr, $this->scope, $this->module);
+      if ($rhs->kind !== VAL_KIND_UNKNOWN) {
+        // store the value anyway
+        $node->right->value = $rhs;
+        // reduce
+        $this->reduce_bin_expr($lhs, $node->op, $rhs, $node->loc);
+        goto out;
+      }
+    }
+    
+    $this->value = new Value(VAL_KIND_UNKNOWN);
+    out:
+  }
+  
+  protected function reduce_bin_expr($lhs, $op, $rhs, $loc) 
+  {
+    // 1. string-concat
+    if ($op->type === T_CONCAT)
+      // string-concat
+      $this->value = new Value(VAL_KIND_STR, $lhs->value . $rhs->value);
+    
+    // 2. arithmetic operators
+    elseif ($op->type === T_PLUS ||
+            $op->type === T_MINUS ||
+            $op->type === T_MUL ||
+            $op->type === T_DIV ||
+            $op->type === T_MOD ||
+            $op->type === T_POW) 
+    {
+      $lval = $rval = $cval = 0;
+    
+      // cast left-hand-side to INT if necessary
+      if ($lhs->kind !== VAL_KIND_DNUM &&
+          $lhs->kind !== VAL_KIND_LNUM)
+        $lval = (int) $lhs->value;
+      else
+        $lval = $lhs->value;
+      
+      // cast right-hand-side to INT if necessary
+      if ($rhs->kind !== VAL_KIND_DNUM &&
+          $rhs->kind !== VAL_KIND_LNUM)
+        $rval = (int) $rhs->value;
+      else
+        $rval = $rhs->value;
+      
+      // result is a dnum, otherwise lnum (ignored if T_MOD -> php "bug")
+      $kind = $op->type !== T_MOD && (
+                $lhs->kind === VAL_KIND_DNUM ||
+                $rhs->kind === VAL_KIND_DNUM
+              ) ? VAL_KIND_DNUM : VAL_KIND_LNUM;
+      
+      switch ($op->type) {
+        case T_PLUS:
+          $cval = $lval + $rval;
+          break;
+        case T_MINUS:
+          $cval = $lval - $rval;
+          break;
+        case T_MUL:
+          $cval = $lval * $rval;
+          break;
+        case T_DIV:
+        case T_MOD:
+          if ($rval == 0) { // compare by value-only
+            $this->error_at($loc, ERR_ERROR, 'division by zero');  
+            // this is php-thing
+            $kind = VAL_KIND_BOOL;
+            $cval = false;
+          } else
+            if ($op->type === T_MOD)
+              $cval = $lval % $rval;
+            else
+              $cval = $lcal / $rval;
+          
+          break;
+        case T_POW:
+          $cval = pow($lval, $rval);
+      }
+      
+      $this->value = new Value($kind, $cval);
+    }
+          
+    // 3. bitwise operators
+    elseif ($op->type === T_BIT_AND ||
+            $op->type === T_BIT_OR ||
+            $op->type === T_BIT_XOR)
+    {
+      $lval = $rval = $cval = 0;
+      
+      // cast left-hand-side to INT
+      if ($lhs->kind !== VAL_KIND_LNUM)
+        $lval = (int) $lhs->value;
+      else
+        $lval = $lhs->value;
+      
+      // cast right-hand-side to INT
+      if ($rhs->kind !== VAL_KIND_LNUM)
+        $rval = (int) $rhs->value;
+      else
+        $rval = $rhs->value;
+      
+      // result is always a lnum
+      switch ($op->type) {
+        case T_BIT_AND:
+          $cval = $lval & $rval;
+          break;
+        case T_BIT_OR:
+          $cval = $lval | $rval;
+          break;
+        case T_BIT_XOR:
+          $cval = $lval ^ $rval;
+          break;
+      }
+      
+      $this->value = new Value(VAL_KIND_LNUM, $cval);
+    }
+    
+    // 4. boolean/equal operators
+    elseif ($op->type === T_BOOL_AND ||
+            $op->type === T_BOOL_OR ||
+            $op->type === T_BOOL_XOR ||
+            $op->type === T_EQ ||
+            $op->type === T_NEQ) 
+    {
+      $lval = $lhs->value;
+      $rval = $rhs->value;
+      $cval = false;
+      
+      switch ($op->type) {
+        case T_BOOL_AND:
+          $cval = $lval && $rval;
+          break;
+        case T_BOOL_OR:
+          $cval = $lval || $rval;
+          break;
+        case T_BOOL_XOR:
+          $cval = $lval xor $rval;
+          break;
+        case T_EQ:
+          $cval = $lval === $rval;
+          break;
+        case T_NEQ:
+          $cval = $lval !== $rval;
+          break;
+      }
+      
+      $this->value = new Value(VAL_KIND_BOOL, $cval);
+    }
+    
+    // 5. conditional operators
+    elseif ($op->type === T_LT ||
+            $op->type === T_GT ||
+            $op->type === T_LTE ||
+            $op->type === T_GTE)
+    {
+      $lval = $rval = $cval = 0;
+      
+      // cast left-hand-side to INT if necessary
+      if ($lhs->kind !== VAL_KIND_DNUM &&
+          $lhs->kind !== VAL_KIND_LNUM)
+        $lval = (int) $lhs->value;
+      else
+        $lval = $lhs->value;
+      
+      // cast right-hand-side to INT if necessary
+      if ($rhs->kind !== VAL_KIND_DNUM &&
+          $rhs->kind !== VAL_KIND_LNUM)
+        $rval = (int) $rhs->value;
+      else
+        $rval = $rhs->value;
+      
+      switch ($op->type) {
+        case T_LT:
+          $cval = $lval < $rval;
+          break;
+        case T_GT:
+          $cval = $lval > $rval;
+          break;
+        case T_LTE:
+          $cval = $lval <= $rval;
+          break;
+        case T_GTE:
+          $cval = $lval >= $rval;
+          break;
+      }
+      
+      $this->value = new Value(VAL_KIND_BOOL, $cval);
+    }
+    
+    // 6. shift-operators
+    elseif ($op->type === T_SL ||
+            $op->type === T_SR) 
+    {
+      $lval = $rval = $cval = 0;
+      
+      // cast left-hand-side to INT
+      if ($lhs->kind !== VAL_KIND_LNUM)
+        $lval = (int) $lhs->value;
+      else
+        $lval = $lhs->value;
+      
+      // cast right-hand-side to INT
+      if ($rhs->kind !== VAL_KIND_LNUM)
+        $rval = (int) $rhs->value;
+      else
+        $rval = $rhs->value;
+      
+      switch ($op->type) {
+        case T_SL:
+          $cval = $lval << $rval;
+          break;
+        case T_SR:
+          $cval = $lval >> $rval;
+          break;
+      }
+      
+      $this->value = new Value(VAL_KIND_LNUM, $cval);
+    }
+    
+    // 7. unknown
+    else {
+      print "unknown binary operator {$op->value} ({$op->type})";
+      assert(0);
+    }
+  }
+  
+  protected function visit_check_expr($node) 
+  {
+    $lhs = $this->handle_expr($node->left);
+    $rhs = $this->handle_expr($node->right);
+    
+    if ($lhs->kind !== VAL_KIND_UNKNOWN) {
+      // optimize for the translator
+      $node->left->value = $lhs;
+      
+      if ($rhs->kind !== VAL_KIND_UNKNOWN) {
+        // store value anyway
+        $node->right->value = $rhs;
+        // reduce
+        $thisd->reduce_check_expr($lhs, $node->op, $rhs, $node->loc);
+        goto out;
+      }
+    }
+    
+    $this->value = new Value(VAL_KIND_UNKNOWN);
+    out:
+  }
+  
+  protected function reduce_check_expr($lhs, $op, $rhs, $loc)
+  {
+    if ($rhs->kind === VAL_KIND_TYPE) {
+      $res = false;
+      
+      switch ($rhs->value) {
+        case T_TINT:
+          $res = $lhs->kind === VAL_KIND_LNUM;
+          break;
+        case T_TBOOL:
+          $res = $lhs->kind === VAL_KIND_BOOL;
+          break;
+        case T_TFLOAT:
+          $res = $lhs->kind === VAL_KIND_DNUM;
+          break;
+        case T_TSTRING:
+          $res = $lhs->kind === VAL_KIND_STR;
+          break;
+        case T_TREGEXP:
+          $res = $lhs->kind === VAL_KIND_REGEXP;
+          break;
+      }
+      
+      $this->value = new Value(VAL_KIND_BOOL, $res);
+    } else {
+      // TODO: implement instanceof?
+      $this->value = new Value(VAL_KIND_UNKNOWN);
+    }
+  }
+  
+  protected function visit_cast_expr($node) 
+  {
+    $lhs = $this->handle_expr($node->left);
+    $rhs = $this->handle_expr($node->right);
+    
+    if ($lhs->kind !== VAL_KIND_UNKNOWN) {
+      // store value
+      $node->left->value = $lhs;
+      
+      if ($rhs->kind !== VAL_KIND_UNKNOWN) {
+        // store value
+        $node->right->value = $rhs;
+        // reduce
+        $this->reduce_cast_expr($lhs, $rhs, $node->loc);
+        goto out;
+      }
+    }  
+    
+    $this->value = new Value(VAL_KIND_UNKNOWN);
+    out:
+  }
+  
+  protected function reduce_cast_expr($lhs, $rhs, $loc)
+  {
+    if ($rhs->kind === VAL_KIND_TYPE) {
+      $kind = $cast = 0;
+      
+      switch ($rhs->value) {
+        case T_TINT:
+          $kind = VAL_KIND_INT;
+          $cast = (int) $lhs->value;
+          break;
+        case T_TBOOL:
+          $kind = VAL_KIND_BOOL;
+          $cast = (bool) $lhs->value;
+          break;
+        case T_TFLOAT:
+          $kind = VAL_KIND_DNUM;
+          $cast = (float) $lhs->value;
+          break;
+        case T_TSTRING:
+          $kind = VAL_KIND_STR;
+          $cast = (string) $lhs->value;
+          break;
+        case T_TREGEXP:
+          $kind = VAL_KIND_REGEXP;
+          $cast = (string) $lhs->value;
+          break;
+      }
+      
+      $this->value = new Value(VAL_KIND_BOOL, $res);
+    } else {
+      // TODO: implement constant casts?
+      $this->value = new Value(VAL_KIND_UNKNOWN);
+    }
+  }
+  
+  protected function visit_update_expr($node) 
+  {
+    $kind = $node->expr->kind();
+    $fail = false;
+    
+    if ($kind !== 'name' && $kind !== 'member_expr') {
+      $this->error_at($node->loc, ERR_ERROR, 'invalid increment/decrement operand');
+      $fail = true;
+    }
+    
+    $lhs = $this->handle_expr($node->expr);
+    
+    if (!$fail && $lhs->kind !== VAL_KIND_UNKNOWN) {
+      // store value
+      $node->expr->value = $lhs;
+      // reduce prefix-usage, postfix is not posible here (implement?)
+      if ($node->prefix === true) {
+        $this->reduce_update_expr($lhs, $node->op, $node->loc);
+        goto out;
+      }
+    }  
+    
+    $this->value = new Value(VAL_KIND_UNKNOWN);
+    out:
+  }
+  
+  protected function reduce_update_expr($lhs, $op, $loc)
+  {
+    $cval = 0;
+    $kind = $lhs->kind;
+    
+    if ($kind !== VAL_KIND_DNUM &&
+        $kind !== VAL_KIND_LNUM) {
+      $cval = (int) $lhs->value;
+      $kind = VAL_KIND_LNUM;
+    } else
+      $cval = $lhs->value;
+      
+    if ($op->type === T_INC)
+      $cval += 1;
+    else
+      $cval -= 1;
+    
+    $this->value = new Value($kind, $cval);
+  }
+  
+  protected function visit_assign_expr($node) 
+  {
+    $kind = $node->left->kind();
+    $fail = false;
+    
+    if ($kind !== 'name' && $kind !== 'member_expr') {
+      $this->error_at($node->loc, ERR_ERROR, 'invalid assigment left-hand-side');
+      $fail = true;
+    }
+    
+    $lhs = $this->handle_expr($node->left);
+    $rhs = $this->handle_expr($node->right);
+    
+    if (!$fail && $lhs->kind !== VAL_KIND_UNKNOWN) {
+      // well, the left-hand-side is not that important here...
+      // check if the symbol in question can handle a re-assigment
+      $sym = $lhs->symbol;
+      
+      if ($sym->flags & SYM_FLAGS_CONST && $sym->value->kind !== VAL_KIND_NONE) {
+        $this->error_at($node->loc, ERR_ERROR, 're-assigment of constant symbol %s', $sym->name);
+        $fail = true;
+      }
+      
+      if (!$fail) {
+        // assign it!
+        $this->value = $sym->value = $rhs;       
+        goto out;
+      } 
+    }
+    
+    $this->value = new Value(VAL_KIND_UNKNOWN);
+    out:
+  }
+  
+  protected function visit_member_expr($node) 
+  {
+    $lhs = $this->handle_expr($node->obj);
+    $rhs = null;
+    
+    if ($node->computed)
+      $rhs = $this->handle_expr($node->member);
+    
+    if ($lhs->kind !== VAL_KIND_UNKNOWN) {
+      // try to reduce it
+      $this->reduce_member_expr($lhs, $rhs, $node->member, $node->prop, $node->loc);
+      goto out;    
+    }
+    
+    $this->value = new Value(VAL_KIND_UNKNOWN);
+    out:
+  }
+  
+  protected function reduce_member_expr($lhs, $rhs, $member, $prop, $loc)
+  {   
+    if ($rhs !== null) {
+      // the right-hand-side was handled before
+      // accessing it direclty
+      $key = $rhs->value;  
+    } else
+      // use the member
+      $key = $member->value;
+      
+    if ($prop) {
+      // property-access
+      $sym = null;
+      
+      if ($lhs->kind === VAL_KIND_SYMBOL && 
+          ($lhs->value->kind === SYM_KIND_CLASS || 
+           $lhs->value->kind === SYM_KIND_TRAIT ||
+           $lhs->value->kind === SYM_KIND_IFACE)) {
+        // fetch member
+        $sym = $lhs->value->mst->get((string) $key, false);
+        if (!$sym) {
+          // symbol not found
+          $this->error_at($loc, ERR_ERROR, 'access to undefined property `%s` of `%s`', $key, $lhs->value->name);
+          goto unk;  
+        }
+        
+        // if symbol is constant and it has a value
+        if (($sym->flags & SYM_FLAG_CONST) && $sym->value !== null) {
+          $this->value = $sym->value;
+          $this->value->symbol = $sym;
+        } else {
+          // accessing non-static/non-const or empty property
+          goto unk;
+        }        
+      } else {
+        $key = (string) $key;
+        
+        if ($lhs->kind !== VAL_KIND_OBJ) {
+          $this->error_at($loc, ERR_ERROR, 'trying to get property `%s` of non-object', $key);
+          goto unk;
+        }
+        
+        if (!isset ($lhs->value[$key])) {
+          $this->error_at($loc, ERR_ERROR, 'access to undefined property `%s`', $key);
+          goto unk;
+        }
+        
+        $this->value = $lhs->value[$key];
+      }
+    } else {
+      // array-access
+      if (!is_int($key) && !ctype_digit($key)) {
+        $this->error_at($loc, ERR_ERROR, 'invalid array-index %s', $key);
+        goto unk;
+      }
+      
+      $key = (int) $key;
+      
+      if ($lhs->kind !== VAL_KIND_ARR) {
+        $this->error_at($loc, ERR_ERROR, 'trying to access index %s of non-array', $key);
+        goto unk;
+      }
+            
+      if (!isset ($lhs->value[$key])) {
+        $this->error_at($loc, ERR_ERROR, 'access to undefined index %s', $key);
+        goto unk;
+      }
+        
+      $this->value = $lhs->value[$key];     
+    }
+    
+    goto out;
+    
+    unk:
+    $this->value = new Value(VAL_KIND_UNKNOWN);
+    
+    out:
+  }
+  
+  protected function visit_cond_expr($node) 
+  {
+    $cnd = $this->handle_expr($node->test);
+    $lhs = $node->then !== null ? $this->handle_expr($node->then) : null;
+    $rhs = $this->handle_expr($node->els);
+    
+    if ($cnd->kind !== VAL_KIND_UNKNOWN) {
+      $node->test->value = $cnd;
+      
+      if ($lhs === null || $lhs->kind !== VAL_KIND_UNKNOWN) {
+        if ($lhs !== null) $node->then->value = $lhs;
+        
+        if ($rhs->kind !== VAL_KIND_UNKNOWN) {
+          $node->els->value = $rhs;
+          
+          $this->reduce_cond_expr($cnd, $lhs, $rhs, $node->loc);
+          goto out;
+        }
+      }
+    }
+    
+    $this->value = new Value(VAL_KIND_UNKNOWN);
+    
+    out:
+    $node->value = $this->value;
+  }
+  
+  protected function reduce_cond_expr($cnd, $lhs, $rhs, $loc)
+  {
+    if ((bool) $cnd->value)
+      $cval = $lhs === null ? $cnd : $lhs;
+    else
+      $cval = $rhs;
+    
+    $this->value = $cval;
+  }
+  
+  protected function visit_call_expr($node) 
+  {
+    $lhs = $this->handle_expr($node->callee);
+    
+    if ($lhs->kind !== VAL_KIND_UNKNOWN) {
+      if ($lhs->kind === VAL_KIND_SYMBOL) {
+        if ($lhs->value->kind !== SYM_KIND_FN)
+          $this->error_at($node->callee->loc, ERR_ERROR, '%s is not callable', $lhs->value->name);
+      } elseif ($lhs->kind !== VAL_KIND_FN) 
+        $this->error_at($node->callee->loc, ERR_ERROR, 'value is not callable');
+      
+      $node->callee->value = $lhs;
+    }
+    
+    if ($node->args !== null)
+      $this->handle_expr($node->args);
+    
+    $this->value = new Value(VAL_KIND_UNKNOWN);
+  }
+  
+  protected function visit_yield_expr($node) 
+  {
+    $rhs = $this->handle_expr($node->expr);
+    
+    if ($rhs->kind !== VAL_KIND_UNKNOWN)
+      $node->expr->value = $rhs;  
+  }
+  
+  protected function visit_unary_expr($node) 
+  {
+    $rhs = $this->handle_expr($node->expr);
+    
+    if ($rhs->kind !== VAL_KIND_UNKNOWN) {
+      $node->expr->value = $rhs;
+      $this->reduce_unary_expr($rhs, $node->op, $node->loc);
+      goto out;
+    }  
+    
+    $this->value = new Value(VAL_KIND_UNKNOWN);
+    out:
+  }
+  
+  protected function reduce_unary_expr($rhs, $op, $loc)
+  {
+    if ($op->type === T_PLUS ||
+        $op->type === T_MINUS) 
+    {
+      $rval = $cval = 0;
+      $kind = 0;
+      
+      // cast to float
+      if ($rhs->kind !== VAL_KIND_DNUM && 
+          $rhs->kind !== VAL_KIND_LNUM) {
+        $rval = (float) $rhs->value;
+        $kind = VAL_KIND_DNUM;
+      } else {
+        $rval = $rhs->value;
+        $kind = $rhs->kind;
+      }
+      
+      switch ($op->type) {
+        case T_PLUS:
+          $cval = +$rval;
+          break;
+        case T_MINUS:
+          $cval = -$rval;
+          break;
+      }
+      
+      $this->value = new Value($kind, $cval);
+    }
+    
+    elseif ($op->type === T_BIT_NOT) {
+      $rval = $cval = 0;
+      
+      if ($rhs->kind !== VAL_KIND_LNUM)
+        $rval = (int) $rhs->value;
+      else
+        $rval = $rhs->value;
+      
+      $cval = ~$rval;
+      $this->value = new Value(VAL_KIND_LNUM, $cval);
+    }
+    
+    elseif ($op->type === T_EXCL) {
+      $rval = $cval = false;
+      
+      if ($rhs->kind !== VAL_KIND_BOOL)
+        $rval = (bool) $rhs->value;
+      else
+        $rval = $rhs->value;
+      
+      $cval = !$rval;
+      $this->value = new Value(VAL_KIND_BOOL, $cval);
+    }
+    
+    else {
+      print "unknown unary operator {$op->value} ({$op->type})";
+      assert(0);
+    }
+  }
+  
+  protected function visit_new_expr($node) 
+  {
+    // TODO: implement reduce (value -> VAL_KIND_NEW)
+    $this->handle_expr($node->name);
+    
+    if ($node->args !== null)
+      $this->handle_expr($node->args);
+    
+    $this->value = new Value(VAL_KIND_UNKNOWN);
+  }
+  
+  protected function visit_del_expr($node) 
+  {
+    // TODO: what does del .. return? int? depends on the php-version
+    $this->handle_expr($node->id);
+    
+    $this->value = new Value(VAL_KIND_UNKNOWN);
+  }
+  
+  protected function visit_lnum_lit($node) 
+  {
+    $this->value = new Value(VAL_KIND_LNUM, $node->value);  
+  }
+  
+  protected function visit_dnum_lit($node) 
+  {
+    $this->value = new Value(VAL_KIND_DNUM, $node->value);  
+  }
+  
+  protected function visit_snum_lit($node) 
+  {
+    // TODO: numbers with suffix MUST be reduced at compile-time!
+    $this->value = new Value(VAL_KIND_UNKNOWN);
+  }
+  
+  protected function visit_regexp_lit($node) 
+  {
+    $this->value = new Value(VAL_KIND_REGEXP, $node->value);
+  }
+  
+  protected function visit_arr_lit($node) 
+  {
+    // arrays only get a value if all items are constant
+    $arr = [];
+    $unk = false;
+    
+    foreach ($node->items as $item) {
+      $val = $this->handle_expr($item);
+      
+      if ($val->kind === VAL_KIND_UNKNOWN)
+        $unk = true;
+      
+      if (!$unk) $arr[] = $val;
+    }  
+    
+    if ($unk) 
+      $this->value = new Value(VAL_KIND_UNKNOWN);
+    else
+      $this->value = new Value(VAL_KIND_ARR, $arr);
+  }
+  
+  protected function visit_obj_lit($node) 
+  {
+    // objects only get a value of all pairs are constant
+    $obj = []; // jep, assoc
+    $unk = false;
+    
+    foreach ($node->pairs as $pair) {
+      $kind = $pair->key->kind();
+            
+      if ($kind === 'ident' || $kind === 'str_lit')
+        $key = $pair->key->value;
+      else {
+        $val = $this->handle_expr($pair->key);
+
+        if ($val->kind === VAL_KIND_UNKNOWN)
+          $unk = true;
+        else
+          $key = (string) $val->value;
+      }
+      
+      $val = $this->handle_expr($pair->value);
+      
+      if ($val->kind === VAL_KIND_UNKNOWN)
+        $unk = true;
+      
+      if (!$unk) $res[$key] = $val;
+    }
+    
+    if ($unk)
+      $this->value = new Value(VAL_KIND_UNKNOWN);
+    else
+      $this->value = new Value(VAL_KIND_OBJ, $res);
+  }
+  
+  protected function visit_name($name) 
+  {    
+    $bid = ident_to_str($name->base);
+    if ($name->root) goto gmd;
+    
+    $sym = $this->scope->get($bid, false, null, true);
+    $mod = null;
+    
+    // its not a symbol in the current scope
+    if ($sym === null) {
+      gmd:
+      // check if the $bid is a global module
+      $mrt = $this->ctx->get_module();
+      
+      if ($mrt->has_child($bid)) {
+        if (empty ($name->parts))
+          // module can not be referenced
+          goto mod;  
+        
+        $mod = $mrt->get_child($bid);
+        goto lcm;
+      }
+      
+      goto err;
+    }
+    
+    switch ($sym->kind) {
+      // symbols
+      case SYM_KIND_CLASS:
+      case SYM_KIND_TRAIT:
+      case SYM_KIND_IFACE:
+      case SYM_KIND_VAR:
+      case SYM_KIND_FN:
+        break;
+      
+      // references
+      case REF_KIND_MODULE:
+        if (empty ($name->parts))
+          // a module can not be referenced
+          goto mod;
+        
+        $mod = $sym->mod;
+        goto lcm;
+        
+      case REF_KIND_CLASS:
+      case REF_KIND_TRAIT:
+      case REF_KIND_IFACE:
+      case REF_KIND_VAR:
+      case REF_KIND_FN:
+        $sym = $sym->sym;
+        break;
+        
+      default:
+        print 'what? ' . $sym->kind;
+        exit;
+    }
+    
+    // best case: no more parts
+    if (empty ($name->parts)) {
+      $this->value = new Value(VAL_KIND_SYMBOL, $sym);
+      goto out;
+    }
+    
+    /* ------------------------------------ */
+    /* symbol lookup */
+    
+    // lookup other parts
+    /*
+    if ($sym->kind === SYM_KIND_VAR) {
+      // the var could be a reference to a module
+      // TODO: is this allowed?
+      if ($sym->value === null)
+        return null;
+      
+      switch ($sym->value->kind) {
+        case REF_KIND_MODULE:
+          $sym = $sym->value;
+          break;
+          
+        default:
+          // a subname lookup is not possible
+          // this is an error actually, but fail silent here
+          return null;
+      }
+    }
+    */
+    
+    if ($sym->kind !== REF_KIND_MODULE) {
+      $this->error_at($name->loc, ERR_ERROR, 'symbol `%s` used as module', $sym->name);
+      goto unk;
+    }
+    
+    $mod = $sym->mod;
+    
+    /* ------------------------------------ */
+    /* symbol lookup in module */
+    
+    lcm:
+    $arr = name_to_stra($name);
+    $lst = array_pop($arr);
+    
+    // ignore base
+    array_shift($arr);
+    
+    $res = $mod->fetch($arr);
+    
+    if ($res === null)
+      goto err;
+    
+    if ($res->has_child($lst))
+      // module can not be referenced
+      goto mod;
+    
+    $sym = $res->get($lst);
+    
+    if ($sym === null)
+      goto err;
+      
+    if ($sym->kind > SYM_REF_DIVIDER) {
+      if ($sym->kind === REF_KIND_MODULE)
+        // module can not be a referenced
+        goto mod;
+      
+      $sym = $sym->sym;
+    }
+    
+    $this->value = new Value(VAL_KIND_SYMBOL, $sym);
+    goto out;
+    
+    mod:
+    $this->error_at($name->loc, ERR_ERROR, 'module used as value');
+    goto unk;
+    
+    err:
+    $this->error_at($name->loc, ERR_ERROR, 'access to undefined symbol `%s`', name_to_str($name));
+    
+    unk:
+    $this->value = new Value(VAL_KIND_UNKNOWN);
+    
+    out:
+  }
+  
+  protected function visit_ident($node) 
+  {
+    $sym = $this->scope->get($node->value, false, null, true);
+    
+    if (!$sym) {
+      $this->error_at($node->loc, ERR_ERROR, 'access to undefined symbol `%s`', $node->name);
+      $this->value = new Value(VAL_KIND_UNKNOWN);
+    } else {
+      $this->value = new Value(VAL_KIND_SYMBOL, $sym);
+    }
+  }
+  
+  protected function visit_this_expr($node) 
+  {
+    // TODO: this must be reducible! check in wich class we are atm
+    $this->value = new Value(VAL_KIND_UNKNOWN);
+  }
+  
+  protected function visit_super_expr($n) 
+  {
+    // TODO: see <this>
+    $this->value = new Value(VAL_KIND_UNKNOWN);
+  }
+  
+  protected function visit_null_lit($node) 
+  {
+    $this->value = new Value(VAL_KIND_NULL);
+  }
+  
+  protected function visit_true_lit($node) 
+  {
+    $this->value = new Value(VAL_KIND_BOOL, true);  
+  }
+  
+  protected function visit_false_lit($node) 
+  {
+    $this->value = new Value(VAL_KIND_BOOL, false);  
+  }
+  
+  protected function visit_engine_const($node) 
+  {
+    // TODO: reduce if possible
+    $this->value = new Value(VAL_KIND_UNKNOWN);
+  }
+  
+  protected function visit_str_lit($node) 
+  {
+    $this->value = new Value(VAL_KIND_STR, $node->value);
   }
     
   /* ------------------------------------ */

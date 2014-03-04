@@ -11,7 +11,8 @@ const
   COM_RSV = 6, // resolve context
   COM_TRS = 7, // translate context
   COM_RDC = 8, // reduce context
-  COM_IMP = 9  // improve context
+  COM_IMP = 9, // improve context
+  COM_VLD = 10 // validate context
 ;
 
 const 
@@ -234,6 +235,7 @@ class Context
       case COM_TRS: $log .= ' trs'; break;
       case COM_RDC: $log .= ' rdc'; break;
       case COM_IMP: $log .= ' imp'; break;
+      case COM_VLD: $log .= ' vld'; break;
     }
     
     $log .= ': ';

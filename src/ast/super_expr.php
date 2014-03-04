@@ -2,6 +2,6 @@
 
 namespace phs\ast;
 
-class SuperExpr extends Node
+class SuperExpr extends Expr
 {
 }

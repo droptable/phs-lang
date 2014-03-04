@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class CallExpr extends Node
+class CallExpr extends Expr
 {
   public $callee;
   public $args;

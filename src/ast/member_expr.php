@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class MemberExpr extends Node
+class MemberExpr extends Expr
 {
   public $prop;
   public $computed;

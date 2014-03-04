@@ -7,9 +7,10 @@ use phs\ast\Name;
 
 require_once 'value.php';
 require_once 'symbol.php';
+require_once 'lookup.php';
 
 /** reduces expressions at compile-time (if possible) */
-class Reducer 
+class Reducer
 {
   // compiler context
   private $ctx;
@@ -22,9 +23,6 @@ class Reducer
   
   // the current value 
   private $value;
-  
-  // value stack
-  private $vstack;
   
   /**
    * constructor 
@@ -48,7 +46,6 @@ class Reducer
     $this->scope = $scope;
     $this->module = $module;
     $this->value = null;
-    $this->vstack = [];
     
     if (!$this->reduce_expr($node))
       return new Value(VAL_KIND_UNKNOWN);
@@ -61,11 +58,12 @@ class Reducer
   protected function reduce_expr($expr)
   {
     $kind = $expr->kind();
+    #print "reducing $kind\n";
     
     switch ($kind) {
       // atom
       case 'name':
-        return $this->lookup_name($expr);
+        return $this->lookup($expr);
       case 'str_lit':
         $this->value = new Value(VAL_KIND_STR, $expr->value);
         return true;
@@ -76,7 +74,8 @@ class Reducer
         $this->value = new Value(VAL_KIND_DNUM, $expr->value);
         return true;
       case 'snum_lit':
-        return false; // number with suffix
+        // TODO: implement
+        return false;
       case 'null_lit':
         $this->value = new Value(VAL_KIND_NULL);
         return true;
@@ -89,6 +88,14 @@ class Reducer
       case 'regexp_lit':
         $this->value = new Value(VAL_KIND_REGEXP, $expr->value);
         return true;
+        
+      // array/object literals only get pre-compiled if they 100% constant.
+      // method-calls on the reduced values like this are not supported though
+      case 'arr_lit':
+        return $this->reduce_arr_lit($expr);
+      case 'obj_lit':
+        return $this->reduce_obj_lit($expr);
+      
       case 'engine_const':
         // TODO: the analyzer should know this
         return false;
@@ -125,11 +132,57 @@ class Reducer
       case 'yield_expr':
         // TODO: is this reducible? the value depends on what was send back to the iterator
         return false;
+      
+      case 'fn_expr':
+        return false;
         
       // other stuff
       default:
         return false;
     }
+  }
+  
+  protected function reduce_arr_lit($expr)
+  {
+    $res = [];
+    
+    foreach ($expr->items as $item) {
+      if (!$this->reduce_expr($item)) {
+        return false;
+      }
+      
+      $res[] = $this->value;
+    }
+    
+    $this->value = new Value(VAL_KIND_ARR, $res);
+    return true;
+  }
+  
+  protected function reduce_obj_lit($expr)
+  {
+    // we're using an assoc-array here
+    $res = [];
+    
+    foreach ($expr->pairs as $pair) {
+      $kind = $pair->key->kind();
+      
+      if ($kind === 'ident' || $kind === 'str_lit')
+        $key = $pair->key->value;
+      else {
+        if (!$this->reduce_expr($pair->key))
+          return false;
+        
+        $key = (string)$this->value->value;
+      }
+      
+      if (!$this->reduce_expr($pair->value))
+        return false;
+      
+      $res[$key] = $this->value;
+    }
+    
+    $this->value = new Value(VAL_KIND_OBJ, $res);
+    return true;
   }
   
   protected function reduce_unary_expr($expr)
@@ -316,13 +369,31 @@ class Reducer
         }
         
       } else {
-        // TODO: implement constant objects
-        return false;
+        if ($obj->kind !== VAL_KIND_OBJ)
+          return false;
+        
+        $key = (string) $key;
+        if (!isset ($obj->value[$key]))
+          return false;
+        
+        $this->value = $obj->value[$key];
+        return true;
       }
     } else {
       // array-access
-      // TODO: implement constant arrays
-      return false;
+      if ($obj->kind !== VAL_KIND_ARR)
+        return false;
+      
+      if (!is_int($key) && !ctype_digit($key))
+        return false; // simply refuse
+      
+      $key = (int) $key;
+      
+      if (!isset ($obj->value[$key]))
+        return false;
+        
+      $this->value = $obj->value[$key];
+      return true;      
     }
   }
   
@@ -334,174 +405,22 @@ class Reducer
    * @param  Name   $name
    * @return boolean
    */
-  protected function lookup_name(Name $name)
-  {    
-    $bid = ident_to_str($name->base);
-    $sym = $this->scope->get($bid, false, null, true);
-    $mod = null;
+  protected function lookup(Name $name)
+  { 
+    $sym = lookup_name($name, $this->scope, $this->ctx);
     
-    // its not a symbol in the current scope
-    if ($sym === null) {
-      // check if the $bid is a global module
-      $mrt = $this->ctx->get_module();
-      
-      if ($mrt->has_child($bid)) {
-        if (empty ($name->parts))
-          // module can not be a value
-          return false;  
-        
-        $mod = $mrt->get_child($bid);
-        goto lcm;
-      }
-      
-      return false;
-    }
-    
-    switch ($sym->kind) {
-      // symbols
-      case SYM_KIND_CLASS:
-      case SYM_KIND_TRAIT:
-      case SYM_KIND_IFACE:
-      case SYM_KIND_VAR:
-      case SYM_KIND_FN:
-        break;
-      
-      // references
-      case REF_KIND_MODULE:
-        if (empty ($name->parts))
-          // a module can not be used as a value
-          return false;
-        
-        $mod = $sym->mod;
-        goto lcm;
-        
-      case REF_KIND_CLASS:
-      case REF_KIND_TRAIT:
-      case REF_KIND_IFACE:
-      case REF_KIND_VAR:
-      case REF_KIND_FN:
-        $sym = $sym->sym;
-        break;
-        
-      default:
-        print 'what? ' . $sym->kind;
-        exit;
-    }
-    
-    // best case: no more parts
-    if (empty ($name->parts)) {
-      if ($sym->kind === SYM_KIND_VAR) {
-        if ($sym->flags & SYM_FLAG_CONST && $sym->value !== null) {
-          $this->value = $sym->value;
-          return true;
-        }
-        
-        return false;
-      }
-      
-      $this->value = new Value(VAL_KIND_SYMBOL, $sym);
-      return true;
-    }
-    
-    /* ------------------------------------ */
-    /* symbol lookup */
-    
-    // lookup other parts
-    if ($sym->kind === SYM_KIND_VAR) {
-      // the var could be a reference to a module
-      // TODO: is this allowed?
-      if ($sym->value === null)
-        return false;
-      
-      switch ($sym->value->kind) {
-        case REF_KIND_MODULE:
-          $sym = $sym->value;
-          break;
-          
-        default:
-          // a subname lookup is not possible
-          // this is an error actually, but fail silent here
-          return false;
-      }
-    }
-    
-    if ($sym->kind !== REF_KIND_MODULE)
-      return false;
-    
-    $mod = $sym->mod;
-    
-    /* ------------------------------------ */
-    /* symbol lookup in module */
-    
-    lcm:
-    return $this->lookup_child($mod, $name);
-  }
-  
-  /**
-   * lookup a symbol inside of a module
-   * 
-   * @param  Module $mod
-   * @param  Name   $name the full-name
-   * @pram   boolean $ig ignore base
-   * @return boolean
-   */
-  protected function lookup_child(Module $mod, Name $name, $ib = true)
-  {
-    $arr = name_to_stra($name);
-    $lst = array_pop($arr);
-    
-    // ignore base
-    if ($ib) array_shift($arr);
-    
-    $res = $mod->fetch($arr);
-    
-    if ($res === null)
-      return false;
-    
-    if ($res->has_child($lst))
-      // module can not be a value
-      return false;
-    
-    $sym = $res->get($lst);
-    
-    if ($sym === null)
-      return false;
-    
-    if ($sym->kind === REF_KIND_VAR)
-      $sym = $sym->sym;
+    // lookup failed
+    if ($sym === null) return false;
     
     if ($sym->kind === SYM_KIND_VAR) {
       if ($sym->flags & SYM_FLAG_CONST && $sym->value !== null) {
         $this->value = $sym->value;
         return true;
       }
-      
-      // symbol does not have a value
-      return false;
-    }
-    
-    if ($sym->kind > SYM_REF_DIVIDER) {
-      if ($sym->kind === REF_KIND_MODULE)
-        // module can not be a value
-        return false;
-      
-      $sym = $sym->sym;
     }
     
     $this->value = new Value(VAL_KIND_SYMBOL, $sym);
     return true;
-  }
-  
-  /* ------------------------------------ */
-  
-  private function push()
-  {
-    array_push($this->vstack, $this->value);
-  }
-  
-  private function pop()
-  {
-    $this->value = array_pop($this->vstack);
   }
   
   /* ------------------------------------ */

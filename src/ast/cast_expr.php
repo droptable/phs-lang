@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class CastExpr extends Node
+class CastExpr extends Expr
 {
   public $expr;
   public $type;

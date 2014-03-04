@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class CheckExpr extends Node
+class CheckExpr extends Expr
 {
   public $left;
   public $op;

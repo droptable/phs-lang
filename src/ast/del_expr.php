@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class DelExpr extends Node
+class DelExpr extends Expr
 {
   public $id;
   

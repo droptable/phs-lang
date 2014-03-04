@@ -235,4 +235,38 @@ abstract class Walker
   protected function visit_return_stmt($n) {}
   protected function visit_labeled_stmt($n) {}
   protected function visit_expr_stmt($n) {}
+  
+  protected function visit_bin_expr($n) {}
+  protected function visit_check_expr($n) {}
+  protected function visit_cast_expr($n) {}
+  protected function visit_update_expr($n) {}
+  protected function visit_assign_expr($n) {}
+  protected function visit_member_expr($n) {}
+  protected function visit_cond_expr($n) {}
+  protected function visit_call_expr($n) {}
+  protected function visit_yield_expr($n) {}
+  protected function visit_unary_expr($n) {}
+  protected function visit_new_expr($n) {}
+  protected function visit_del_expr($n) {}
+  
+  protected function visit_lnum_lit($n) {}
+  protected function visit_dnum_lit($n) {}
+  protected function visit_snum_lit($n) {}
+  
+  protected function visit_regexp_lit($n) {}
+  
+  protected function visit_arr_lit($n) {}
+  protected function visit_obj_lit($n) {}
+  
+  protected function visit_name($n) {}
+  protected function visit_ident($n) {}
+  
+  protected function visit_this_expr($n) {}
+  protected function visit_super_expr($n) {}
+  protected function visit_null_lit($n) {}
+  protected function visit_true_lit($n) {}
+  protected function visit_false_lit($n) {}
+  protected function visit_engine_const($n) {}
+  
+  protected function visit_str_lit($n) {}
 }

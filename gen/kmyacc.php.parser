@@ -35,6 +35,7 @@ require_once 'glob.php';
 require_once 'lexer.php';
 
 use phs\ast\Node;
+use phs\ast\Expr;
 /*@@ imports @@*/
 
 class #(-p) extends ParserBase

@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class NewExpr extends Node
+class NewExpr extends Expr
 {
   public $name;
   public $args;

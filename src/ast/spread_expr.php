@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class SpreadExpr extends Node
+class SpreadExpr extends Expr
 {
   public $expr;
   

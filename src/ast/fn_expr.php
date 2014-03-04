@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class FnExpr extends Node
+class FnExpr extends Expr
 {
   public $id;
   public $params;

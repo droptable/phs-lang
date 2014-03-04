@@ -114,6 +114,7 @@ namespace phs;
  * See: gen/gen.php
  */
 require_once 'ast/node.php';
+require_once 'ast/expr.php';
 {$ctx->req}
 
 END_AST;

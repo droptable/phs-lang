@@ -11,7 +11,11 @@ const
   VAL_KIND_BOOL = 7,
   VAL_KIND_NULL = 8,
   VAL_KIND_SYMBOL = 9,
-  VAL_KIND_UNKNOWN = 10
+  VAL_KIND_ARR = 10,
+  VAL_KIND_OBJ = 11,
+  VAL_KIND_FN = 12,
+  VAL_KIND_NONE = 13,
+  VAL_KIND_UNKNOWN = 99
 ;
 
 /** a value */
@@ -22,6 +26,9 @@ class Value
   
   // actual value
   public $value;
+  
+  // the symbol associated with this value
+  public $symbol;
   
   /**
    * constructor
@@ -56,6 +63,10 @@ class Value
         return 'null';
       case VAL_KIND_SYMBOL:
         return '(symbol)';
+      case VAL_KIND_OBJ:
+        return '<object>';
+      case VAL_KIND_ARR:
+        return '<array>';
     }
     
     return '(unknown)';

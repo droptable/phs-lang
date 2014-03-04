@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class UpdateExpr extends Node
+class UpdateExpr extends Expr
 {
   public $prefix;
   public $expr;

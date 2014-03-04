@@ -2,6 +2,6 @@
 
 namespace phs\ast;
 
-class ThisExpr extends Node
+class ThisExpr extends Expr
 {
 }

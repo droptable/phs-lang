@@ -110,6 +110,7 @@
 %token T_PHP
 %token T_TEST
 
+%token T_CDIR
 %token T_CFILE
 %token T_CLINE
 %token T_CCOLN
@@ -1174,6 +1175,7 @@ dot_ident
   | '.' T_TREGEXP   { $$ = @Ident($2->value); }
   | '.' T_SEALED    { $$ = @Ident($2->value); }
   | '.' T_INLINE    { $$ = @Ident($2->value); }
+  | '.' T_CDIR      { $$ = @Ident($2->value); }
   | '.' T_CFILE     { $$ = @Ident($2->value); }
   | '.' T_CLINE     { $$ = @Ident($2->value); }
   | '.' T_CCOLN     { $$ = @Ident($2->value); }
@@ -1189,6 +1191,7 @@ kwc
   | T_NULL    { $$ = @NullLit; }
   | T_TRUE    { $$ = @TrueLit; }
   | T_FALSE   { $$ = @FalseLit; }
+  | T_CDIR    { $$ = @StrLit(dirname($1->loc->file), 'c'); }
   | T_CFILE   { $$ = @StrLit($1->loc->file, 'c'); }
   | T_CLINE   { $$ = @StrLit($1->loc->pos->line, 'c'); }
   | T_CCOLN   { $$ = @StrLit($1->loc->pos->coln, 'c'); }
@@ -1260,7 +1263,7 @@ obj_pair
 obj_key
   : ident        { $$ = $1; }
   | str          { $$ = $1; }
-  | '[' rxpr ']' { $$ = $2; }
+  | '{' rxpr '}' { $$ = $2; }
   | T_FN         { $$ = @Ident($1->value); }
   | T_LET        { $$ = @Ident($1->value); }
   | T_PHP        { $$ = @Ident($1->value); }    
@@ -1310,6 +1313,7 @@ obj_key
   | T_TREGEXP    { $$ = @Ident($1->value); }
   | T_SEALED     { $$ = @Ident($1->value); }
   | T_INLINE     { $$ = @Ident($1->value); }
+  | T_CDIR       { $$ = @Ident($1->value); }
   | T_CFILE      { $$ = @Ident($1->value); }
   | T_CLINE      { $$ = @Ident($1->value); }
   | T_CCOLN      { $$ = @Ident($1->value); }
