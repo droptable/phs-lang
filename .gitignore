@@ -5,5 +5,6 @@ bin/test.bat
 bin/test.log
 bin/test.phs
 bin/test.php
+src/old/
 test/
 lib/

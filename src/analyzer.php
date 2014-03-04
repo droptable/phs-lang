@@ -3,10 +3,9 @@
 namespace phs;
 
 require_once 'utils.php';
+require_once 'value.php';
 require_once 'walker.php';
 require_once 'symbol.php';
-require_once 'reducer.php';
-require_once 'validator.php';
 
 use phs\ast\Unit;
 use phs\ast\Name;
@@ -72,8 +71,6 @@ class Analyzer extends Walker
     parent::__construct($ctx);
     $this->ctx = $ctx;
     $this->com = $com;
-    // $this->rdc = new Reducer($this->ctx);
-    // $this->vld = new Validator($this->ctx);
   }
   
   /**
