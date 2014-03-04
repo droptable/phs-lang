@@ -3695,25 +3695,25 @@ class Parser extends ParserBase
 
   private function yyn322() 
   {
-     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(2-1)], null); 
+     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(2-2)], null); 
   }
 
 
   private function yyn323() 
   {
-     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(3-1)], $this->yyastk[$this->yysp-(3-2)]); 
+     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(3-2)], $this->yyastk[$this->yysp-(3-3)]); 
   }
 
 
   private function yyn324() 
   {
-     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(2-1)], null); 
+     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(2-2)], null); 
   }
 
 
   private function yyn325() 
   {
-     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(3-1)], $this->yyastk[$this->yysp-(3-2)]); 
+     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(3-2)], $this->yyastk[$this->yysp-(3-3)]); 
   }
 
 
@@ -4085,25 +4085,25 @@ class Parser extends ParserBase
 
   private function yyn387() 
   {
-     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(2-1)], null); 
+     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(2-2)], null); 
   }
 
 
   private function yyn388() 
   {
-     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(3-1)], $this->yyastk[$this->yysp-(3-2)]); 
+     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(3-2)], $this->yyastk[$this->yysp-(3-3)]); 
   }
 
 
   private function yyn389() 
   {
-     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(2-1)], null); 
+     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(2-2)], null); 
   }
 
 
   private function yyn390() 
   {
-     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(3-1)], $this->yyastk[$this->yysp-(3-2)]); 
+     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(3-2)], $this->yyastk[$this->yysp-(3-3)]); 
   }
 
 
@@ -4481,25 +4481,25 @@ class Parser extends ParserBase
 
   private function yyn453() 
   {
-     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(2-1)], null); 
+     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(2-2)], null); 
   }
 
 
   private function yyn454() 
   {
-     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(3-1)], $this->yyastk[$this->yysp-(3-2)]); 
+     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(3-2)], $this->yyastk[$this->yysp-(3-3)]); 
   }
 
 
   private function yyn455() 
   {
-     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(2-1)], null); 
+     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(2-2)], null); 
   }
 
 
   private function yyn456() 
   {
-     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(3-1)], $this->yyastk[$this->yysp-(3-2)]); 
+     $this->yyval = new NewExpr($this->yyastk[$this->yysp-(3-2)], $this->yyastk[$this->yysp-(3-3)]); 
   }
 
 
@@ -4727,31 +4727,31 @@ class Parser extends ParserBase
 
   private function yyn493() 
   {
-     $this->yyval = new TypeId($this->yyastk[$this->yysp-(1-1)]); 
+     $this->yyval = new TypeId($this->yyastk[$this->yysp-(1-1)]->type); 
   }
 
 
   private function yyn494() 
   {
-     $this->yyval = new TypeId($this->yyastk[$this->yysp-(1-1)]); 
+     $this->yyval = new TypeId($this->yyastk[$this->yysp-(1-1)]->type); 
   }
 
 
   private function yyn495() 
   {
-     $this->yyval = new TypeId($this->yyastk[$this->yysp-(1-1)]); 
+     $this->yyval = new TypeId($this->yyastk[$this->yysp-(1-1)]->type); 
   }
 
 
   private function yyn496() 
   {
-     $this->yyval = new TypeId($this->yyastk[$this->yysp-(1-1)]); 
+     $this->yyval = new TypeId($this->yyastk[$this->yysp-(1-1)]->type); 
   }
 
 
   private function yyn497() 
   {
-     $this->yyval = new TypeId($this->yyastk[$this->yysp-(1-1)]); 
+     $this->yyval = new TypeId($this->yyastk[$this->yysp-(1-1)]->type); 
   }
 
 

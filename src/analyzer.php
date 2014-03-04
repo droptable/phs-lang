@@ -403,6 +403,9 @@ class Analyzer extends Walker
     array_push($this->sstack, $this->scope);
     $node->scope = new ClassScope($sym, $this->scope);
     $this->scope = $node->scope;
+    
+    // hoist members
+    $this->hoist_class_members($node->members);
   }
   
   protected function leave_class_decl($node)
@@ -413,6 +416,8 @@ class Analyzer extends Walker
   
   protected function enter_nested_mods($node)
   {
+    // print "nested mods!\n";
+    
     if (!$this->check_mods($node->mods, true, false))
       return $this->drop();
     
@@ -493,7 +498,7 @@ class Analyzer extends Walker
   }
   
   protected function visit_var_decl($node)
-  {
+  {    
     $flags = SYM_FLAG_NONE;
     $apppf = $this->scope instanceof ClassScope;
     
@@ -511,7 +516,7 @@ class Analyzer extends Walker
   protected function visit_require_decl($node)
   {
     // require must act as require_once
-    $path = $this->reduce($node->expr);
+    $path = $this->handle_expr($node->expr);
     
     if ($path->kind !== VAL_KIND_STR) {
       $this->error_at($node->loc, ERR_ERROR, 'require from unknown source');
@@ -519,9 +524,6 @@ class Analyzer extends Walker
     }
     
     $path = $path->value;
-    
-    require_once 'parser.php';
-    require_once 'source.php';
     
     // require is always relative, except if the path starts with an '/'
     // or on windows [letter]:/ or [letter]:\
@@ -552,6 +554,9 @@ class Analyzer extends Walker
       $this->error_at($node->loc, ERR_ERROR, 'unable to import file "%s"', $path);
       return $this->drop();
     }
+    
+    require_once 'parser.php';
+    require_once 'source.php';
     
     // cache parser?
     $psr = new Parser($this->ctx);
@@ -676,6 +681,9 @@ class Analyzer extends Walker
         return $this->handle_var_obj($var, $flags);
       case 'arr_destr':
         return $this->handle_var_arr($var, $flags);
+      default:
+        print "what? " . $var->kind() . "\n";
+        assert(0);
     }
   }
   
@@ -872,7 +880,11 @@ class Analyzer extends Walker
   
   protected function handle_expr($expr)
   {
-    $this->walk_some($expr);
+    if ($expr === null)
+      $this->value = new Value(VAL_KIND_EMPTY);  
+    else    
+      $this->walk_some($expr);
+    
     return $this->value;
   }
   
@@ -1171,16 +1183,16 @@ class Analyzer extends Walker
   
   protected function visit_cast_expr($node) 
   {
-    $lhs = $this->handle_expr($node->left);
-    $rhs = $this->handle_expr($node->right);
+    $lhs = $this->handle_expr($node->expr);
+    $rhs = $this->handle_expr($node->type);
     
     if ($lhs->kind !== VAL_KIND_UNKNOWN) {
       // store value
-      $node->left->value = $lhs;
+      $node->expr->value = $lhs;
       
       if ($rhs->kind !== VAL_KIND_UNKNOWN) {
         // store value
-        $node->right->value = $rhs;
+        $node->type->value = $rhs;
         // reduce
         $this->reduce_cast_expr($lhs, $rhs, $node->loc);
         goto out;
@@ -1286,20 +1298,27 @@ class Analyzer extends Walker
     $rhs = $this->handle_expr($node->right);
     
     if (!$fail && $lhs->kind !== VAL_KIND_UNKNOWN) {
-      // well, the left-hand-side is not that important here...
-      // check if the symbol in question can handle a re-assigment
-      $sym = $lhs->symbol;
-      
-      if ($sym->flags & SYM_FLAGS_CONST && $sym->value->kind !== VAL_KIND_NONE) {
-        $this->error_at($node->loc, ERR_ERROR, 're-assigment of constant symbol %s', $sym->name);
-        $fail = true;
-      }
-      
-      if (!$fail) {
-        // assign it!
-        $this->value = $sym->value = $rhs;       
+      if ($lhs->symbol !== null) {
+        // well, the left-hand-side is not that important here...
+        // check if the symbol in question can handle a re-assigment
+        $sym = $lhs->symbol;
+        
+        if (($sym->flags & SYM_FLAG_CONST) && $sym->value->kind !== VAL_KIND_EMPTY) {
+          $this->error_at($node->loc, ERR_ERROR, 're-assigment of constant symbol %s', $sym->name);
+          $fail = true;
+        }
+        
+        if (!$fail) {
+          // assign it!
+          $this->value = $sym->value = $rhs;       
+          goto out;
+        } 
+      } else {
+        // the left-hand-side gets thrown-away anyway
+        // possible something like { foo: 1 }.foo = 2 
+        $this->value = $node->value = $rhs;
         goto out;
-      } 
+      }
     }
     
     $this->value = new Value(VAL_KIND_UNKNOWN);
@@ -1452,11 +1471,12 @@ class Analyzer extends Walker
     $lhs = $this->handle_expr($node->callee);
     
     if ($lhs->kind !== VAL_KIND_UNKNOWN) {
-      if ($lhs->kind === VAL_KIND_SYMBOL) {
-        if ($lhs->value->kind !== SYM_KIND_FN)
-          $this->error_at($node->callee->loc, ERR_ERROR, '%s is not callable', $lhs->value->name);
-      } elseif ($lhs->kind !== VAL_KIND_FN) 
-        $this->error_at($node->callee->loc, ERR_ERROR, 'value is not callable');
+      if ($lhs->kind !== VAL_KIND_FN) {
+        if ($lhs->symbol !== null)
+          $this->error_at($node->callee->loc, ERR_ERROR, '%s is not callable', $lhs->symbol->name);
+        else
+          $this->error_at($node->callee->loc, ERR_ERROR, 'value is not callable');
+      }
       
       $node->callee->value = $lhs;
     }
@@ -1595,14 +1615,16 @@ class Analyzer extends Walker
     $arr = [];
     $unk = false;
     
-    foreach ($node->items as $item) {
-      $val = $this->handle_expr($item);
-      
-      if ($val->kind === VAL_KIND_UNKNOWN)
-        $unk = true;
-      
-      if (!$unk) $arr[] = $val;
-    }  
+    if ($node->items !== null) {
+      foreach ($node->items as $item) {
+        $val = $this->handle_expr($item);
+        
+        if ($val->kind === VAL_KIND_UNKNOWN)
+          $unk = true;
+        
+        if (!$unk) $arr[] = $val;
+      }  
+    }
     
     if ($unk) 
       $this->value = new Value(VAL_KIND_UNKNOWN);
@@ -1616,27 +1638,29 @@ class Analyzer extends Walker
     $obj = []; // jep, assoc
     $unk = false;
     
-    foreach ($node->pairs as $pair) {
-      $kind = $pair->key->kind();
-            
-      if ($kind === 'ident' || $kind === 'str_lit')
-        $key = $pair->key->value;
-      else {
-        $val = $this->handle_expr($pair->key);
+    if ($node->pairs !== null) {
+      foreach ($node->pairs as $pair) {
+        $kind = $pair->key->kind();
+              
+        if ($kind === 'ident' || $kind === 'str_lit')
+          $key = $pair->key->value;
+        else {
+          $val = $this->handle_expr($pair->key);
 
+          if ($val->kind === VAL_KIND_UNKNOWN)
+            $unk = true;
+          else
+            $key = (string) $val->value;
+        }
+        
+        $val = $this->handle_expr($pair->value);
+        
         if ($val->kind === VAL_KIND_UNKNOWN)
           $unk = true;
-        else
-          $key = (string) $val->value;
+        
+        if (!$unk) $res[$key] = $val;
       }
-      
-      $val = $this->handle_expr($pair->value);
-      
-      if ($val->kind === VAL_KIND_UNKNOWN)
-        $unk = true;
-      
-      if (!$unk) $res[$key] = $val;
-    }
+  }
     
     if ($unk)
       $this->value = new Value(VAL_KIND_UNKNOWN);
@@ -1834,6 +1858,11 @@ class Analyzer extends Walker
   protected function visit_str_lit($node) 
   {
     $this->value = new Value(VAL_KIND_STR, $node->value);
+  }
+  
+  protected function visit_type_id($node)
+  {
+    $this->value = new Value(VAL_KIND_TYPE, $node->type); 
   }
     
   /* ------------------------------------ */

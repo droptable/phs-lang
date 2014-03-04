@@ -109,7 +109,7 @@ abstract class Walker
     var_dump($some);
     $log = ob_get_clean();
     
-    print substr($log, 0, 100) . '...';
+    print substr($log, 0, 500) . '...';
   }
   
   /**
@@ -269,4 +269,6 @@ abstract class Walker
   protected function visit_engine_const($n) {}
   
   protected function visit_str_lit($n) {}
+  
+  protected function visit_type_id($n) {}
 }

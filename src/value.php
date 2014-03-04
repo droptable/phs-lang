@@ -10,7 +10,7 @@ const
   VAL_KIND_SNUM = 6,
   VAL_KIND_BOOL = 7,
   VAL_KIND_NULL = 8,
-  // VAL_KIND_SYMBOL = 9,
+  VAL_KIND_EMPTY = 9,
   VAL_KIND_ARR = 10,
   VAL_KIND_OBJ = 11,
   VAL_KIND_FN = 12,
@@ -18,6 +18,7 @@ const
   VAL_KIND_CLASS = 14,
   VAL_KIND_TRAIT = 15,
   VAL_KIND_IFACE = 16,
+  VAL_KIND_TYPE = 17,
   VAL_KIND_UNKNOWN = 99
 ;
 
@@ -64,6 +65,8 @@ class Value
         return $this->value ? 'true' : 'false';
       case VAL_KIND_NULL:
         return 'null';
+      case VAL_KIND_EMPTY:
+        return '(empty)';
       case VAL_KIND_OBJ:
         return '<object>';
       case VAL_KIND_CLASS:

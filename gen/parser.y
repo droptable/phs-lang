@@ -880,10 +880,10 @@ lxpr
   | '!' rxpr                { $$ = @UnaryExpr($1, $2); }
   | T_INC rxpr %prec '!'    { $$ = @UpdateExpr(true, $2, $1); }
   | T_DEC rxpr %prec '!'    { $$ = @UpdateExpr(true, $2, $1); }
-  | T_NEW type              { $$ = @NewExpr($1, null); }
-  | T_NEW type pargs        { $$ = @NewExpr($1, $2); }
-  | T_NEW nxpr              { $$ = @NewExpr($1, null); }
-  | T_NEW nxpr pargs        { $$ = @NewExpr($1, $2); }
+  | T_NEW type_id           { $$ = @NewExpr($2, null); }
+  | T_NEW type_id pargs     { $$ = @NewExpr($2, $3); }
+  | T_NEW nxpr              { $$ = @NewExpr($2, null); }
+  | T_NEW nxpr pargs        { $$ = @NewExpr($2, $3); }
   | T_DEL ident             { $$ = @DelExpr($2); }
   | atom                    { $$ = $1; }
   | legacy_cast             { $$ = $1; }
@@ -951,10 +951,10 @@ rxpr
   | '!' rxpr                { $$ = @UnaryExpr($1, $2); }
   | T_INC rxpr %prec '!'    { $$ = @UpdateExpr(true, $2, $1); }
   | T_DEC rxpr %prec '!'    { $$ = @UpdateExpr(true, $2, $1); }
-  | T_NEW type              { $$ = @NewExpr($1, null); }
-  | T_NEW type pargs        { $$ = @NewExpr($1, $2); }
-  | T_NEW nxpr              { $$ = @NewExpr($1, null); }
-  | T_NEW nxpr pargs        { $$ = @NewExpr($1, $2); }
+  | T_NEW type_id           { $$ = @NewExpr($2, null); }
+  | T_NEW type_id pargs     { $$ = @NewExpr($2, $3); }
+  | T_NEW nxpr              { $$ = @NewExpr($2, null); }
+  | T_NEW nxpr pargs        { $$ = @NewExpr($2, $3); }
   | T_DEL ident             { $$ = @DelExpr($2); }
   | atom                    { $$ = $1; }
   | obj                     { $$ = $1; }
@@ -1023,10 +1023,10 @@ rxpr_noin
   | '!' rxpr_noin                     { $$ = @UnaryExpr($1, $2); }
   | T_INC rxpr_noin %prec '!'         { $$ = @UpdateExpr(true, $2, $1); }
   | T_DEC rxpr_noin %prec '!'         { $$ = @UpdateExpr(true, $2, $1); }
-  | T_NEW type                        { $$ = @NewExpr($1, null); }
-  | T_NEW type pargs                  { $$ = @NewExpr($1, $2); }
-  | T_NEW nxpr                        { $$ = @NewExpr($1, null); }
-  | T_NEW nxpr pargs                  { $$ = @NewExpr($1, $2); }
+  | T_NEW type_id                     { $$ = @NewExpr($2, null); }
+  | T_NEW type_id pargs               { $$ = @NewExpr($2, $3); }
+  | T_NEW nxpr                        { $$ = @NewExpr($2, null); }
+  | T_NEW nxpr pargs                  { $$ = @NewExpr($2, $3); }
   | T_DEL ident                       { $$ = @DelExpr($2); }
   | atom                              { $$ = $1; }
   | obj                               { $$ = $1; }
@@ -1035,7 +1035,7 @@ rxpr_noin
   ;
   
 legacy_cast
-  : '(' type ')' rxpr 
+  : '(' type_id ')' rxpr 
     { 
       $$ = @CastExpr($4, $2); 
       $this->error_at($1->loc, ERR_WARN, 'legacy cast, use `expr as type` instead'); 
@@ -1043,7 +1043,7 @@ legacy_cast
   ;
   
 legacy_cast_noin
-  : '(' type ')' rxpr_noin 
+  : '(' type_id ')' rxpr_noin 
     { 
       $$ = @CastExpr($4, $2); 
       $this->error_at($1->loc, ERR_WARN, 'legacy cast, use `expr as type` instead'); 
@@ -1103,15 +1103,15 @@ name
 
 type_name
   : name { $$ = $1; }
-  | type { $$ = $1; }
+  | type_id { $$ = $1; }
   ;
 
-type
-  : T_TINT    { $$ = @TypeId($1); }
-  | T_TBOOL   { $$ = @TypeId($1); }
-  | T_TFLOAT  { $$ = @TypeId($1); }
-  | T_TSTRING { $$ = @TypeId($1); }
-  | T_TREGEXP { $$ = @TypeId($1); }
+type_id
+  : T_TINT    { $$ = @TypeId($1->type); }
+  | T_TBOOL   { $$ = @TypeId($1->type); }
+  | T_TFLOAT  { $$ = @TypeId($1->type); }
+  | T_TSTRING { $$ = @TypeId($1->type); }
+  | T_TREGEXP { $$ = @TypeId($1->type); }
   ;
 
 ident

@@ -152,7 +152,7 @@ class ClassScope extends Scope
    */
   public function add($id, Symbol $sym)
   {
-    #print "adding member '$id' to class-symtable\n";
+    # print "adding member '$id' to class-symtable\n";
     return $this->csym->mst->add($id, $sym);
   }
   
