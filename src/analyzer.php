@@ -46,6 +46,22 @@ class Analyzer extends Walker
   // a value carried around to reduce constant-expressions
   private $value;
   
+  // analyzer passes for classes/traits/interfaces:
+  // - first pass: variables only
+  // - second pass: functions only
+  private $pass;
+  
+  // pass stack (normaly unused since classes can not be nested)
+  private $pstack;
+  
+  // location flags
+  private $in_fn = 0;
+  private $in_loop = 0;
+  private $in_class = 0;
+  private $in_trait = 0;
+  private $in_iface = 0;
+  private $in_module = 0;
+  
   /**
    * constructor
    * 
@@ -74,6 +90,8 @@ class Analyzer extends Walker
     $this->flags = SYM_FLAG_NONE;
     $this->fstack = [];
     $this->valid = true;
+    $this->pass = 1;
+    $this->pstack = [];
     
     $this->walk($unit);
   }
@@ -368,6 +386,9 @@ class Analyzer extends Walker
   
   protected function enter_class_decl($node)
   {
+    if ($this->pass === 2)
+      return;
+    
     $flags = SYM_FLAG_CONST;
         
     if ($node->mods) {
@@ -404,14 +425,24 @@ class Analyzer extends Walker
     $node->scope = new ClassScope($sym, $this->scope);
     $this->scope = $node->scope;
     
-    // hoist members
-    $this->hoist_class_members($node->members);
+    ++$this->in_class;
+    
+    array_push($this->pstack, $this->pass);
+    $this->pass = 1;
   }
   
   protected function leave_class_decl($node)
-  {
-    // back to prev scope
-    $this->scope = array_pop($this->sstack);
+  {    
+    if ($this->pass === 1) {
+      $this->pass = 2;
+      $this->walk_node($node);  
+    } else {
+      // back to prev scope
+      $this->scope = array_pop($this->sstack);
+      $this->pass = array_pop($this->pstack);
+      
+      --$this->in_class;
+    }
   }
   
   protected function enter_nested_mods($node)
@@ -434,8 +465,11 @@ class Analyzer extends Walker
   
   protected function enter_fn_decl($node)
   {
+    if (($this->in_class > $this->in_fn) && $this->pass === 1)
+      return $this->drop(); // do not leave
+    
     $flags = SYM_FLAG_NONE;
-    $apppf = $this->scope instanceof ClassScope;
+    $apppf = $this->in_class > $this->in_fn;
     
     if ($node->mods) {
       if (!$this->check_mods($node->mods, $apppf, !$apppf))
@@ -472,6 +506,8 @@ class Analyzer extends Walker
     $node->scope = new FnScope($sym, $this->scope);
     $this->scope = $node->scope;
     
+    ++$this->in_fn;
+    
     // backup flags
     array_push($this->fstack, $this->flags);
     $this->flags = SYM_FLAG_NONE;
@@ -490,6 +526,8 @@ class Analyzer extends Walker
     
     // restore flags
     $this->flags = array_pop($this->fstack);
+    
+    --$this->in_fn;
   }
   
   protected function visit_let_decl($node)
@@ -499,8 +537,11 @@ class Analyzer extends Walker
   
   protected function visit_var_decl($node)
   {    
+    if (($this->in_class > $this->in_fn) && $this->pass === 2)
+      return $this->drop();
+    
     $flags = SYM_FLAG_NONE;
-    $apppf = $this->scope instanceof ClassScope;
+    $apppf = $this->in_class > $this->in_fn;
     
     if ($node->mods) {
       if (!$this->check_mods($node->mods, $apppf, !$apppf))
@@ -575,6 +616,67 @@ class Analyzer extends Walker
       $this->com->add_unit($ast);
     }
   }
+  
+  protected function enter_block($node) {}
+  protected function leave_block($node) {}
+  
+  protected function visit_do_stmt($node) 
+  {
+    $this->walk_some($node->stmt);
+    $this->handle_expr($node->expr);
+  }
+  
+  protected function visit_if_stmt($node) 
+  {
+    $this->handle_expr($node->expr);
+    $this->walk_some($node->stmt);
+    
+    if ($node->elsifs !== null) {
+      foreach ($node->elsifs as $elsif) {
+        $this->handle_expr($elsif->expr);
+        $this->walk_some($elsif->stmt);
+      }
+    }
+    
+    if ($node->els !== null)
+      $this->walk_some($node->els->stmt);
+  }
+  
+  protected function visit_for_stmt($n) {}
+  protected function visit_for_in_stmt($n) {}
+  protected function visit_try_stmt($n) {}
+  protected function visit_php_stmt($n) {}
+  protected function visit_goto_stmt($n) {} // super extra fun!
+  protected function visit_test_stmt($n) {}
+  protected function visit_break_stmt($n) {} // extra fun!
+  protected function visit_continue_stmt($n) {} // extra fun!
+  
+  protected function visit_throw_stmt($node) 
+  {
+    $this->handle_expr($node);
+  }
+  
+  protected function visit_while_stmt($node) 
+  {
+    $this->handle_expr($node->test);
+    $this->walk_some($node->stmt);
+  }
+  
+  protected function visit_yield_stmt($n) {}
+  protected function visit_assert_stmt($n) {}
+  protected function visit_switch_stmt($n) {}
+  
+  protected function visit_return_stmt($node) 
+  {
+    $this->handle_expr($node->expr);
+        
+    if (!$this->in_fn) {
+      $this->error_at($node->loc, ERR_ERROR, 'return outside of function');
+      return $this->drop();
+    }
+  }
+  
+  protected function visit_labeled_stmt($n) {}
   
   /* ------------------------------------ */
     
@@ -1389,6 +1491,7 @@ class Analyzer extends Walker
         
         if ($lhs->kind !== VAL_KIND_OBJ) {
           $this->error_at($loc, ERR_ERROR, 'trying to get property `%s` of non-object', $key);
+          $this->error_at($loc, ERR_INFO, 'left-hand-side is %s', $lhs);
           goto unk;
         }
         
@@ -1726,7 +1829,7 @@ class Analyzer extends Walker
     }
     
     // best case: no more parts
-    if (empty ($name->parts)) {
+    if (empty ($name->parts)) {      
       $this->value = Value::from($sym);
       goto out;
     }
@@ -1801,8 +1904,8 @@ class Analyzer extends Walker
     $this->error_at($name->loc, ERR_ERROR, 'module used as value');
     goto unk;
     
-    err:
-    $this->error_at($name->loc, ERR_ERROR, 'access to undefined symbol `%s`', name_to_str($name));
+    err:    
+    $this->error_at($name->loc, ERR_ERROR, 'access to undefined symbol `%s` (via name)', name_to_str($name));
     
     unk:
     $this->value = new Value(VAL_KIND_UNKNOWN);
@@ -1815,7 +1918,7 @@ class Analyzer extends Walker
     $sym = $this->scope->get($node->value, false, null, true);
     
     if (!$sym) {
-      $this->error_at($node->loc, ERR_ERROR, 'access to undefined symbol `%s`', $node->name);
+      $this->error_at($node->loc, ERR_ERROR, 'access to undefined symbol `%s` (via ident)', $node->name);
       $this->value = new Value(VAL_KIND_UNKNOWN);
     } else {
       $this->value = new Value(VAL_KIND_SYMBOL, $sym);
