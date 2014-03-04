@@ -1338,24 +1338,31 @@ class Analyzer extends Walker
       // property-access
       $sym = null;
       
-      if ($lhs->kind === VAL_KIND_SYMBOL && 
-          ($lhs->value->kind === SYM_KIND_CLASS || 
-           $lhs->value->kind === SYM_KIND_TRAIT ||
-           $lhs->value->kind === SYM_KIND_IFACE)) {
+      if ($lhs->kind === VAL_KIND_CLASS || 
+          $lhs->kind === VAL_KIND_TRAIT ||
+          $lhs->kind === VAL_KIND_IFACE) {
+        // values like this must be bound to a symbol
+        assert($lhs->symbol !== null);
+        
         // fetch member
-        $sym = $lhs->value->mst->get((string) $key, false);
+        $sym = $lhs->symbol->mst->get((string) $key, false);
+        
         if (!$sym) {
           // symbol not found
-          $this->error_at($loc, ERR_ERROR, 'access to undefined property `%s` of `%s`', $key, $lhs->value->name);
+          $this->error_at($loc, ERR_ERROR, 'access to undefined property `%s` of `%s`', $key, $lhs->symbol->name);
           goto unk;  
         }
         
         // if symbol is constant and it has a value
-        if (($sym->flags & SYM_FLAG_CONST) && $sym->value !== null) {
+        // the value can be unknown though
+        // TODO: implement static access
+        if (($sym->flags & SYM_FLAG_CONST) && $sym->value->kind !== VAL_KIND_EMPTY) {
           $this->value = $sym->value;
           $this->value->symbol = $sym;
         } else {
           // accessing non-static/non-const or empty property
+          if (!($sym->flags & SYM_FLAG_STATIC))
+            $this->error_at($loc, ERR_ERROR, 'access to non-static/const property `%s` of `%s` in invalid context', $key, $lhs->symbol->name);
           goto unk;
         }        
       } else {
@@ -1696,7 +1703,7 @@ class Analyzer extends Walker
     
     // best case: no more parts
     if (empty ($name->parts)) {
-      $this->value = new Value(VAL_KIND_SYMBOL, $sym);
+      $this->value = Value::from($sym);
       goto out;
     }
     
@@ -1763,7 +1770,7 @@ class Analyzer extends Walker
       $sym = $sym->sym;
     }
     
-    $this->value = new Value(VAL_KIND_SYMBOL, $sym);
+    $this->value = Value::from($sym);
     goto out;
     
     mod:

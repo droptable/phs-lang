@@ -178,7 +178,7 @@ class FnSym extends Symbol
 class SymbolRef extends Symbol
 {
   // the symbol
-  public $sym;
+  public $symbol;
   
   // the full name of this reference
   public $path;
@@ -186,7 +186,7 @@ class SymbolRef extends Symbol
   public function __construct($kind, $name, Symbol $sym, Name $path, Location $loc = null)
   {
     parent::__construct($kind, $name, SYM_FLAG_NONE, $loc);
-    $this->sym = $sym;
+    $this->symbol = $sym;
     $this->path = $path;
   }
     
