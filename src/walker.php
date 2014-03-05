@@ -133,7 +133,6 @@ abstract class Walker
       case 'dtor_decl':
         $this->enter_node($kind, $node, $node->body);
         break;
-      // enum_decl -> no enter/leave needed
       case 'class_decl':
       case 'iface_decl':
       case 'trait_decl':

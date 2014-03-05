@@ -18,7 +18,7 @@ const
   SYM_FLAG_EXTERN     = 0x0200, // symbol is extern
   SYM_FLAG_ABSTRACT   = 0x0400, // symbol is abstract (for classes)
   SYM_FLAG_INCOMPLETE = 0x0800, // symbol is incomplete
-  SYM_FLAG_WEAK       = 0x1000  // symbol is a weak reference (the type of this reference was a assumption)
+  SYM_FLAG_WEAK       = 0x1000  // symbol is weak (can be replaced)
 ;
 
 // typo recover

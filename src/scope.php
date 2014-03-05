@@ -157,6 +157,17 @@ class ClassScope extends Scope
   }
   
   /**
+   * sets/updates a symbol 
+   * 
+   * @param string $id
+   * @param Symbol $sym
+   */
+  public function set($id, Symbol $sym)
+  {
+    return $this->csym->mst->set($id, $sym);
+  }
+  
+  /**
    * check if a symbol is defined in the class.
    * fallback to scope
    * 

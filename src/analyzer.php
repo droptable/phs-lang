@@ -45,21 +45,12 @@ class Analyzer extends Walker
   // a value carried around to reduce constant-expressions
   private $value;
   
-  // analyzer passes for classes/traits/interfaces:
-  // - first pass: variables only
-  // - second pass: functions only
+  // pass 1/2 for class members
   private $pass;
   
-  // pass stack (normaly unused since classes can not be nested)
-  private $pstack;
-  
-  // location flags
-  private $in_fn = 0;
-  private $in_loop = 0;
-  private $in_class = 0;
-  private $in_trait = 0;
-  private $in_iface = 0;
-  private $in_module = 0;
+  // for validation of return/break/continue
+  private $infn = 0;
+  private $inloop = 0;
   
   /**
    * constructor
@@ -87,8 +78,7 @@ class Analyzer extends Walker
     $this->flags = SYM_FLAG_NONE;
     $this->fstack = [];
     $this->valid = true;
-    $this->pass = 1;
-    $this->pstack = [];
+    $this->pass = 0;
     
     $this->walk($unit);
   }
@@ -224,6 +214,17 @@ class Analyzer extends Walker
       return true;
     }
     
+    // prev symbol was weak and can be replaced.
+    // ignore all other flags
+    if ($cur->flags & SYM_FLAG_WEAK) {
+      // the prev symbol must not be dropped in this case,
+      // just forget about it
+      $this->scope->set($id, $sym);
+      return true;
+    }
+    
+    assert(!($sym->flags & SYM_FLAG_WEAK));
+    
     if ($cur instanceof SymRef) {
       $this->error_at($sym->loc, ERR_ERROR, '%s %s collides with a referenced symbol', $kind, $sym->name);
       $this->error_at($cur->loc, ERR_ERROR, 'reference was here');
@@ -339,6 +340,9 @@ class Analyzer extends Walker
   
   protected function visit_enum_decl($node) 
   {
+    if ($node->members === null)
+      return; // ignore it
+    
     $flags = SYM_FLAG_CONST | SYM_FLAG_FINAL;
     
     if ($node->mods) {
@@ -382,10 +386,7 @@ class Analyzer extends Walker
   }
   
   protected function enter_class_decl($node)
-  {
-    if ($this->pass === 2)
-      return;
-    
+  {    
     $flags = SYM_FLAG_CONST;
         
     if ($node->mods) {
@@ -421,25 +422,17 @@ class Analyzer extends Walker
     array_push($this->sstack, $this->scope);
     $node->scope = new ClassScope($sym, $this->scope);
     $this->scope = $node->scope;
-    
-    ++$this->in_class;
-    
-    array_push($this->pstack, $this->pass);
-    $this->pass = 1;
+        
+    // pass 1: add all member-symbols without entering functions
+    // pass 2: improve symbols and enter functions ...
+    $this->handle_class_members($node->members); 
   }
   
   protected function leave_class_decl($node)
   {    
-    if ($this->pass === 1) {
-      $this->pass = 2;
-      $this->walk_node($node);  
-    } else {
-      // back to prev scope
-      $this->scope = array_pop($this->sstack);
-      $this->pass = array_pop($this->pstack);
-      
-      --$this->in_class;
-    }
+    // back to prev scope
+    $this->scope = array_pop($this->sstack);
+    $this->pass = 0;
   }
   
   protected function enter_nested_mods($node)
@@ -461,12 +454,9 @@ class Analyzer extends Walker
   }
   
   protected function enter_fn_decl($node)
-  {
-    if (($this->in_class > $this->in_fn) && $this->pass === 1)
-      return $this->drop(); // do not leave
-    
+  {    
     $flags = SYM_FLAG_NONE;
-    $apppf = $this->in_class > $this->in_fn;
+    $apppf = $this->pass > 0;
     
     if ($node->mods) {
       if (!$this->check_mods($node->mods, $apppf, !$apppf))
@@ -499,11 +489,12 @@ class Analyzer extends Walker
     if (!$this->add_symbol($fid, $sym))
       return $this->drop();
     
+    if ($this->pass === 1)
+      return $this->drop(); // skip params and do not enter ...
+    
     array_push($this->sstack, $this->scope);
     $node->scope = new FnScope($sym, $this->scope);
     $this->scope = $node->scope;
-    
-    ++$this->in_fn;
     
     // backup flags
     array_push($this->fstack, $this->flags);
@@ -514,6 +505,8 @@ class Analyzer extends Walker
     
     if ($node->params !== null)
       $this->handle_params($node->params);
+    
+    ++$this->infn;
   }
   
   protected function leave_fn_decl($node)
@@ -524,7 +517,7 @@ class Analyzer extends Walker
     // restore flags
     $this->flags = array_pop($this->fstack);
     
-    --$this->in_fn;
+    --$this->infn;
   }
   
   protected function visit_let_decl($node)
@@ -533,12 +526,9 @@ class Analyzer extends Walker
   }
   
   protected function visit_var_decl($node)
-  {    
-    if (($this->in_class > $this->in_fn) && $this->pass === 2)
-      return $this->drop();
-    
+  {        
     $flags = SYM_FLAG_NONE;
-    $apppf = $this->in_class > $this->in_fn;
+    $apppf = $this->pass > 0;
     
     if ($node->mods) {
       if (!$this->check_mods($node->mods, $apppf, !$apppf))
@@ -667,7 +657,7 @@ class Analyzer extends Walker
   {
     $this->handle_expr($node->expr);
         
-    if (!$this->in_fn) {
+    if ($this->infn < 1) {
       $this->error_at($node->loc, ERR_ERROR, 'return outside of function');
       return $this->drop();
     }
@@ -767,7 +757,12 @@ class Analyzer extends Walker
     switch ($var->kind()) {
       case 'ident':
         $vid = ident_to_str($var);
-        $val = $this->handle_expr($init);
+        
+        if ($this->pass === 1)
+          // do not handle expressions
+          $val = new Value(VAL_KIND_EMPTY); 
+        else
+          $val = $this->handle_expr($init);
         
         if ($val->kind === VAL_KIND_UNKNOWN && $flags & SYM_FLAG_CONST) {
           $this->error_at($var->loc, ERR_ERROR, 'constant variables must be reducible at compile-time');
@@ -940,6 +935,18 @@ class Analyzer extends Walker
     }
     
     return !$error;
+  }
+  
+  protected function handle_class_members($members)
+  {
+    array_push($this->fstack, $this->flags);
+    $this->flags |= SYM_FLAG_WEAK;
+    
+    $this->pass = 1; // do not enter functions
+    $this->walk_some($members);
+    
+    $this->flags = array_pop($this->fstack);
+    $this->pass = 2; // go berserk now!
   }
   
   /**
