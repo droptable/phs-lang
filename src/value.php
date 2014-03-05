@@ -78,8 +78,7 @@ class Value
       case VAL_KIND_ARR:
         return '<array>';
       case VAL_KIND_FN:
-        $name = $this->symbol ? " {$this->symbol->name}" : '';
-        return "<function$name>";
+        return "<function {$this->name}>";
     }
     
     return '(unknown)';
@@ -105,9 +104,9 @@ class Value
       case REF_KIND_FN:
         $sym = $sym->symbol;
     }
-            
+              
     if ($sym->kind === SYM_KIND_VAR)
-      $nval = $sym->value;
+      $nval = $sym->value;      
     else {
       $kind = VAL_KIND_UNKNOWN;
       
@@ -136,3 +135,15 @@ class Value
   }
 }
 
+class FnValue extends Value
+{
+  // the id of this anonymus function
+  public $name;
+  
+  public function __construct(FnSym $sym)
+  {
+    parent::__construct(VAL_KIND_FN);
+    $this->name = $sym->name;
+    $this->symbol = $sym;
+  }
+}

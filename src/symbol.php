@@ -88,7 +88,7 @@ abstract class Symbol
   public function debug($dp = '', $pf = '') 
   {
     $flags = symflags_to_str($this->flags);
-    print "$dp$pf{$this->name} (flags=$flags)";
+    print "$dp$pf{$this->name} (flags=$flags) (rw={$this->reads}/{$this->writes})";
   }
 }
 

@@ -1041,8 +1041,8 @@ class Analyzer extends Walker
     
     $this->scope = array_pop($this->sstack);
     $this->flags = array_pop($this->fstack);
-        
-    $this->value = Value::from($sym);
+    
+    $this->value = new FnValue($sym);
   }
   
   protected function visit_bin_expr($node) 
@@ -1453,14 +1453,16 @@ class Analyzer extends Walker
         // check if the symbol in question can handle a re-assigment
         $sym = $lhs->symbol;
         
-        if (($sym->flags & SYM_FLAG_CONST) && $sym->value->kind !== VAL_KIND_EMPTY) {
+        if ($sym->value->kind !== VAL_KIND_EMPTY) {
           $this->error_at($node->loc, ERR_ERROR, 're-assigment of constant symbol %s', $sym->name);
           $fail = true;
         }
         
         if (!$fail) {
           // assign it!
-          $this->value = $sym->value = $rhs;       
+          print "set $sym->name\n";
+          $this->value = $sym->value = $rhs;
+          $sym->writes++;       
           goto out;
         } 
       } else {
@@ -1526,8 +1528,8 @@ class Analyzer extends Walker
         // the value can be unknown though
         // TODO: implement static access
         if (($sym->flags & SYM_FLAG_CONST) && $sym->value->kind !== VAL_KIND_EMPTY) {
-          $this->value = $sym->value;
-          $this->value->symbol = $sym;
+          $this->value = Value::from($sym);
+          $sym->reads++;
         } else {
           // accessing non-static/non-const or empty property
           if (!($sym->flags & SYM_FLAG_STATIC))
@@ -1538,14 +1540,15 @@ class Analyzer extends Walker
         $key = (string) $key;
         
         if ($lhs->kind !== VAL_KIND_OBJ) {
-          $this->error_at($loc, ERR_ERROR, 'trying to get property `%s` of non-object', $key);
-          $this->error_at($loc, ERR_INFO, 'left-hand-side is %s', $lhs);
+          $ref = $lhs->symbol ? "symbol `{$lhs->symbol->name}`" : '(unknown)';
+          $this->error_at($loc, ERR_ERROR, 'trying to get property "%s" of non-object %s', $key, $ref);
+          $this->error_at($loc, ERR_INFO, 'left-hand-side is %s', $lhs);          
           goto unk;
         }
         
         if (!isset ($lhs->value[$key])) {
-          $this->error_at($loc, ERR_ERROR, 'access to undefined property `%s`', $key);
-          goto unk;
+          $this->error_at($loc, ERR_WARN, 'access to undefined property "%s"', $key);
+          $lhs->value[$key] = new Value(VAL_KIND_UNKNOWN);
         }
         
         $this->value = $lhs->value[$key];
@@ -1940,7 +1943,7 @@ class Analyzer extends Walker
         // module can not be a referenced
         goto mod;
       
-      $sym = $sym->sym;
+      $sym = $sym->symbol;
     }
     
     goto sym;
@@ -1949,6 +1952,7 @@ class Analyzer extends Walker
     if ($sym->flags & SYM_FLAG_CONST) {
       // do not use values from non-const symbols
       $this->value = Value::from($sym);
+      $sym->reads++;
       goto out;
     }
     
@@ -1981,6 +1985,7 @@ class Analyzer extends Walker
       goto unk;
     
     $this->value = Value::from($sym);
+    $sym->reads++;
     goto out;
     
     unk:
