@@ -686,7 +686,7 @@ class Analyzer extends Walker
   
   protected function visit_throw_stmt($node) 
   {
-    $this->handle_expr($node);
+    $this->handle_expr($node->expr);
   }
   
   protected function visit_while_stmt($node) 
@@ -1524,7 +1524,6 @@ class Analyzer extends Walker
         
         if (!$fail) {
           // assign it!
-          print "set $sym->name\n";
           $this->value = $sym->value = $rhs;
           $sym->writes++;       
           goto out;

@@ -131,6 +131,8 @@ abstract class Walker
       case 'block';
       case 'ctor_decl':
       case 'dtor_decl':
+      case 'getter_decl':
+      case 'setter_decl':
         $this->enter_node($kind, $node, $node->body);
         break;
       case 'class_decl':
@@ -198,6 +200,12 @@ abstract class Walker
   
   protected function enter_dtor_decl($n) {}
   protected function leave_dtor_decl($n) {}
+  
+  protected function enter_getter_decl($n) {}
+  protected function leave_getter_decl($n) {}
+  
+  protected function enter_setter_decl($n) {}
+  protected function leave_setter_decl($n) {}
   
   protected function enter_trait_decl($n) {}
   protected function leave_trait_decl($n) {}
