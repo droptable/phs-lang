@@ -140,10 +140,14 @@ class FnValue extends Value
   // the id of this anonymus function
   public $name;
   
+  // the function symbol
+  public $sfym;
+  
   public function __construct(FnSym $sym)
   {
-    parent::__construct(VAL_KIND_FN);
+    // init with "true" so that constant expressions will work as expected
+    parent::__construct(VAL_KIND_FN, true);
     $this->name = $sym->name;
-    $this->symbol = $sym;
+    $this->fsym = $sym;
   }
 }

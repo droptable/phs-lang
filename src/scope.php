@@ -138,7 +138,7 @@ class ClassScope extends Scope
   // class-symbol
   private $csym;
   
-  public function __construct(ClassSym $csym, Scope $prev = null)
+  public function __construct(ClassLikeSym $csym, Scope $prev = null)
   {
     parent::__construct($prev);
     $this->csym = $csym;

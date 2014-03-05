@@ -124,9 +124,17 @@ class VarSym extends Symbol
   }
 }
 
+interface ClassLikeSym {}
+
 /** class symbol */
-class ClassSym extends Symbol
+class ClassSym extends Symbol implements ClassLikeSym
 {
+  // super class
+  public $super;
+  
+  // interfaces
+  public $impls;
+  
   // member symboltable
   public $mst;
   
@@ -142,6 +150,33 @@ class ClassSym extends Symbol
   {
     parent::debug($dp, $pf);
     print " class\n";
+    
+    $this->mst->debug("  $dp", '# ');
+    print "\n";
+  }
+}
+
+/** interface symbol */
+class IFaceSym extends Symbol implements ClassLikeSym
+{
+  // extended interfaces
+  public $exts;
+  
+  // member symboltable
+  public $mst;
+  
+  public function __construct($name, $flags, Location $loc = null)
+  {
+    parent::__construct(SYM_KIND_IFACE, $name, $flags, $loc);
+    $this->mst = new SymTable;
+  }
+  
+  /* ------------------------------------ */
+  
+  public function debug($dp = '', $pf = '')
+  {
+    parent::debug($dp, $pf);
+    print " iface\n";
     
     $this->mst->debug("  $dp", '# ');
     print "\n";

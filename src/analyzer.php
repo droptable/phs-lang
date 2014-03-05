@@ -55,6 +55,9 @@ class Analyzer extends Walker
   // anonymus function id-counter
   private static $anon_fid = 0;
   
+  // require'd paths
+  private static $require_paths = [];
+  
   /**
    * constructor
    * 
@@ -388,6 +391,33 @@ class Analyzer extends Walker
     }
   }
   
+  protected function enter_iface_decl($node)
+  {
+    $flags = SYM_FLAG_CONST;
+        
+    if ($node->members === null)
+      $flags |= SYM_FLAG_INCOMPLETE;
+    else
+      // check all members (each must be incomplete or without values)
+      if (!$this->check_iface_members($node->members))
+        return $this->drop();
+    
+    $iid = ident_to_str($node->id);
+    $sym = new IfaceSym($iid, $flags, $node->loc);
+    
+    if (!$this->add_symbol($iid, $sym))
+      return $this->drop();
+    
+    array_push($this->sstack, $this->scope);
+    $node->scope = new ClassScope($sym, $this->scope);
+    $this->scope = $node->scope;
+  }
+  
+  protected function leave_iface_decl($node)
+  {
+    $this->scope = array_pop($this->sstack);
+  }
+  
   protected function enter_class_decl($node)
   {    
     $flags = SYM_FLAG_CONST;
@@ -404,21 +434,25 @@ class Analyzer extends Walker
     else
       // simple test to detect abstract-members
       if (!$this->check_class($node, $flags))
-        return $this->drop();
-      
-    $base = null;
+        return $this->drop();    
     
-    if ($node->ext !== null)
-      if (!$this->check_class_ext($node->ext))
-        return $this->drop();
-      
-    if ($node->impl !== null)
-      if (!$this->check_class_impl($node->impl))
-        return $this->drop();
-        
+    $super = null;
+    if ($node->ext !== null) {
+      $super = $this->handle_class_ext($node->ext);
+      if (!$super) return $this->drop();
+    }
+    
+    $impls = null;
+    if ($node->impl !== null) {
+      $impls = $this->handle_class_impl($node->impl);
+      if (!$impls) return $this->drop();
+    }
+          
     $cid = ident_to_str($node->id);
     $sym = new ClassSym($cid, $flags, $node->loc);
-    
+    $sym->super = $super;
+    $sym->impls = $impls;
+          
     if (!$this->add_symbol($cid, $sym))
       return $this->drop();
     
@@ -429,6 +463,9 @@ class Analyzer extends Walker
     // pass 1: add all member-symbols without entering functions
     // pass 2: improve symbols and enter functions ...
     $this->handle_class_members($node->members); 
+    
+    // TODO: inspect ctor here
+    // because the analyzer will complain about uninitialized symbols
   }
   
   protected function leave_class_decl($node)
@@ -436,6 +473,8 @@ class Analyzer extends Walker
     // back to prev scope
     $this->scope = array_pop($this->sstack);
     $this->pass = 0;
+    
+    // TODO: validate class-members using its super-class and interfaces
   }
   
   protected function enter_nested_mods($node)
@@ -586,24 +625,28 @@ class Analyzer extends Walker
       return $this->drop();
     }
     
-    require_once 'parser.php';
-    require_once 'source.php';
-    
-    // cache parser?
-    $psr = new Parser($this->ctx);
-    $src = new FileSource($path);
-    
-    $ast = $psr->parse_source($src);
-    
-    if ($ast) {
-      $ast->dest = $src->get_dest();
-      $anl = new Analyzer($this->ctx);
+    if (!in_array($path, self::$require_paths)) {
+      self::$require_paths[] = $path;
       
-      // analyze unit
-      $anl->analyze($ast);
-          
-      // add it to the compiler
-      $this->com->add_unit($ast);
+      require_once 'parser.php';
+      require_once 'source.php';
+      
+      // cache parser?
+      $psr = new Parser($this->ctx);
+      $src = new FileSource($path);
+      
+      $ast = $psr->parse_source($src);
+      
+      if ($ast) {
+        $ast->dest = $src->get_dest();
+        $anl = new Analyzer($this->ctx, $this->com);
+        
+        // analyze unit
+        $anl->analyze($ast);
+            
+        // add it to the compiler
+        $this->com->add_unit($ast);
+      }
     }
   }
   
@@ -823,6 +866,46 @@ class Analyzer extends Walker
   }
   
   /**
+   * check interface-members
+   * 
+   * @param  array $members
+   * @return boolean
+   */
+  protected function check_iface_members($members)
+  {
+    $error = false;
+    
+    foreach ($members as $mem) {
+      $kind = $mem->kind();
+      
+      if ($kind === 'fn_decl') {
+        // TODO: allow static-methods with body here?
+        if ($mem->body !== null) {
+          $this->error_at($mem->body->loc, ERR_ERROR, 'interface-method can not have a body');
+          $error = true;
+        }        
+      } 
+      
+      elseif ($kind === 'nested_mods') {
+        if (!$this->check_iface_members($mem->members))
+          $error = true;
+      }
+       
+      elseif ($kind === 'let_decl' || $kind === 'var_decl') {
+        foreach ($mem->vars as $var)
+          if ($var->init !== null) {
+            // TODO: allow static-varaiables with initializers here?
+            $this->error_at($var->loc, ERR_ERROR, 'interface-variables can not be initialized');
+            $error = true;
+          }
+      }
+      
+    }
+    
+    return !$error;
+  }
+  
+  /**
    * check a class and its members
    * 
    * @param  Node $node 
@@ -839,64 +922,44 @@ class Analyzer extends Walker
    * checks a class-extend
    * 
    * @param  Name $ext
-   * @return boolean
+   * @return Symbol
    */
-  protected function check_class_ext($ext)
+  protected function handle_class_ext($name)
   {    
-    $eid = ident_to_str($ext->base);
-    $scp = $ext->root ? $this->ctx->get_scope() : $this->scope;
-    $sym = $scp->get($eid, false, null, true);
+    $val = $this->handle_expr($name);
     
-    if ($sym === null) {
-      // the referenced symbol could be a module without a use-import
-      // check again
-      $scp = $ext->root || !$this->module ? $this->ctx->get_module() : $this->module;
-      $arr = name_to_stra($ext);
-      $eid = array_pop($arr);
-      $mod = $scp->fetch($arr);
-      
-      if ($mod->has_child($eid)) {
-        $this->error_at($ext->loc, ERR_ERROR, 'module %s::%s can not be used as a class', $mod->path(true), $eid);
-        return false;
-      }
-      
-      $sym = $mod->get($eid, false, null, false);
-      
-      if ($sym === null) {
-        $this->error_at($ext->loc, ERR_ERROR, 'undefined reference to %s (used as class)', path_to_str($ext));
-        return false;
-      }
+    if ($val->kind !== VAL_KIND_CLASS) {
+      $this->error_at($name->loc, ERR_ERROR, '`%s` can not be extended (used as class)', name_to_str($name));
+      return null;
     }
     
-    if ($sym->kind === REF_KIND_MODULE && $sym->flags & SYM_FLAG_WEAK) {
-      // modifiy symbol to class-ref
-      $this->error_at($ext->loc, ERR_INFO, 'weak module-ref transformed to fixed class-ref');
-      $sym->kind = SYM_KIND_CLASS;
-      $sym->flags &= ~SYM_FLAG_WEAK;
-    }
-    
-    if ($sym->kind !== REF_KIND_CLASS && $sym->kind !== SYM_KIND_CLASS) {
-      $kind = $sym instanceof SymRef ? refkind_to_str($sym->kind) : symkind_to_str($sym->kind);
-      $this->error_at($ext->loc, ERR_ERROR, '%s used as class', $kind);
-      return $this->drop();
-    }
-    
-    return true;
+    return $val->symbol;
   }
   
   /**
    * checks a class-implement
    * 
    * @param  array $impl
-   * @return boolean
+   * @return array
    */
-  protected function check_class_impl($impl)
+  protected function handle_class_impl($impl)
   {
+    $ifaces = [];
+    $fail = false;
+    
     foreach ($impl as $imp) {
+      $val = $this->handle_expr($imp);
       
+      if ($val->kind !== VAL_KIND_IFACE) {
+        $this->error_at($imp->loc, ERR_ERROR, '`%s` can not be implemented (used as interface)', name_to_str($imp));
+        $fail = true;
+        continue;
+      }  
+      
+      $ifaces[] = $val;
     }
     
-    return true;
+    return $fail ? null : $ifaces;
   }
   
   /**
@@ -928,7 +991,8 @@ class Analyzer extends Walker
       } 
       
       elseif ($kind === 'nested_mods')
-        return $this->check_class_members($mem->members, $flags, $ext);
+        if (!$this->check_class_members($mem->members, $flags, $ext))
+          $error = true;
       
       elseif ($ext) {
         $this->error_at($mem->loc, ERR_ERROR, 'invalid member in extern class');
@@ -1496,7 +1560,7 @@ class Analyzer extends Walker
   }
   
   protected function reduce_member_expr($lhs, $rhs, $member, $prop, $loc)
-  {   
+  {       
     if ($rhs !== null) {
       // the right-hand-side was handled before
       // accessing it direclty
@@ -1504,6 +1568,12 @@ class Analyzer extends Walker
     } else
       // use the member
       $key = $member->value;
+      
+    if ($lhs->kind === VAL_KIND_EMPTY) {
+      $ref = $lhs->symbol->name;
+      $this->error_at($loc, ERR_WARN, 'access to (maybe) uninitialized symbol `%s`', $ref);      
+      goto unk;
+    }
       
     if ($prop) {
       // property-access
