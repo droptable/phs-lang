@@ -314,16 +314,16 @@ mod
   ;
 
 enum_decl
-  : mods_opt T_ENUM '{' vars_opt '}' 
+  : mods_opt T_ENUM '{' enum_vars '}' 
     { 
       $$ = @EnumDecl($1, $4); 
       $this->eat_semis(); 
     }
   ;
-  
-vars_opt
-  : /* empty */ { $$ = null; }
-  | vars        { $$ = $1; }
+
+enum_vars
+  : /* empty */    { $$ = null; }
+  | vars comma_opt { $$ = $1; }
   ;
   
 vars
