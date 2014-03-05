@@ -56,9 +56,10 @@ class Compiler
     
     foreach ($this->srcs as $src) {
       $unit = $psr->parse_source($src);
-      $unit->dest = $src->get_dest();
-      
+            
       if ($unit !== null) {
+        $unit->dest = $src->get_dest();
+        
         // analyze unit
         $anl->analyze($unit);
         

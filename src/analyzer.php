@@ -52,6 +52,9 @@ class Analyzer extends Walker
   private $infn = 0;
   private $inloop = 0;
   
+  // anonymus function id-counter
+  private static $anon_fid = 0;
+  
   /**
    * constructor
    * 
@@ -519,7 +522,7 @@ class Analyzer extends Walker
     
     --$this->infn;
   }
-  
+    
   protected function visit_let_decl($node)
   {
     return $this->visit_var_decl($node);
@@ -999,6 +1002,47 @@ class Analyzer extends Walker
   protected function visit_expr_stmt($node)
   {
     $this->handle_expr($node->expr);
+  }
+  
+  protected function visit_fn_expr($node)
+  {    
+    if ($node->params !== null)
+      if (!$this->check_params($node->params, false))
+        return $this->drop();
+        
+    if ($node->id !== null)
+      $fid = ident_to_str($node->id);
+    else
+      $fid = '#anonymus~' . (self::$anon_fid++);
+    
+    $sym = new FnSym($fid, SYM_FLAG_NONE, $node->loc);  
+      
+    array_push($this->sstack, $this->scope);
+    $node->scope = new FnScope($sym, $this->scope);
+    $this->scope = $node->scope;
+    
+    // the symbol gets added after a new scope was entered
+    if (!$this->add_symbol($fid, $sym))
+      return $this->drop();
+      
+    // just for debugging
+    $sym->fn_scope = $this->scope;
+    
+    // backup flags
+    array_push($this->fstack, $this->flags);
+    $this->flags = SYM_FLAG_NONE;
+        
+    if ($node->params !== null)
+      $this->handle_params($node->params);
+    
+    ++$this->infn;
+    $this->walk_some($node->body);
+    --$this->infn;
+    
+    $this->scope = array_pop($this->sstack);
+    $this->flags = array_pop($this->fstack);
+        
+    $this->value = Value::from($sym);
   }
   
   protected function visit_bin_expr($node) 
@@ -1833,10 +1877,8 @@ class Analyzer extends Walker
     }
     
     // best case: no more parts
-    if (empty ($name->parts)) {      
-      $this->value = Value::from($sym);
-      goto out;
-    }
+    if (empty ($name->parts))     
+      goto sym;
     
     /* ------------------------------------ */
     /* symbol lookup */
@@ -1901,15 +1943,23 @@ class Analyzer extends Walker
       $sym = $sym->sym;
     }
     
-    $this->value = Value::from($sym);
-    goto out;
+    goto sym;
+    
+    sym:
+    if ($sym->flags & SYM_FLAG_CONST) {
+      // do not use values from non-const symbols
+      $this->value = Value::from($sym);
+      goto out;
+    }
+    
+    goto unk;
     
     mod:
     $this->error_at($name->loc, ERR_ERROR, 'module used as value');
     goto unk;
     
     err:    
-    $this->error_at($name->loc, ERR_ERROR, 'access to undefined symbol `%s` (via name)', name_to_str($name));
+    $this->error_at($name->loc, ERR_ERROR, 'access to undefined symbol `%s`', name_to_str($name));
     
     unk:
     $this->value = new Value(VAL_KIND_UNKNOWN);
@@ -1922,11 +1972,21 @@ class Analyzer extends Walker
     $sym = $this->scope->get($node->value, false, null, true);
     
     if (!$sym) {
-      $this->error_at($node->loc, ERR_ERROR, 'access to undefined symbol `%s` (via ident)', $node->name);
-      $this->value = new Value(VAL_KIND_UNKNOWN);
-    } else {
-      $this->value = new Value(VAL_KIND_SYMBOL, $sym);
+      $this->error_at($node->loc, ERR_ERROR, 'access to undefined symbol `%s`', $node->name);
+      goto unk;
     }
+    
+    // do not use values from non-const symbols
+    if (!($sym->flags & SYM_FLAG_CONST))
+      goto unk;
+    
+    $this->value = Value::from($sym);
+    goto out;
+    
+    unk:
+    $this->value = new Value(VAL_KIND_UNKNOWN);
+    
+    out:
   }
   
   protected function visit_this_expr($node) 

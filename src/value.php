@@ -77,6 +77,9 @@ class Value
         return '<iface>';
       case VAL_KIND_ARR:
         return '<array>';
+      case VAL_KIND_FN:
+        $name = $this->symbol ? " {$this->symbol->name}" : '';
+        return "<function$name>";
     }
     
     return '(unknown)';

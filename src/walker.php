@@ -205,8 +205,8 @@ abstract class Walker
   protected function enter_iface_decl($n) {}
   protected function leave_iface_decl($n) {}
   
-  protected function enter_fn_decl($n) {}
-  protected function leave_fn_decl($n) {}
+  protected function enter_fn_expr($n) {}
+  protected function leave_fn_expr($n) {}
   
   protected function enter_block($n) {}
   protected function leave_block($n) {}
@@ -235,6 +235,7 @@ abstract class Walker
   protected function visit_labeled_stmt($n) {}
   protected function visit_expr_stmt($n) {}
   
+  protected function visit_fn_expr($n) {}
   protected function visit_bin_expr($n) {}
   protected function visit_check_expr($n) {}
   protected function visit_cast_expr($n) {}
