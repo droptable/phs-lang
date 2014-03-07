@@ -643,7 +643,7 @@ hint_opt
   ;
   
 hint
-  : name { $$ = $1; }
+  : type_name { $$ = $1; }
   ;
   
 stmt

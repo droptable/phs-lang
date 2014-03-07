@@ -765,11 +765,16 @@ class Analyzer extends Walker
           if ($hint->kind !== VAL_KIND_TYPE) {
             switch ($hint->kind) {
               case VAL_KIND_CLASS:
-              case VAL_KIND_TRAIT:
               case VAL_KIND_IFACE:
                 break;
               default:
-                $this->error_at($param->hint->loc, ERR_ERROR, '%s can not be a type-hint', $hint);
+                if ($hint->symbol !== null) {
+                  $this->error_at($param->hint->loc, ERR_ERROR, '`%s` can not be a type-hint', $hint->symbol->name);
+                  $this->error_at($hint->symbol->loc, ERR_INFO, 'declaration was here');
+                  $this->error_at($param->hint->loc, ERR_INFO, 'only type-ids, classes and interfaces can be used as hints');
+                } else
+                  $this->error_at($param->hint->loc, ERR_ERROR, 'invalid type-hint');
+                
                 $error = true;
                 continue 2;
             }
@@ -2097,6 +2102,8 @@ class Analyzer extends Walker
   protected function visit_name($name) 
   {    
     $bid = ident_to_str($name->base);
+    $sym = null;
+    
     if ($name->root) goto gmd;
     
     $sym = $this->scope->get($bid, false, null, true);
@@ -2218,8 +2225,6 @@ class Analyzer extends Walker
       $sym = $sym->symbol;
     }
     
-    goto sym;
-    
     sym:
     if ($sym->flags & SYM_FLAG_CONST) {
       // do not use values from non-const symbols
@@ -2239,6 +2244,7 @@ class Analyzer extends Walker
     
     unk:
     $this->value = new Value(VAL_KIND_UNKNOWN);
+    $this->value->symbol = $sym;
     
     out:
   }
@@ -2262,6 +2268,7 @@ class Analyzer extends Walker
     
     unk:
     $this->value = new Value(VAL_KIND_UNKNOWN);
+    $this->value->symbol = $sym;
     
     out:
   }
