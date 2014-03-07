@@ -5,11 +5,11 @@ namespace phs\ast;
 class RestParam extends Node
 {
   public $id;
-  public $mods;
+  public $hint;
   
-  public function __construct($mods, $id)
+  public function __construct($hint, $id)
   {
-    $this->mods = $mods;
+    $this->hint = $hint;
     $this->id = $id;
   }
 }

@@ -189,13 +189,13 @@ class FnSym extends Symbol
   // function-scope 
   public $fn_scope;
   
-  // param count
+  // parameters
   public $params;
   
   public function __construct($name, $flags, Location $loc = null)
   {
     parent::__construct(SYM_KIND_FN, $name, $flags, $loc);
-    $this->params = 0;
+    $this->params = [];
   }
   
   /* ------------------------------------ */
@@ -206,6 +206,23 @@ class FnSym extends Symbol
     print " function\n";
     
     $this->fn_scope->debug("  $dp", '@ ');
+  }
+}
+
+/** parameter symbol */
+class ParamSym extends VarSym
+{
+  // hint
+  public $hint;
+  
+  // rest-param?
+  public $rest;
+  
+  public function __construct($name, Value $value, $flags, Location $loc)
+  {
+    parent::__construct($name, $value, $flags, $loc);
+    $this->hint = null;
+    $this->rest = false;
   }
 }
 

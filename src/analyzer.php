@@ -411,11 +411,15 @@ class Analyzer extends Walker
     array_push($this->sstack, $this->scope);
     $node->scope = new ClassScope($sym, $this->scope);
     $this->scope = $node->scope;
+    
+    // we don't need pass 1 here
+    $this->pass = 2;
   }
   
   protected function leave_iface_decl($node)
   {
     $this->scope = array_pop($this->sstack);
+    $this->pass = 0;
   }
   
   protected function enter_class_decl($node)
@@ -556,7 +560,7 @@ class Analyzer extends Walker
     $sym->fn_scope = $this->scope;
     
     if ($node->params !== null)
-      $this->handle_params($node->params);
+      $this->handle_params($sym, $node->params);
     
     ++$this->infn;
   }
@@ -729,9 +733,10 @@ class Analyzer extends Walker
   /**
    * adds the given parameters to the current scope
    * 
+   * @param  FnSym $fnsym
    * @param  array $params
    */
-  protected function handle_params($params)
+  protected function handle_params($fnsym, $params)
   {
     $error = false;
     
@@ -741,7 +746,7 @@ class Analyzer extends Walker
       if ($kind === 'param' || $kind === 'rest_param') {        
         $flags = SYM_FLAG_NONE;
         
-        if ($param->mods !== null) {
+        if ($kind === 'param' && $param->mods !== null) {
           if (!$this->check_mods($param->mods)) {
             $error = true;
             continue;
@@ -751,10 +756,36 @@ class Analyzer extends Walker
         }
         
         $pid = ident_to_str($param->id);
-        $sym = new VarSym($pid, new Value(VAL_KIND_UNKNOWN), $flags, $param->loc);
+        $sym = new ParamSym($pid, new Value(VAL_KIND_UNKNOWN), $flags, $param->loc);
+        $sym->rest = $kind === 'rest_param';
+        
+        if ($param->hint !== null) {
+          $hint = $this->handle_expr($param->hint);
+          
+          if ($hint->kind !== VAL_KIND_TYPE) {
+            switch ($hint->kind) {
+              case VAL_KIND_CLASS:
+              case VAL_KIND_TRAIT:
+              case VAL_KIND_IFACE:
+                break;
+              default:
+                $this->error_at($param->hint->loc, ERR_ERROR, '%s can not be a type-hint', $hint);
+                $error = true;
+                continue 2;
+            }
+            
+            $hint = $hint->symbol;
+          } else
+            $hint = $hint->value; // use type-id
+          
+          $sym->hint = $hint;
+        }
         
         if (!$this->add_symbol($pid, $sym))
-          $error = true;  
+          $error = true;
+          
+        if (!$error)
+          $fnsym->params[] = $sym; 
       }
     }
     
@@ -968,21 +999,100 @@ class Analyzer extends Walker
       $base = $base->super;
     }
     
-    // TODO: check traits! ... somehow
+    // 3. collect members from current class
+    // note: trait-methods are mixed-in
+    foreach ($sym->members as $mem) 
+      $done->add($mem->name, $mem);
     
-    // 3. validate
+    // 4. validate
     $okay = true;
     
     foreach ($need as $nam) {
+      $inh = $nloc->get($nam->name);
+      
       if (!$done->has($nam->name)) {
-        $inh = $nloc->get($nam->name);
         $this->error_at($sym->loc, ERR_ERROR, 'method `%s` derived from `%s` needs an implementation', $nam->name, $inh->name);
         $this->error_at($nam->loc, ERR_INFO, 'defined abstract here');
         $okay = false;
+      } else {
+        $imp = $done->get($nam->name);
+        
+        if (!$this->check_member_impl($imp, $nam)) {
+          $this->error_at($imp->loc, ERR_ERROR, 'implemention of method `%s` must match the declaration in `%s`', $imp->name, $inh->name);
+          $this->error_at($nam->loc, ERR_INFO, 'declaration was here');
+          $okay = false;
+        }
       }
     }
     
     return $okay;
+  }
+  
+  /**
+   * checks if both given members are compatible to each other
+   * 
+   * @param  Symbol $imp the implemented member
+   * @param  Symbol $inh the abstract member
+   * @return boolean
+   */
+  protected function check_member_impl($imp, $inh) 
+  {
+    // 1. check related flags
+    static $rflags = [
+      SYM_FLAG_CONST,
+      SYM_FLAG_FINAL,
+      SYM_FLAG_PUBLIC,
+      SYM_FLAG_PRIVATE,
+      SYM_FLAG_PROTECTED,
+      SYM_FLAG_SEALED,
+      SYM_FLAG_INLINE
+    ];
+    
+    foreach ($rflags as $flag)
+      if (($inh->flags & $flag && !($imp->flags & $flag)) ||
+          ($imp->flags & $flag && !($inh->flags & $flag))) {
+        #$this->error_at($imp->loc, ERR_ERROR, 'wrong modifiers');
+        return false;
+      }
+      
+    // 2. check parameter count
+    if (count($imp->params) !== count($inh->params)) {
+      #$this->error_at($imp->loc, ERR_ERROR, 'wrong parameter count %d <-> %d', count($imp->params), count($inh->params));
+      return false;
+    }
+    
+    // 3. check parameter hint/flags        
+    foreach ($imp->params as $idx => $imp_param) {
+      $inh_param = $inh->params[$idx];
+      
+      if ($imp_param->hint !== null) {
+        if ($inh_param->hint === null) {
+          #$this->error_at($imp_param->loc, ERR_ERROR, 'missing type-hint');
+          return false;
+        }
+        
+        // note: the hint is the same reference
+        if ($imp_param->hint !== $inh_param->hint) {
+          // TODO: check if the hints share the same base-class or interface
+          #$this->error_at($imp_param->loc, ERR_ERROR, 'different type-hint');
+          return false;
+        }
+      }
+      
+      if ($imp_param->flags !== $inh_param->flags) {
+        #$this->error_at($imp_param->loc, ERR_ERROR, 'different flags');
+        return false;
+      }
+      
+      if ($imp_param->rest !== $inh_param->rest) {
+        #$this->error_at($imp_param->loc, ERR_ERROR, 'rest-parameter mismatch');
+        return false;
+      }
+      
+      // the name does not matter
+    }
+    
+    return true;
   }
   
   /**
