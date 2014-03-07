@@ -1000,49 +1000,13 @@ class Analyzer extends Walker
     $done = new SymTable; // members which are implemented
     
     // 1. collect abstract members from interfaces
-    if ($sym->impls !== null)
-      foreach ($sym->impls as $impl)
-        if ($impl->flags & SYM_FLAG_INCOMPLETE) {
-          $this->error_at($sym->loc, ERR_ERROR, '`%s` must be fully defined before it can be used', $impl->name);
-          $this->error_at($impl->loc, ERR_INFO, 'declaration was here');
-        } else
-          foreach ($impl->members as $memb) {
-            $need->set($memb->name, $memb);
-            $nloc->set($memb->name, $impl);
-          }
-    
+    if ($sym->impls !== null) 
+      $this->collect_iface_impls($sym->impls, $need, $nloc);
+   
     // 2. collect members from super class(es)
-    $base = $sym->super;
-    while ($base !== null) {
-      if ($base->flags & SYM_FLAG_INCOMPLETE) {
-        $this->error_at($sym->loc, ERR_ERROR, '`%s` must be fully defined before it can be used', $base->name);
-        $this->error_at($base->loc, ERR_INFO, 'declaration was here');
-      } else
-        foreach ($base->members as $mem)
-          // which means abstract in this context
-          if ($mem->flags & SYM_FLAG_INCOMPLETE) {
-            $need->set($mem->name, $mem);
-            $nloc->set($mem->name, $base);
-          } else
-            $done->add($mem->name, $mem);
-      
-      if ($base->impls !== null)
-        foreach ($base->impls as $impl)
-          if ($impl->flags & SYM_FLAG_INCOMPLETE) {
-            $this->error_at($sym->loc, ERR_ERROR, '`%s` must be fully defined before it can be used', $impl->name);
-            $this->error_at($base->loc, ERR_INFO, 'derived from `%s`', $base->name);
-            $this->error_at($impl->loc, ERR_INFO, 'declaration was here');
-          } else
-            foreach ($impl->members as $memb) {
-              $need->set($memb->name, $memb);
-              $nloc->set($memb->name, $impl);
-            }
-      
-      $base = $base->super;
-    }
+    $this->collect_class_impls($sym->super, $need, $nloc, $done);
     
     // 3. collect members from current class
-    // note: trait-methods are mixed-in
     foreach ($sym->members as $mem) 
       $done->add($mem->name, $mem);
     
@@ -1068,6 +1032,68 @@ class Analyzer extends Walker
     }
     
     return $okay;
+  }
+  
+  protected function collect_class_impls($base, $need, $nloc, $done)
+  {
+    while ($base !== null) {
+      $csym = $base->symbol;
+      
+      if ($csym->flags & SYM_FLAG_INCOMPLETE) {
+        // check if a completed symbol is available
+        $rsym = $this->handle_expr($base->path);
+        
+        if ($rsym->kind !== VAL_KIND_CLASS || ($rsym->symbol->flags & SYM_FLAG_INCOMPLETE)) {
+          $this->error_at($sym->loc, ERR_ERROR, '`%s` must be fully defined before it can be used', $csym->name);
+          $this->error_at($csym->loc, ERR_INFO, 'declaration was here');
+          continue;
+        }
+        
+        $csym = $rsym->symbol;
+      }
+      
+      foreach ($csym->members as $mem)
+        // which means abstract in this context
+        if ($mem->flags & SYM_FLAG_INCOMPLETE) {
+          $need->set($mem->name, $mem);
+          $nloc->set($mem->name, $csym);
+        } else
+          $done->add($mem->name, $mem);
+      
+      if ($csym->impls !== null)
+        $this->collect_iface_impls($csym->impls, $need, $nloc, $csym);
+      
+      $base = $csym->super;
+    }
+  }
+  
+  protected function collect_iface_impls($impls, $need, $nloc, $deri = null)
+  {
+    foreach ($impls as $idx => $impl) {
+      $isym = $impl->symbol;
+      
+      if ($isym->flags & SYM_FLAG_INCOMPLETE) { 
+        // check if a completed symbol is available
+        $rsym = $this->handle_expr($impl->path);
+        
+        if ($rsym->kind !== VAL_KIND_IFACE || ($rsym->symbol->flags & SYM_FLAG_INCOMPLETE)) {
+          $this->error_at($impl->loc, ERR_ERROR, '`%s` must be fully defined before it can be used', $isym->name);
+          
+          if ($deri !== null)
+            $this->error_at($deri->loc, ERR_INFO, 'derived from `%s`', $deri->name);
+          
+          $this->error_at($isym->loc, ERR_INFO, 'declaration was here');
+          continue;
+        }
+        
+        $isym = $rsym->symbol;
+      }
+      
+      foreach ($isym->members as $memb) {
+        $need->set($memb->name, $memb);
+        $nloc->set($memb->name, $isym);
+      }
+    }
   }
   
   /**
@@ -1152,7 +1178,7 @@ class Analyzer extends Walker
       return null;
     }
     
-    return $val->symbol;
+    return SymbolRef::from(null, $val->symbol, $name, $name->loc);
   }
   
   /**
@@ -1175,7 +1201,7 @@ class Analyzer extends Walker
         continue;
       }  
       
-      $ifaces[] = $val->symbol;
+      $ifaces[] = SymbolRef::from(null, $val->symbol, $imp, $imp->loc);
     }
     
     return $fail ? null : $ifaces;
@@ -2164,7 +2190,7 @@ class Analyzer extends Walker
       gmd:
       // check if the $bid is a global module
       $mrt = $this->ctx->get_module();
-      
+        
       if ($mrt->has_child($bid)) {
         if (empty ($name->parts))
           // module can not be referenced
@@ -2174,7 +2200,15 @@ class Analyzer extends Walker
         goto lcm;
       }
       
-      goto err;
+      // check if the symbol is a global symbol
+      if ($sym === null) {
+        $srt = $this->ctx->get_scope();
+        $sym = $srt->get($bid, false, null);
+      }
+      
+      // still not found?
+      if ($sym === null)
+        goto err;
     }
     
     switch ($sym->kind) {
@@ -2192,7 +2226,7 @@ class Analyzer extends Walker
           // a module can not be referenced
           goto mod;
         
-        $mod = $sym->mod;
+        $mod = $sym->module;
         goto lcm;
         
       case REF_KIND_CLASS:
