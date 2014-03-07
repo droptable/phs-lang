@@ -136,12 +136,12 @@ class Scope extends SymTable
 class ClassScope extends Scope
 {
   // class-symbol
-  private $csym;
+  public $symbol;
   
-  public function __construct(ClassLikeSym $csym, Scope $prev = null)
+  public function __construct(ClassLikeSym $clsym, Scope $prev = null)
   {
     parent::__construct($prev);
-    $this->csym = $csym;
+    $this->symbol = $clsym;
   }
   
   /**
@@ -153,7 +153,7 @@ class ClassScope extends Scope
   public function add($id, Symbol $sym)
   {
     # print "adding member '$id' to class-symtable\n";
-    return $this->csym->mst->add($id, $sym);
+    return $this->symbol->members->add($id, $sym);
   }
   
   /**
@@ -164,7 +164,7 @@ class ClassScope extends Scope
    */
   public function set($id, Symbol $sym)
   {
-    return $this->csym->mst->set($id, $sym);
+    return $this->symbol->members->set($id, $sym);
   }
   
   /**
@@ -177,7 +177,7 @@ class ClassScope extends Scope
   public function has($id)
   {
     // check class-members first
-    if ($this->csym->mst->has($id))
+    if ($this->symbol->members->has($id))
       return true;
     
     // use scope
@@ -196,8 +196,8 @@ class ClassScope extends Scope
   public function get($id, $track = true, Location $loc = null, $walk = true)
   {
     // check class-members first
-    if ($this->csym->mst->has($id))
-      return $this->csym->mst->get($id);
+    if ($this->symbol->members->has($id))
+      return $this->symbol->members->get($id);
     
     // use scope
     return parent::get($id, $track, $loc, $walk);
@@ -208,11 +208,11 @@ class ClassScope extends Scope
 class FnScope extends Scope
 {
   // the function symbol
-  private $fsym;
+  public $symbol;
   
-  public function __construct(FnSym $fsym, Scope $prev = null)
+  public function __construct(FnSym $fnsym, Scope $prev = null)
   {
     parent::__construct($prev);
-    $this->fsym = $fsym;
+    $this->symbol = $fnsym;
   }
 }

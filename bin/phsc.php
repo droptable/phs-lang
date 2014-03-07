@@ -15,8 +15,14 @@ use phs\FileSource;
 $ctx = new Context;
 $cmp = new Compiler($ctx);
 
-$cmp->add(new FileSource(__DIR__ . '/test.phs'));
+$cmp->add_source(new FileSource(__DIR__ . '/../lib/std.phs'));
+$cmp->add_source(new FileSource(__DIR__ . '/../test/test.phs'));
+
+$now = microtime();
 $cmp->compile();
+$end = microtime() - $now;
+
+print "{$end}s";
 
 
 

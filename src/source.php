@@ -75,7 +75,7 @@ class FileSource implements Source
   
   public function __construct($path, $dest = null)
   {
-    $this->path = $path;
+    $this->path = realpath($path) ?: $path;
     $this->dest = $dest;
   }
   

@@ -2,7 +2,10 @@
 
 namespace phs;
 
-class SymTable
+use \ArrayIterator;
+use \IteratorAggregate;
+
+class SymTable implements IteratorAggregate
 {
   // symbols
   private $syms;
@@ -88,6 +91,13 @@ class SymTable
   public function rem($name)
   {
     unset ($this->syms[$name]);
+  }
+  
+  /* ------------------------------------ */
+  
+  public function getIterator()
+  {
+    return new ArrayIterator($this->syms);
   }
   
   /* ------------------------------------ */

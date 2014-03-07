@@ -470,11 +470,15 @@ class Analyzer extends Walker
   
   protected function leave_class_decl($node)
   {    
+    assert($this->scope instanceof ClassScope);
+    $sym = $this->scope->symbol;
+    
+    if (!($sym->flags & SYM_FLAG_ABSTRACT))
+      $this->check_class_final($sym);
+    
     // back to prev scope
     $this->scope = array_pop($this->sstack);
     $this->pass = 0;
-    
-    // TODO: validate class-members using its super-class and interfaces
   }
   
   protected function enter_nested_mods($node)
@@ -515,6 +519,12 @@ class Analyzer extends Walker
     // if (in class) and (has modifier static) and (has no modifier extern) and (has no body)
     if ($apppf && $flags & SYM_FLAG_STATIC && !($flags & SYM_FLAG_EXTERN) && $node->body === null) {
       $this->error_at($node->loc, ERR_ERROR, 'static function can not be abstract');
+      return $this->drop();
+    }
+    
+    // if (not in class) and (has modifier static) and (has modifier extern)
+    if (!$apppf && $flags & SYM_FLAG_STATIC && $flags & SYM_FLAG_EXTERN) {
+      $this->error_at($node->loc, ERR_ERROR, 'static function can not be extern');
       return $this->drop();
     }
     
@@ -594,6 +604,7 @@ class Analyzer extends Walker
     }
     
     $path = $path->value;
+    $user = $path;
     
     // require is always relative, except if the path starts with an '/'
     // or on windows [letter]:/ or [letter]:\
@@ -618,11 +629,13 @@ class Analyzer extends Walker
         // try 'phm', then fallback to 'phs'
         if (!is_file($path . '.phm'))
           $path .= '.phs';
+        else
+          $path .= '.phm';
     }
     
     if (!is_file($path)) {
-      $this->error_at($node->loc, ERR_ERROR, 'unable to import file "%s"', $path);
-      return $this->drop();
+      $this->error_at($node->loc, ERR_ERROR, 'unable to import file "%s"', $user);
+      return;
     }
     
     if (!in_array($path, self::$require_paths)) {
@@ -919,6 +932,60 @@ class Analyzer extends Walker
   }
   
   /**
+   * checks a class in its final state (the class is not abstract)
+   * 
+   * @param  ClassSym $sym
+   * @return bool
+   */
+  protected function check_class_final($sym)
+  {
+    assert(!($sym->flags & SYM_FLAG_ABSTRACT));
+    
+    $need = new SymTable; // members which need a implementation
+    $nloc = new SymTable; // where incomplete members have been defined
+    $done = new SymTable; // members which are implemented
+    
+    // 1. collect abstract members from interfaces
+    if ($sym->impls !== null)
+      foreach ($sym->impls as $impl)
+        foreach ($impl->members as $memb) {
+          $need->set($memb->name, $memb);
+          $nloc->set($memb->name, $impl);
+        }
+    
+    // 2. collect members from super class(es)
+    $base = $sym->super;
+    while ($base !== null) {
+      foreach ($base->members as $mem) {
+        // which means abstract in this context
+        if ($mem->flags & SYM_FLAG_INCOMPLETE) {
+          $need->set($mem->name, $mem);
+          $nloc->set($mem->name, $base);
+        } else
+          $done->add($mem->name, $mem);  
+      }
+      
+      $base = $base->super;
+    }
+    
+    // TODO: check traits! ... somehow
+    
+    // 3. validate
+    $okay = true;
+    
+    foreach ($need as $nam) {
+      if (!$done->has($nam->name)) {
+        $inh = $nloc->get($nam->name);
+        $this->error_at($sym->loc, ERR_ERROR, 'method `%s` derived from `%s` needs an implementation', $nam->name, $inh->name);
+        $this->error_at($nam->loc, ERR_INFO, 'defined abstract here');
+        $okay = false;
+      }
+    }
+    
+    return $okay;
+  }
+  
+  /**
    * checks a class-extend
    * 
    * @param  Name $ext
@@ -956,7 +1023,7 @@ class Analyzer extends Walker
         continue;
       }  
       
-      $ifaces[] = $val;
+      $ifaces[] = $val->symbol;
     }
     
     return $fail ? null : $ifaces;
@@ -1356,7 +1423,7 @@ class Analyzer extends Walker
         // store value anyway
         $node->right->value = $rhs;
         // reduce
-        $thisd->reduce_check_expr($lhs, $node->op, $rhs, $node->loc);
+        $this->reduce_check_expr($lhs, $node->op, $rhs, $node->loc);
         goto out;
       }
     }
@@ -1704,8 +1771,14 @@ class Analyzer extends Walker
       $node->callee->value = $lhs;
     }
     
-    if ($node->args !== null)
-      $this->handle_expr($node->args);
+    if ($node->args !== null) {
+      foreach ($node->args as $arg) {
+        if ($arg->kind() === 'rest_arg')
+          $this->handle_expr($arg->expr); 
+        else
+          $this->handle_expr($arg);
+      }
+    }
     
     $this->value = new Value(VAL_KIND_UNKNOWN);
   }

@@ -246,7 +246,7 @@ class Context
     }
     
     $log .= $this->format($msg, $fmt);
-    print "$log\n";
+    fwrite(STDERR, "$log\n");
   }
   
   /**
