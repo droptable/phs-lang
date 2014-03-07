@@ -1491,7 +1491,7 @@ class Analyzer extends Walker
       
       switch ($rhs->value) {
         case T_TINT:
-          $kind = VAL_KIND_INT;
+          $kind = VAL_KIND_LNUM;
           $cast = (int) $lhs->value;
           break;
         case T_TBOOL:
@@ -1512,7 +1512,7 @@ class Analyzer extends Walker
           break;
       }
       
-      $this->value = new Value(VAL_KIND_BOOL, $res);
+      $this->value = new Value(VAL_KIND_BOOL, $cast);
     } else {
       $sym = $rhs->symbol;
       
