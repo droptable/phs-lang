@@ -252,7 +252,7 @@ class SymbolRef extends Symbol
 class ModuleRef extends Symbol
 {
   // the module
-  public $mod;
+  public $module;
   
   // full path of this reference
   public $path;
@@ -260,7 +260,7 @@ class ModuleRef extends Symbol
   public function __construct($name, Module $mod, Name $path, Location $loc)
   {
     parent::__construct(REF_KIND_MODULE, $name, SYM_FLAG_NONE, $loc);
-    $this->mod = $mod;
+    $this->module = $mod;
     $this->path = $path;
   }
   

@@ -1514,8 +1514,28 @@ class Analyzer extends Walker
       
       $this->value = new Value(VAL_KIND_BOOL, $res);
     } else {
-      // TODO: implement constant casts?
-      $this->value = new Value(VAL_KIND_UNKNOWN);
+      $sym = $rhs->symbol;
+      
+      if ($sym->kind !== SYM_KIND_CLASS) {
+        $this->error_at($loc, ERR_ERROR, 'can not cast to incomplete type `%s`', $sym->name);
+        $this->error_at($sym->loc, ERR_INFO, 'definition was here');
+      } else {
+        $cst = $sym->members->get('from');
+        $stc = false;
+        
+        if (!$cst || $stc = !($cst->flags & SYM_FLAG_STATIC)) {
+          $this->error_at($loc, ERR_ERROR, 'symbol `%s` does not allow casts', $sym->name);
+          
+          if ($stc === true)
+            $this->error_at($cst->loc, ERR_INFO, '^ due to missing `static` modifier here');
+        }
+        
+        // a cast does not necessary yield a instance of the given type.
+        // it depends on the return-value of Type.from() 
+        // 
+        // TODO: revisit after function-inlining?
+        $this->value = new Value(VAL_KIND_UNKNOWN);
+      }
     }
   }
   
@@ -2013,7 +2033,7 @@ class Analyzer extends Walker
       case REF_KIND_IFACE:
       case REF_KIND_VAR:
       case REF_KIND_FN:
-        $sym = $sym->sym;
+        $sym = $sym->symbol;
         break;
         
       default:
@@ -2054,7 +2074,7 @@ class Analyzer extends Walker
       goto unk;
     }
     
-    $mod = $sym->mod;
+    $mod = $sym->module;
     
     /* ------------------------------------ */
     /* symbol lookup in module */
