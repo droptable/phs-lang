@@ -52,6 +52,21 @@ class Analyzer extends Walker
   private $infn = 0;
   private $inloop = 0;
   
+  // access flags
+  const
+    ACC_READ = 1,
+    ACC_WRITE = 2
+  ;
+  
+  // access flag for assignments
+  private $access;
+  
+  // access location
+  private $accloc;
+  
+  // access stack
+  private $astack;
+  
   // anonymus function id-counter
   private static $anon_fid = 0;
   
@@ -85,6 +100,9 @@ class Analyzer extends Walker
     $this->fstack = [];
     $this->valid = true;
     $this->pass = 0;
+    $this->access = self::ACC_READ;
+    $this->accloc = $unit->loc;
+    $this->astack = [];
     
     $this->walk($unit);
   }
@@ -984,22 +1002,41 @@ class Analyzer extends Walker
     // 1. collect abstract members from interfaces
     if ($sym->impls !== null)
       foreach ($sym->impls as $impl)
-        foreach ($impl->members as $memb) {
-          $need->set($memb->name, $memb);
-          $nloc->set($memb->name, $impl);
-        }
+        if ($impl->flags & SYM_FLAG_INCOMPLETE) {
+          $this->error_at($sym->loc, ERR_ERROR, '`%s` must be fully defined before it can be used', $impl->name);
+          $this->error_at($impl->loc, ERR_INFO, 'declaration was here');
+        } else
+          foreach ($impl->members as $memb) {
+            $need->set($memb->name, $memb);
+            $nloc->set($memb->name, $impl);
+          }
     
     // 2. collect members from super class(es)
     $base = $sym->super;
     while ($base !== null) {
-      foreach ($base->members as $mem) {
-        // which means abstract in this context
-        if ($mem->flags & SYM_FLAG_INCOMPLETE) {
-          $need->set($mem->name, $mem);
-          $nloc->set($mem->name, $base);
-        } else
-          $done->add($mem->name, $mem);  
-      }
+      if ($base->flags & SYM_FLAG_INCOMPLETE) {
+        $this->error_at($sym->loc, ERR_ERROR, '`%s` must be fully defined before it can be used', $base->name);
+        $this->error_at($base->loc, ERR_INFO, 'declaration was here');
+      } else
+        foreach ($base->members as $mem)
+          // which means abstract in this context
+          if ($mem->flags & SYM_FLAG_INCOMPLETE) {
+            $need->set($mem->name, $mem);
+            $nloc->set($mem->name, $base);
+          } else
+            $done->add($mem->name, $mem);
+      
+      if ($base->impls !== null)
+        foreach ($base->impls as $impl)
+          if ($impl->flags & SYM_FLAG_INCOMPLETE) {
+            $this->error_at($sym->loc, ERR_ERROR, '`%s` must be fully defined before it can be used', $impl->name);
+            $this->error_at($base->loc, ERR_INFO, 'derived from `%s`', $base->name);
+            $this->error_at($impl->loc, ERR_INFO, 'declaration was here');
+          } else
+            foreach ($impl->members as $memb) {
+              $need->set($memb->name, $memb);
+              $nloc->set($memb->name, $impl);
+            }
       
       $base = $base->super;
     }
@@ -1710,26 +1747,25 @@ class Analyzer extends Walker
       $fail = true;
     }
     
+    array_push($this->astack, [ $this->access, $this->accloc ]);
+    $this->access = self::ACC_WRITE;
+    $this->accloc = $node->loc;
+    
     $lhs = $this->handle_expr($node->left);
     $rhs = $this->handle_expr($node->right);
     
     if (!$fail && $lhs->kind !== VAL_KIND_UNKNOWN) {
       if ($lhs->symbol !== null) {
-        // well, the left-hand-side is not that important here...
-        // check if the symbol in question can handle a re-assigment
-        $sym = $lhs->symbol;
-        
-        if ($sym->value->kind !== VAL_KIND_EMPTY) {
-          $this->error_at($node->loc, ERR_ERROR, 're-assigment of constant symbol %s', $sym->name);
-          $fail = true;
+        if ($lhs->symbol->value->kind !== VAL_KIND_EMPTY) {
+          $this->error_at($node->loc, ERR_ERROR, 're-assignment of read-only symbol `%s`', $lhs->symbol->name);
+          goto unk;  
         }
         
-        if (!$fail) {
-          // assign it!
-          $this->value = $sym->value = $rhs;
-          $sym->writes++;       
-          goto out;
-        } 
+        // assign it!
+        $sym = $lhs->symbol;
+        $this->value = $sym->value = $rhs;
+        $sym->writes++;       
+        goto out;
       } else {
         // the left-hand-side gets thrown-away anyway
         // possible something like { foo: 1 }.foo = 2 
@@ -1738,14 +1774,23 @@ class Analyzer extends Walker
       }
     }
     
+    unk:
     $this->value = new Value(VAL_KIND_UNKNOWN);
+    
     out:
+    list ($this->access, $this->accloc) = array_pop($this->astack);
   }
   
   protected function visit_member_expr($node) 
   {
+    array_push($this->astack, [ $this->access, $this->accloc ]);
+    $this->access = self::ACC_READ;
+    $this->accloc = $node->loc;
+    
     $lhs = $this->handle_expr($node->obj);
     $rhs = null;
+    
+    list ($this->access, $this->accloc) = array_pop($this->astack);
     
     if ($node->computed)
       $rhs = $this->handle_expr($node->member);
@@ -1775,7 +1820,12 @@ class Analyzer extends Walker
       $this->error_at($loc, ERR_WARN, 'access to (maybe) uninitialized symbol `%s`', $ref);      
       goto unk;
     }
-      
+    
+    if ($this->access === self::ACC_WRITE) {
+      $this->error_at($this->accloc, ERR_ERROR, 'write-access to constant member `%s`', $key);
+      goto unk;
+    }
+    
     if ($prop) {
       // property-access
       $sym = null;
@@ -2226,7 +2276,7 @@ class Analyzer extends Walker
     }
     
     sym:
-    if ($sym->flags & SYM_FLAG_CONST) {
+    if ($sym->flags & SYM_FLAG_CONST) {      
       // do not use values from non-const symbols
       $this->value = Value::from($sym);
       $sym->reads++;
