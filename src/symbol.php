@@ -258,10 +258,11 @@ class SymbolRef extends Symbol
   
   public static function from($id, Symbol $sym, Name $path, Location $loc)
   {
-    assert($sym->kind < SYM_REF_DIVIDER);
-    $kind = SYM_REF_DIVIDER + $sym->kind;
+    // de-ref first
+    while ($sym->kind > SYM_REF_DIVIDER)
+      $sym = $sym->symbol;
     
-    return new SymbolRef($kind, $id, $sym, $path, $loc);
+    return new SymbolRef($sym->kind, $id, $sym, $path, $loc);
   }
 }
 

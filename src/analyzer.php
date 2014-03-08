@@ -405,7 +405,9 @@ class Analyzer extends Walker
         $val = new Value(VAL_KIND_LNUM, $base++);
         
       $sym = new VarSym($id, $val, $flags, $member->loc);      
-      $this->add_symbol($id, $sym);
+      
+      if (!$this->add_symbol($id, $sym))
+        return $this->drop();
     }
   }
   

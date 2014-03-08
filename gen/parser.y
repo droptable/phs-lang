@@ -152,46 +152,18 @@ unit
   : module  { $$ = $1; $this->eat_end(); }
   | program { $$ = $1; $this->eat_end(); }
   ;
-
+  
 module
-  : module_doc { $$ = $1; }
-  | module_nst { $$ = $1; }
-  ;
-  
-module_doc
   : T_MODULE name ';' program { $$ = @Module($2, $4); }
-  ;
-  
-module_nst
-  : T_MODULE name '{' module_items_opt '}' 
-    { 
-      $$ = @Module($2, $4); 
-      $this->eat_semis(); 
-    }
-  | T_MODULE '{' module_items_opt '}'      
-    { 
-      $$ = @Module(null, $3); 
-      $this->eat_semis(); 
-    }
-  ;
-  
-module_items_opt
-  : /* empty */  { $$ = null; }
-  | module_items { $$ = $1; }
-  ;
-  
-module_items
-  : module_item              { $$ = [ $1 ]; }
-  | module_items module_item { $1[] = $2; $$ = $1; }
-  ;
-  
-module_item
-  : topex      { $$ = $1; }
-  | module_nst { $$ = $1; }
   ;
     
 program
   : toplvl { $$ = @Program($1); }
+  ;
+
+toplvl_opt
+  : /* empty */ { $$ = null; }
+  | toplvl      { $$ = $1; }
   ;
 
 toplvl
@@ -200,7 +172,8 @@ toplvl
   ;
  
 topex
-  : use_decl       { $$ = $1; }
+  : module_nst     { $$ = $1; }
+  | use_decl       { $$ = $1; }
   | '@' error T_NL { $$ = null; }
   | attr_decl      { $$ = $1; }
   | enum_decl      { $$ = $1; }
@@ -215,6 +188,19 @@ topex
   | error T_SYNC   { $$ = null; }
   | T_END          { $$ = null; }
   | stmt           { $$ = $1; }
+  ;
+
+module_nst
+  : T_MODULE name '{' toplvl_opt '}' 
+    { 
+      $$ = @Module($2, $4); 
+      $this->eat_semis(); 
+    }
+  | T_MODULE '{' toplvl_opt '}'      
+    { 
+      $$ = @Module(null, $3); 
+      $this->eat_semis(); 
+    }
   ;
   
 require
@@ -376,16 +362,12 @@ class_decl
   
 ext_opt
   : /* empty */   { $$ = null; }
-  | ':' ext       { $$ = $2; }
-  | '(' ext ')'   { $$ = $2; }
-  | '(' error ')' { $$ = null; }
+  | '<' ext       { $$ = $2; }
   ;
   
 exts_opt
   : /* empty */   { $$ = null; }
-  | ':' exts      { $$ = $2; }
-  | '(' exts ')'  { $$ = $2; }
-  | '(' error ')' { $$ = null; }
+  | '<' exts      { $$ = $2; }
   ;
   
 exts
