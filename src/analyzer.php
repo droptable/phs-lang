@@ -1048,22 +1048,51 @@ class Analyzer extends Walker
     return $okay;
   }
   
+  /**
+   * ensures a complete symbol, performs a lookup if necessary
+   * 
+   * @param  SymbolRef $ref
+   * @return Symbol
+   */
+  protected function ensure_complete_symbol($ref)
+  {
+    $sym = $ref->symbol;
+    
+    if (!($sym->flags & SYM_FLAG_INCOMPLETE))
+      return $sym;
+    
+    $mod = $this->ctx->get_module();
+    $nam = name_to_stra($ref->path);
+    $lst = array_pop($nam);
+    $cnt = $mod->fetch($nam);
+    
+    if ($cnt->has($lst)) {
+      $sym = $cnt->get($lst, false, null);
+      
+      if (!($sym->flags & SYM_FLAG_INCOMPLETE))
+        return $sym;
+    }
+    
+    return null;
+  }
+  
+  /**
+   * collects absract members from a class
+   * 
+   * @param  SymbolRef $base
+   * @param  SymTable $need [description]
+   * @param  SymTable $nloc [description]
+   * @param  SymTable $done [description]
+   */
   protected function collect_class_impls($base, $need, $nloc, $done)
   {
     while ($base !== null) {
-      $csym = $base->symbol;
+      $csym = $this->ensure_complete_symbol($base);
       
-      if ($csym->flags & SYM_FLAG_INCOMPLETE) {
-        // check if a completed symbol is available
-        $rsym = $this->handle_expr($base->path);
-        
-        if ($rsym->kind !== VAL_KIND_CLASS || ($rsym->symbol->flags & SYM_FLAG_INCOMPLETE)) {
-          $this->error_at($sym->loc, ERR_ERROR, '`%s` must be fully defined before it can be used', $csym->name);
-          $this->error_at($csym->loc, ERR_INFO, 'declaration was here');
-          continue;
-        }
-        
-        $csym = $rsym->symbol;
+      if ($csym === null) {
+        $this->error_at($sym->loc, ERR_ERROR, '`%s` must be fully defined before it can be used', $csym->name);
+        $this->error_at($csym->loc, ERR_INFO, 'declaration was here');
+        continue;
       }
       
       foreach ($csym->members as $mem)
@@ -1081,32 +1110,36 @@ class Analyzer extends Walker
     }
   }
   
+  /**
+   * collects abstract members from an interface
+   * 
+   * @param  array $impls
+   * @param  SymTable $need
+   * @param  SymTable $nloc
+   * @param  Symbol $deri
+   */
   protected function collect_iface_impls($impls, $need, $nloc, $deri = null)
   {
     foreach ($impls as $idx => $impl) {
-      $isym = $impl->symbol;
+      $isym = $this->ensure_complete_symbol($impl);
       
-      if ($isym->flags & SYM_FLAG_INCOMPLETE) { 
-        // check if a completed symbol is available
-        $rsym = $this->handle_expr($impl->path);
-        
-        if ($rsym->kind !== VAL_KIND_IFACE || ($rsym->symbol->flags & SYM_FLAG_INCOMPLETE)) {
-          $this->error_at($impl->loc, ERR_ERROR, '`%s` must be fully defined before it can be used', $isym->name);
+      if ($isym === null) {
+        $this->error_at($impl->loc, ERR_ERROR, '`%s` must be fully defined before it can be used', $impl->name);
           
-          if ($deri !== null)
-            $this->error_at($deri->loc, ERR_INFO, 'derived from `%s`', $deri->name);
-          
-          $this->error_at($isym->loc, ERR_INFO, 'declaration was here');
-          continue;
-        }
+        if ($deri !== null)
+          $this->error_at($deri->loc, ERR_INFO, 'derived from `%s`', $deri->name);
         
-        $isym = $rsym->symbol;
+        $this->error_at($impl->symbol->loc, ERR_INFO, 'declaration was here');
+        continue;
       }
       
       foreach ($isym->members as $memb) {
         $need->set($memb->name, $memb);
         $nloc->set($memb->name, $isym);
       }
+      
+      if ($isym->exts !== null)
+        $this->collect_iface_impls($isym->exts, $need, $nloc, $isym);
     }
   }
   
@@ -2274,6 +2307,11 @@ class Analyzer extends Walker
       case SYM_KIND_IFACE:
       case SYM_KIND_VAR:
       case SYM_KIND_FN:
+      case REF_KIND_CLASS:
+      case REF_KIND_TRAIT:
+      case REF_KIND_IFACE:
+      case REF_KIND_VAR:
+      case REF_KIND_FN:
         break;
       
       // references
@@ -2285,19 +2323,11 @@ class Analyzer extends Walker
         $mod = $sym->module;
         goto lcm;
         
-      case REF_KIND_CLASS:
-      case REF_KIND_TRAIT:
-      case REF_KIND_IFACE:
-      case REF_KIND_VAR:
-      case REF_KIND_FN:
-        $sym = $sym->symbol;
-        break;
-        
       default:
         print 'what? ' . $sym->kind;
         exit;
     }
-    
+        
     // best case: no more parts
     if (empty ($name->parts))     
       goto sym;

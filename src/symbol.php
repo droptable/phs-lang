@@ -237,7 +237,7 @@ class SymbolRef extends Symbol
   
   public function __construct($kind, $name, Symbol $sym, Name $path, Location $loc = null)
   {
-    parent::__construct($kind, $name, SYM_FLAG_NONE, $loc);
+    parent::__construct($kind, $name, $sym->flags, $loc);
     $this->symbol = $sym;
     $this->path = $path;
   }
@@ -258,11 +258,14 @@ class SymbolRef extends Symbol
   
   public static function from($id, Symbol $sym, Name $path, Location $loc)
   {
-    // de-ref first
-    while ($sym->kind > SYM_REF_DIVIDER)
-      $sym = $sym->symbol;
+    // no need to create a reference for a reference
+    if ($sym->kind > SYM_REF_DIVIDER) {
+      #print "reusing " . name_to_str($sym->path) . "\n";
+      return $sym;
+    }
     
-    return new SymbolRef($sym->kind, $id, $sym, $path, $loc);
+    #print "creating reference for " . name_to_str($path) . "\n";
+    return new SymbolRef($sym->kind + SYM_REF_DIVIDER, $id, $sym, $path, $loc);
   }
 }
 

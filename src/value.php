@@ -93,41 +93,37 @@ class Value
    * @return Value
    */
   public static function from(Symbol $sym)
-  {
-    // de-ref first
-    switch ($sym->kind) {
-      case REF_KIND_MODULE:
-      case REF_KIND_CLASS:
-      case REF_KIND_TRAIT:
-      case REF_KIND_IFACE:
-      case REF_KIND_VAR:
-      case REF_KIND_FN:
-        $sym = $sym->symbol;
-    }
-              
+  {              
     if ($sym->kind === SYM_KIND_VAR)
-      $nval = $sym->value;      
+      $nval = $sym->value; 
+    elseif ($sym->kind === REF_KIND_VAR)
+      $nval = $sym->symbol->value;     
     else {
-      $kind = VAL_KIND_UNKNOWN;
+      $skind = $sym->kind;
       
-      switch ($sym->kind) {
+      if ($skind > SYM_REF_DIVIDER)
+        $skind -= SYM_REF_DIVIDER;
+      
+      $nkind = VAL_KIND_UNKNOWN;
+      
+      switch ($skind) {
         case SYM_KIND_CLASS:
-          $kind = VAL_KIND_CLASS;
+          $nkind = VAL_KIND_CLASS;
           break;
         case SYM_KIND_TRAIT:
-          $kind = VAL_KIND_TRAIT;
+          $nkind = VAL_KIND_TRAIT;
           break;
         case SYM_KIND_IFACE:
-          $kind = VAL_KIND_IFACE;
+          $nkind = VAL_KIND_IFACE;
           break;
         case SYM_KIND_FN:
-          $kind = VAL_KIND_FN;
+          $nkind = VAL_KIND_FN;
           break;
         default:
           assert(0);
       }
       
-      $nval = new Value($kind);
+      $nval = new Value($nkind);
     }
     
     $nval->symbol = $sym;
