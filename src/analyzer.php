@@ -2323,7 +2323,13 @@ class Analyzer extends Walker
   
   protected function visit_call_expr($node) 
   {
+    array_push($this->astack, [ $this->access, $this->accloc ]);
+    $this->access = self::ACC_READ;
+    $this->accloc = $node->loc;
+    
     $lhs = $this->handle_expr($node->callee);
+    
+    list ($this->access, $this->accloc) = array_pop($this->astack);
     
     if ($lhs->kind !== VAL_KIND_UNKNOWN) {
       if ($lhs->kind !== VAL_KIND_FN) {
