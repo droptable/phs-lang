@@ -997,6 +997,19 @@ class Analyzer extends Walker
         $pid = ident_to_str($param->id);
         $sym = $csym->members->get($pid);
         
+        if ($sym === null && $csym->super) {
+          $curr = $csym->super;
+          
+          do {
+            $sym = $curr->symbol->members->get($pid);
+            
+            if ($sym !== null)
+              break;
+            
+            $curr = $curr->super;
+          } while ($curr);
+        }
+        
         if ($sym === null) {
           $this->error_at($param->loc, ERR_ERROR, 'this-parameter refers to a undefined member');
           $error = true;
