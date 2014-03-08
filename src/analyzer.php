@@ -2144,7 +2144,7 @@ class Analyzer extends Walker
       }
     } elseif ($lhs && $lhs->symbol) {
       // avoid "maybe-uninitialized" warning
-      $lhs->symbol->value = $this->value = new Value(VAL_KIND_UNKNOWN);
+      $lhs->symbol->value = $this->value = $rhs;
       goto out;
     }
     
@@ -2668,7 +2668,8 @@ class Analyzer extends Walker
       goto out;
     }
     
-    if ($this->access === self::ACC_READ && $sym->value->kind === VAL_KIND_EMPTY)
+    if ($this->access === self::ACC_READ && 
+        $sym->kind === SYM_KIND_VAR && $sym->value->kind === VAL_KIND_EMPTY)
       $this->error_at($name->loc, ERR_WARN, 'access to (maybe) uninitialized symbol `%s`', name_to_str($name));
     
     goto unk;
