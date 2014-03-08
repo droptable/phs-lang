@@ -48,7 +48,7 @@ class Analyzer extends Walker
   // class analyzing:
   // pass 1: vars without initializers
   // pass 2: methods without body
-  // pass 3: vars with initilaizers
+  // pass 3: vars with initializers
   // pass 4: ctor/dtor
   // pass 5: methods with body
   private $pass;
@@ -233,7 +233,17 @@ class Analyzer extends Walker
   protected function add_symbol($id, $sym)
   {
     // apply current flags
+    $ppp = $sym->flags & SYM_FLAG_PUBLIC;
+    $ppp |= $sym->flags & SYM_FLAG_PRIVATE;
+    $ppp |= $sym->flags & SYM_FLAG_PROTECTED;
+    
     $sym->flags |= $this->flags;
+    
+    // restore public/private/protected
+    if ($ppp) {
+      $sym->flags &= ~(SYM_FLAG_PUBLIC|SYM_FLAG_PRIVATE|SYM_FLAG_PROTECTED);
+      $sym->flags |= $ppp;
+    }
     
     // get kind for error-messages
     $kind = symkind_to_str($sym->kind);
@@ -536,10 +546,9 @@ class Analyzer extends Walker
       return $this->drop();
       
     $flags = SYM_FLAG_NONE;
-    $apppf = $this->pass > 0;
     
     if ($node->mods) {
-      if (!$this->check_mods($node->mods, $apppf, !$apppf))
+      if (!$this->check_mods($node->mods, true, false))
         return $this->drop();
       
       $flags = mods_to_symflags($node->mods, $flags);
@@ -578,6 +587,9 @@ class Analyzer extends Walker
     
     $csym = $this->scope->symbol;
     
+    array_push($this->pstack, $this->pass);
+    $this->pass = 0;
+    
     array_push($this->sstack, $this->scope);
     $node->scope = new FnScope($sym, $this->scope);
     $this->scope = $node->scope;
@@ -597,23 +609,77 @@ class Analyzer extends Walker
   
   protected function leave_ctor_decl($node) 
   {
-    // back to prev scope
     $this->scope = array_pop($this->sstack);
-    
-    // restore flags
     $this->flags = array_pop($this->fstack);
+    $this->pass = array_pop($this->pstack);
     
     --$this->infn;    
   }
   
   protected function enter_dtor_decl($node) 
   {
+    if ($this->pass !== 4)
+      return $this->drop();
+      
+    $flags = SYM_FLAG_NONE;
     
+    if ($node->mods) {
+      if (!$this->check_mods($node->mods, true, false))
+        return $this->drop();
+      
+      $flags = mods_to_symflags($node->mods, $flags);
+    }
+    
+    if ($flags & SYM_FLAG_EXTERN && $node->body !== null) {
+      $this->error_at($node->loc, ERR_ERROR, 'extern function can not have a body');
+      return $this->drop();
+    }
+    
+    if ($flags & SYM_FLAG_STATIC) {
+      $this->error_at($node->loc, ERR_ERROR, 'destructor can not be static');
+      return $this->drop();
+    }
+    
+    if ($node->body === null)
+      $flags |= SYM_FLAG_INCOMPLETE;
+    
+    if ($node->params !== null)
+      if (!$this->check_params($node->params, false))
+        return $this->drop();
+    
+    $fid = '#dtor';
+    $sym = new FnSym($fid, $flags, $node->loc);
+    
+    if (!$this->add_symbol($fid, $sym))
+      return $this->drop();
+    
+    array_push($this->pstack, $this->pass);
+    $this->pass = 0;
+    
+    array_push($this->sstack, $this->scope);
+    $node->scope = new FnScope($sym, $this->scope);
+    $this->scope = $node->scope;
+    
+    // backup flags
+    array_push($this->fstack, $this->flags);
+    $this->flags = SYM_FLAG_NONE;
+    
+    // just for debugging
+    $sym->fn_scope = $this->scope;
+    
+    if ($node->params !== null)
+      $this->handle_params($sym, $node->params);
+    
+    ++$this->infn;
   }
   
   protected function leave_dtor_decl($n) 
   {
+    $this->scope = array_pop($this->sstack);
+    $this->flags = array_pop($this->fstack);
+    $this->pass = array_pop($this->pstack);
     
+    --$this->infn;  
   }
   
   protected function enter_nested_mods($node)
@@ -705,13 +771,8 @@ class Analyzer extends Walker
   
   protected function leave_fn_decl($node)
   {
-    // back to prev scope
     $this->scope = array_pop($this->sstack);
-    
-    // restore flags
     $this->flags = array_pop($this->fstack);
-    
-    // restore pass
     $this->pass = array_pop($this->pstack);
     
     --$this->infn;
@@ -1480,13 +1541,14 @@ class Analyzer extends Walker
     $this->pass = 2; // methods without body
     $this->walk_some($members);
     
-    $this->pass = 3; // vars with initilaizers
+    $this->pass = 3; // vars with initializers
     $this->walk_some($members);
     
     $this->pass = 4; // ctor/dtor
     $this->walk_some($members); 
     
     $this->pass = 5; // methods with body
+    // walk_some() performed by the walker itself
   }
   
   /**
