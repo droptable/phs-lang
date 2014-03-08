@@ -137,6 +137,7 @@ class Analyzer extends Walker
    * handles a import (use)
    * 
    * @param  Node $item
+   * @param  boolean $relative
    * @return boolean
    */
   protected function handle_import(Module $base, $item)
@@ -147,7 +148,7 @@ class Analyzer extends Walker
       case 'use_alias':
         return $this->fetch_import($base, $item->name, true, ident_to_str($item->alias));
       case 'use_unpack':
-        if (!$this->fetch_import($item->base, false))
+        if (!$this->fetch_import($base, $item->base, false))
           return false;
         
         $base = $base->fetch(name_to_stra($item->base));
@@ -185,12 +186,12 @@ class Analyzer extends Walker
       if (!$add) return true; 
       
       // add symbol to scope
-      $sym = new ModuleRef($id, $base->get_child($last), $name, $name->loc);
+      $sym = ModuleRef::from($id, $base->get_child($last), $name, $name->loc);
       return $this->add_symbol($id, $sym);
     }
     
     if (!$base->has($last)) {
-      // unknown import, this is a job for the resolver
+      // unknown import
       $this->error_at($name->loc, ERR_ERROR, 'unknown import `%s` from module %s', $last, $base->path());
       
       // TODO: allow unknown imports?
@@ -354,11 +355,26 @@ class Analyzer extends Walker
   
   protected function visit_use_decl($node)
   {
+    switch ($node->item->kind()) {
+      case 'name':
+      case 'use_alias':
+        $base = name_to_stra($node->item);
+        break;
+      case 'use_unpack':
+        $base = name_to_stra($node->item->base);
+    }
+    
+    $base = array_shift($base);
+    $bsym = $this->scope->get($base, false, null);
+    
+    if ($bsym && $bsym->kind === REF_KIND_MODULE)
+      // use foo::bar; 
+      // use bar::baz; -> use {foo::}bar::baz;
+      $base = $bsym->module->get_prev();
+    else
+      $base = $this->ctx->get_module();
+    
     // this function is recursive
-    // TODO: base must be checked, because the import could
-    // be relative to a already imported module
-    // e.g.: use foo::bar; use bar::baz;
-    $base = $this->ctx->get_module();
     return $this->handle_import($base, $node->item);
   }
   

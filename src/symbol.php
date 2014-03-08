@@ -296,4 +296,12 @@ class ModuleRef extends Symbol
     print path_to_str($this->path, false);
     print "\n";
   }
+  
+  /* ------------------------------------ */
+  
+  public static function from($id, Module $mod, Name $path, Location $loc)
+  {
+    // just forward to the constructor (for now)
+    return new ModuleRef($id, $mod, $path, $loc);
+  }
 }

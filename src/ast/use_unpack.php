@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class UseUnpack
+class UseUnpack extends Node
 {
   public $base;
   public $items;
