@@ -45,8 +45,16 @@ class Analyzer extends Walker
   // a value carried around to reduce constant-expressions
   private $value;
   
-  // pass 1/2 for class members
+  // class analyzing:
+  // pass 1: vars without initializers
+  // pass 2: methods without body
+  // pass 3: vars with initilaizers
+  // pass 4: ctor/dtor
+  // pass 5: methods with body
   private $pass;
+  
+  // pass stack
+  private $pstack;
   
   // for validation of return/break/continue
   private $infn = 0;
@@ -100,6 +108,7 @@ class Analyzer extends Walker
     $this->fstack = [];
     $this->valid = true;
     $this->pass = 0;
+    $this->pstack = [];
     $this->access = self::ACC_READ;
     $this->accloc = $unit->loc;
     $this->astack = [];
@@ -448,8 +457,8 @@ class Analyzer extends Walker
     $node->scope = new ClassScope($sym, $this->scope);
     $this->scope = $node->scope;
     
-    // we don't need pass 1 here
-    $this->pass = 2;
+    // we don't need pass 1 and 2 here
+    $this->pass = 3;
   }
   
   protected function leave_iface_decl($node)
@@ -521,6 +530,92 @@ class Analyzer extends Walker
     $this->pass = 0;
   }
   
+  protected function enter_ctor_decl($node) 
+  {    
+    if ($this->pass !== 4)
+      return $this->drop();
+      
+    $flags = SYM_FLAG_NONE;
+    $apppf = $this->pass > 0;
+    
+    if ($node->mods) {
+      if (!$this->check_mods($node->mods, $apppf, !$apppf))
+        return $this->drop();
+      
+      $flags = mods_to_symflags($node->mods, $flags);
+    }
+    
+    if ($flags & SYM_FLAG_EXTERN && $node->body !== null) {
+      $this->error_at($node->loc, ERR_ERROR, 'extern function can not have a body');
+      return $this->drop();
+    }
+    
+    if ($flags & SYM_FLAG_STATIC) {
+      $this->error_at($node->loc, ERR_ERROR, 'constructor can not be static');
+      return $this->drop();
+    }
+    
+    $tparm = false;
+    if ($node->params !== null)
+      foreach ($node->params as $param)
+        if ($param->kind() === 'this_param') {
+          $tparm = true;
+          break;
+        }
+    
+    if ($node->body === null && !$tparm)
+      $flags |= SYM_FLAG_INCOMPLETE;
+    
+    if ($node->params !== null)
+      if (!$this->check_params($node->params, true))
+        return $this->drop();
+    
+    $fid = '#ctor';
+    $sym = new FnSym($fid, $flags, $node->loc);
+    
+    if (!$this->add_symbol($fid, $sym))
+      return $this->drop();
+    
+    $csym = $this->scope->symbol;
+    
+    array_push($this->sstack, $this->scope);
+    $node->scope = new FnScope($sym, $this->scope);
+    $this->scope = $node->scope;
+    
+    // backup flags
+    array_push($this->fstack, $this->flags);
+    $this->flags = SYM_FLAG_NONE;
+    
+    // just for debugging
+    $sym->fn_scope = $this->scope;
+    
+    if ($node->params !== null)
+      $this->handle_params($sym, $node->params, $csym);
+    
+    ++$this->infn;
+  }
+  
+  protected function leave_ctor_decl($node) 
+  {
+    // back to prev scope
+    $this->scope = array_pop($this->sstack);
+    
+    // restore flags
+    $this->flags = array_pop($this->fstack);
+    
+    --$this->infn;    
+  }
+  
+  protected function enter_dtor_decl($node) 
+  {
+    
+  }
+  
+  protected function leave_dtor_decl($n) 
+  {
+    
+  }
+  
   protected function enter_nested_mods($node)
   {
     // print "nested mods!\n";
@@ -540,7 +635,11 @@ class Analyzer extends Walker
   }
   
   protected function enter_fn_decl($node)
-  {    
+  {        
+    // skip on pass 1, 3 and 4
+    if ($this->pass === 1 || $this->pass === 3 || $this->pass === 4)
+      return $this->drop();
+    
     $flags = SYM_FLAG_NONE;
     $apppf = $this->pass > 0;
     
@@ -580,9 +679,12 @@ class Analyzer extends Walker
     
     if (!$this->add_symbol($fid, $sym))
       return $this->drop();
-    
-    if ($this->pass === 1)
+        
+    if ($this->pass > 0 && $this->pass !== 5)
       return $this->drop(); // skip params and do not enter ...
+    
+    array_push($this->pstack, $this->pass);
+    $this->pass = 0;
     
     array_push($this->sstack, $this->scope);
     $node->scope = new FnScope($sym, $this->scope);
@@ -609,6 +711,9 @@ class Analyzer extends Walker
     // restore flags
     $this->flags = array_pop($this->fstack);
     
+    // restore pass
+    $this->pass = array_pop($this->pstack);
+    
     --$this->infn;
   }
     
@@ -618,7 +723,11 @@ class Analyzer extends Walker
   }
   
   protected function visit_var_decl($node)
-  {        
+  {            
+    // skip on pass 1, 4 and 5
+    if ($this->pass === 2 || $this->pass === 4 || $this->pass === 5)
+      return;
+    
     $flags = SYM_FLAG_NONE;
     $apppf = $this->pass > 0;
     
@@ -783,8 +892,9 @@ class Analyzer extends Walker
    * 
    * @param  FnSym $fnsym
    * @param  array $params
+   * @param  ClassSym $csym
    */
-  protected function handle_params($fnsym, $params)
+  protected function handle_params($fnsym, $params, $csym = null)
   {
     $error = false;
     
@@ -808,30 +918,10 @@ class Analyzer extends Walker
         $sym->rest = $kind === 'rest_param';
         
         if ($param->hint !== null) {
-          $hint = $this->handle_expr($param->hint);
+          $hint = $this->handle_param_hint($param->hint);
           
-          if ($hint->kind !== VAL_KIND_TYPE) {
-            switch ($hint->kind) {
-              case VAL_KIND_CLASS:
-              case VAL_KIND_IFACE:
-                break;
-              default:
-                if ($hint->symbol !== null) {
-                  $this->error_at($param->hint->loc, ERR_ERROR, '`%s` can not be a type-hint', $hint->symbol->name);
-                  $this->error_at($hint->symbol->loc, ERR_INFO, 'declaration was here');
-                  $this->error_at($param->hint->loc, ERR_INFO, 'only type-ids, classes and interfaces can be used as hints');
-                } else
-                  $this->error_at($param->hint->loc, ERR_ERROR, 'invalid type-hint');
-                
-                $error = true;
-                continue 2;
-            }
-            
-            $hint = $hint->symbol;
-          } else
-            $hint = $hint->value; // use type-id
-          
-          $sym->hint = $hint;
+          if ($hint !== null)
+            $sym->hint = $hint;
         }
         
         if (!$this->add_symbol($pid, $sym))
@@ -839,10 +929,75 @@ class Analyzer extends Walker
           
         if (!$error)
           $fnsym->params[] = $sym; 
+      } else {
+        assert($kind === 'this_param');
+        assert($csym !== null);
+        
+        $pid = ident_to_str($param->id);
+        $sym = $csym->members->get($pid);
+        
+        if ($sym === null) {
+          $this->error_at($param->loc, ERR_ERROR, 'this-parameter refers to a undefined member');
+          $error = true;
+          continue;
+        }
+        
+        if ($sym->kind !== SYM_KIND_VAR) {
+          $this->error_at($param->loc, ERR_ERROR, 'this-parameter refers to a invalid member');
+          $error = true;
+          continue;
+        }
+        
+        if ($sym->flags & SYM_FLAG_CONST && $sym->value->kind !== VAL_KIND_EMPTY) {
+          $this->error_at($param->loc, ERR_ERROR, 'this-parameter performs an implicit re-assigment on a constant member');
+          $error = true;
+          continue;
+        }
+        
+        if ($param->hint !== null)
+          if (!$this->handle_param_hint($param->hint)) {
+            $error = true;
+            continue;
+          }
+        
+        $sym->value = new Value(VAL_KIND_UNKNOWN);
       }
     }
     
     return !$error;
+  }
+  
+  /**
+   * handle a parameter hint
+   * 
+   * @param  Node $phint
+   * @return Symbol
+   */
+  protected function handle_param_hint($phint)
+  {
+    $shint = $this->handle_expr($phint);
+    
+    if ($shint->kind !== VAL_KIND_TYPE) {
+      switch ($shint->kind) {
+        case VAL_KIND_CLASS:
+        case VAL_KIND_IFACE:
+          break;
+        default:
+          if ($shint->symbol !== null) {
+            $this->error_at($phint->loc, ERR_ERROR, '`%s` can not be a type-hint', $shint->symbol->name);
+            $this->error_at($hsint->symbol->loc, ERR_INFO, 'declaration was here');
+            $this->error_at($phint->loc, ERR_INFO, 'only type-ids, classes and interfaces can be used as hints');
+          } else
+            $this->error_at($phint->loc, ERR_ERROR, 'invalid type-hint');
+          
+          return null;
+      }
+      
+      $hint = $hint->symbol;
+    } else
+      $hint = $hint->value; // use type-id
+      
+    return $hint;
   }
   
   /**
@@ -896,12 +1051,12 @@ class Analyzer extends Walker
    * @return boolean
    */
   protected function handle_var($var, $init, $flags)
-  {    
+  {        
     switch ($var->kind()) {
       case 'ident':
         $vid = ident_to_str($var);
         
-        if ($this->pass === 1)
+        if ($this->pass > 0 && $this->pass !== 3)
           // do not handle expressions
           $val = new Value(VAL_KIND_EMPTY); 
         else
@@ -1317,11 +1472,21 @@ class Analyzer extends Walker
     array_push($this->fstack, $this->flags);
     $this->flags |= SYM_FLAG_WEAK;
     
-    $this->pass = 1; // do not enter functions
+    $this->pass = 1; // vars without initializers
     $this->walk_some($members);
     
     $this->flags = array_pop($this->fstack);
-    $this->pass = 2; // go berserk now!
+    
+    $this->pass = 2; // methods without body
+    $this->walk_some($members);
+    
+    $this->pass = 3; // vars with initilaizers
+    $this->walk_some($members);
+    
+    $this->pass = 4; // ctor/dtor
+    $this->walk_some($members); 
+    
+    $this->pass = 5; // methods with body
   }
   
   /**
@@ -1863,7 +2028,7 @@ class Analyzer extends Walker
   }
   
   protected function visit_assign_expr($node) 
-  {
+  {    
     $kind = $node->left->kind();
     $fail = false;
     
@@ -2272,7 +2437,7 @@ class Analyzer extends Walker
         
         if (!$unk) $res[$key] = $val;
       }
-  }
+    }
     
     if ($unk)
       $this->value = new Value(VAL_KIND_UNKNOWN);
@@ -2418,6 +2583,9 @@ class Analyzer extends Walker
       $sym->reads++;
       goto out;
     }
+    
+    if ($this->access === self::ACC_READ && $sym->value->kind === VAL_KIND_EMPTY)
+      $this->error_at($name->loc, ERR_WARN, 'access to (maybe) uninitialized symbol `%s`', name_to_str($name));
     
     goto unk;
     
