@@ -260,6 +260,7 @@ abstract class Walker
   protected function visit_unary_expr($n) {}
   protected function visit_new_expr($n) {}
   protected function visit_del_expr($n) {}
+  protected function visit_print_expr($n) {}
   
   protected function visit_lnum_lit($n) {}
   protected function visit_dnum_lit($n) {}

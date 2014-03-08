@@ -690,6 +690,18 @@ class Analyzer extends Walker
   protected function enter_block($node) {}
   protected function leave_block($node) {}
   
+  protected function visit_attr_decl($node) 
+  {
+    $todo = ident_to_str($node->attr->name);
+    
+    switch ($todo) {
+      case 'dump':
+        $val = $this->handle_expr($node->attr->value->name);
+        var_dump($val->value);
+        break;
+    }
+  }
+  
   protected function visit_do_stmt($node) 
   {
     $this->walk_some($node->stmt);
@@ -1583,7 +1595,43 @@ class Analyzer extends Walker
       $this->value = new Value(VAL_KIND_LNUM, $cval);
     }
     
-    // 7. unknown
+    // 7. range operator
+    elseif ($op->type === T_RANGE) {
+      $lval = $rval = 0;
+      $step = 1;
+      
+      // cast left-hand-side to INT
+      if ($lhs->kind !== VAL_KIND_LNUM &&
+          $lhs->kind !== VAL_KIND_DNUM)
+        $lval = (int) $lhs->value;
+      else {
+        $lval = $lhs->value;
+        
+        if ($lhs->kind === VAL_KIND_DNUM)
+          $step = .1;
+      }
+      
+      // cast right-hand-side to INT
+      if ($rhs->kind !== VAL_KIND_LNUM &&
+          $rhs->kind !== VAL_KIND_DNUM)
+        $rval = (int) $rhs->value;
+      else {
+        $rval = $rhs->value;
+        
+        if ($rhs->kind === VAL_KIND_DNUM)
+          $step = .1;
+      }
+      
+      $kind = $step === .1 ? VAL_KIND_DNUM : VAL_KIND_LNUM;
+      
+      $this->value = new Value(VAL_KIND_ARR, 
+        array_map(function($item) use($kind) {
+          return new Value($kind, $item);
+        }, range($lval, $rval, $step))
+      );
+    }
+    
+    // 8. unknown
     else {
       print "unknown binary operator {$op->value} ({$op->type})";
       assert(0);
@@ -1820,8 +1868,12 @@ class Analyzer extends Walker
     
     list ($this->access, $this->accloc) = array_pop($this->astack);
     
-    if ($node->computed)
+    if ($node->computed) {
       $rhs = $this->handle_expr($node->member);
+      
+      if ($rhs->kind === VAL_KIND_UNKNOWN)
+        goto unk;
+    }
     
     if ($lhs->kind !== VAL_KIND_UNKNOWN) {
       // try to reduce it
@@ -1829,7 +1881,9 @@ class Analyzer extends Walker
       goto out;    
     }
     
+    unk:
     $this->value = new Value(VAL_KIND_UNKNOWN);
+    
     out:
   }
   
@@ -2340,7 +2394,7 @@ class Analyzer extends Walker
     $sym = $this->scope->get($node->value, false, null, true);
     
     if (!$sym) {
-      $this->error_at($node->loc, ERR_ERROR, 'access to undefined symbol `%s`', $node->name);
+      $this->error_at($node->loc, ERR_ERROR, 'access to undefined symbol `%s`', $node->value);
       goto unk;
     }
     

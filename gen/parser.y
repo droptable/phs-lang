@@ -12,6 +12,8 @@
 %expect 3
 
 %left ','
+%right T_PRINT 
+%right T_YIELD
 %right T_APLUS 
        T_AMINUS 
        T_AMUL 
@@ -28,7 +30,7 @@
        T_ASHIFT_L
        T_ASHIFT_R 
        '='
-%right T_RANGE T_YIELD T_THROW
+%left T_RANGE
 %right '?' ':'
 %left T_BOOL_OR
 %left T_BOOL_XOR
@@ -86,6 +88,7 @@
 %token T_GOTO
 %token T_BREAK
 %token T_CONTINUE
+%token T_THROW
 %token T_CATCH
 %token T_FINALLY
 %token T_WHILE
@@ -867,6 +870,7 @@ lxpr
   | T_NEW nxpr              { $$ = @NewExpr($2, null); }
   | T_NEW nxpr pargs        { $$ = @NewExpr($2, $3); }
   | T_DEL ident             { $$ = @DelExpr($2); }
+  | T_PRINT rxpr            { $$ = @PrintExpr($2); }
   | atom                    { $$ = $1; }
   | legacy_cast             { $$ = $1; }
   ;
@@ -938,6 +942,7 @@ rxpr
   | T_NEW nxpr              { $$ = @NewExpr($2, null); }
   | T_NEW nxpr pargs        { $$ = @NewExpr($2, $3); }
   | T_DEL ident             { $$ = @DelExpr($2); }
+  | T_PRINT rxpr            { $$ = @PrintExpr($2); }
   | atom                    { $$ = $1; }
   | obj                     { $$ = $1; }
   | fn_expr                 { $$ = $1; }
@@ -1010,6 +1015,7 @@ rxpr_noin
   | T_NEW nxpr                        { $$ = @NewExpr($2, null); }
   | T_NEW nxpr pargs                  { $$ = @NewExpr($2, $3); }
   | T_DEL ident                       { $$ = @DelExpr($2); }
+  | T_PRINT rxpr_noin                 { $$ = @PrintExpr($2); }
   | atom                              { $$ = $1; }
   | obj                               { $$ = $1; }
   | fn_expr_noin                      { $$ = $1; }

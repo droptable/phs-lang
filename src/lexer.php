@@ -90,13 +90,10 @@ class Lexer
     for (;;) {
       $tok = $this->next();
       
-      if ($tok === INVALID_TOKEN)
-        break;
-      
       print "\n";
       $tok->debug();
       
-      if ($tok->type === TOK_EOF)
+      if ($tok->type === T_EOF)
         break;
     }
     
@@ -687,6 +684,7 @@ class Lexer
     'case' => T_CASE,
     'default' => T_DEFAULT,
     'return' => T_RETURN,
+    'print' => T_PRINT,
 
     'const' => T_CONST,
     'final' => T_FINAL,

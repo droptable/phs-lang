@@ -79,6 +79,7 @@ require_once 'ast/call_expr.php';
 require_once 'ast/unary_expr.php';
 require_once 'ast/new_expr.php';
 require_once 'ast/del_expr.php';
+require_once 'ast/print_expr.php';
 require_once 'ast/yield_expr.php';
 require_once 'ast/named_arg.php';
 require_once 'ast/rest_arg.php';

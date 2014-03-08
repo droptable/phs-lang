@@ -31,10 +31,10 @@
       (?:
         (?:
           # variant 1
-          \d+\.\d*
+          \d+\.(?!\.)\d*
           
           # variant 2
-          | \d*\.\d+
+          | \d*(?<!\.)\.\d+
         )
 
         # exponent stuff can be added here
