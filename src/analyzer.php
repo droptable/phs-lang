@@ -1055,6 +1055,11 @@ class Analyzer extends Walker
       switch ($shint->kind) {
         case VAL_KIND_CLASS:
         case VAL_KIND_IFACE:
+          if ($shint->symbol->flags & SYM_FLAG_INCOMPLETE) {
+            $this->error_at($phint->loc, ERR_ERROR, '`%s` must be fully defined before it can be used', $shint->symbol->name);  
+            return null;
+          }
+          
           break;
         default:
           if ($shint->symbol !== null) {
@@ -1067,9 +1072,9 @@ class Analyzer extends Walker
           return null;
       }
       
-      $hint = $hint->symbol;
+      $hint = $shint->symbol;
     } else
-      $hint = $hint->value; // use type-id
+      $hint = $shint->value; // use type-id
       
     return $hint;
   }
@@ -2137,6 +2142,10 @@ class Analyzer extends Walker
         $this->value = $node->value = $rhs;
         goto out;
       }
+    } elseif ($lhs && $lhs->symbol) {
+      // avoid "maybe-uninitialized" warning
+      $lhs->symbol->value = $this->value = new Value(VAL_KIND_UNKNOWN);
+      goto out;
     }
     
     unk:

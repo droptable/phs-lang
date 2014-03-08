@@ -155,6 +155,9 @@ function abspath_to_str(Module $base, $path) {
  * @return string
  */
 function symkind_to_str($kind) {
+  if ($kind > SYM_REF_DIVIDER)
+    return refkind_to_str($kind);
+  
   switch ($kind) {
     case SYM_KIND_MODULE:
       return 'module';
