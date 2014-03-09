@@ -114,6 +114,15 @@ class VarSym extends Symbol
   
   /* ------------------------------------ */
   
+  public function __clone()
+  {
+    $this->scope = null;
+    $this->value = clone $this->value;
+    $this->value->symbol = $this;
+  }
+  
+  /* ------------------------------------ */
+  
   public function debug($dp = '', $pf = '')
   {
     parent::debug($dp, $pf);

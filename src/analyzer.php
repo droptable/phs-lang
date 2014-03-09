@@ -6,6 +6,8 @@ require_once 'utils.php';
 require_once 'value.php';
 require_once 'walker.php';
 require_once 'symbol.php';
+require_once 'scope.php';
+require_once 'branch.php';
 
 use phs\ast\Unit;
 use phs\ast\Name;
@@ -2154,6 +2156,7 @@ class Analyzer extends Walker
         
         // assign it!
         $this->value = $sym->value = $rhs;
+        $rhs->symbol = $sym;
         $sym->writes++;       
         goto out;
       } else {
@@ -2165,6 +2168,7 @@ class Analyzer extends Walker
     } elseif ($lhs && $lhs->symbol) {
       // avoid "maybe-uninitialized" warning
       $lhs->symbol->value = $this->value = $rhs;
+      $rhs->symbol = $lhs->symbol;
       goto out;
     }
     
@@ -2793,11 +2797,15 @@ class Analyzer extends Walker
     
   public function walk_branch($node)
   {
+    array_push($this->sstack, $this->scope);
+    $this->scope = new Branch($this->scope);
+    
     array_push($this->bstack, $this->branch);
     $this->branch = ++self::$branch_uid;
     
     $this->walk_some($node);
     
+    $this->scope = array_pop($this->sstack);
     $this->branch = array_pop($this->bstack);
   }
     

@@ -129,6 +129,14 @@ class Value
     $nval->symbol = $sym;
     return $nval;    
   }
+  
+  /* ------------------------------------ */
+  
+  public function __clone()
+  {
+    // don't make things weird
+    $this->symbol = null;
+  }
 }
 
 class FnValue extends Value
