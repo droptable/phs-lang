@@ -2154,6 +2154,11 @@ class Analyzer extends Walker
           goto unk;
         }
         
+        if ($rhs->kind === VAL_KIND_UNKNOWN) {
+          $this->error_at($node->loc, ERR_ERROR, 'assingments to constant symbols must be computable at compile-time');
+          goto unk;
+        }
+        
         // assign it!
         $this->value = $sym->value = $rhs;
         $rhs->symbol = $sym;
@@ -2169,6 +2174,7 @@ class Analyzer extends Walker
       // avoid "maybe-uninitialized" warning
       $lhs->symbol->value = $this->value = $rhs;
       $rhs->symbol = $lhs->symbol;
+      $lhs->symbol->writes++;
       goto out;
     }
     
@@ -2358,7 +2364,7 @@ class Analyzer extends Walker
     if ($lhs->kind !== VAL_KIND_UNKNOWN) {
       if ($lhs->kind !== VAL_KIND_FN) {
         if ($lhs->symbol !== null)
-          $this->error_at($node->callee->loc, ERR_ERROR, '%s is not callable', $lhs->symbol->name);
+          $this->error_at($node->callee->loc, ERR_ERROR, 'symbol `%s` is not callable', $lhs->symbol->name);
         else
           $this->error_at($node->callee->loc, ERR_ERROR, 'value is not callable');
       }
@@ -2703,10 +2709,10 @@ class Analyzer extends Walker
         $sym->kind === SYM_KIND_VAR && $sym->value->kind === VAL_KIND_EMPTY)
       $this->error_at($name->loc, ERR_WARN, 'access to (maybe) uninitialized symbol `%s`', name_to_str($name));
     
-    if ($sym->flags & SYM_FLAG_CONST) {      
+    $sym->reads++;
+    if ($sym->flags & SYM_FLAG_CONST || $sym->branch === $this->branch) {      
       // do not use values from non-const symbols
       $this->value = Value::from($sym);
-      $sym->reads++;
       goto out;
     }
     
