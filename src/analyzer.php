@@ -905,7 +905,8 @@ class Analyzer extends Walker
   
   protected function visit_do_stmt($node) 
   {
-    $this->walk_branch($node->stmt);    
+    // no branching needed here
+    $this->walk_some($node->stmt);    
     $this->handle_expr($node->expr);
   }
   
@@ -2147,20 +2148,22 @@ class Analyzer extends Walker
       if ($lhs->symbol !== null) {
         $sym = $lhs->symbol;
         
-        if ($sym->value->kind !== VAL_KIND_EMPTY) {
-          $this->error_at($node->loc, ERR_ERROR, 're-assignment of read-only symbol `%s`', $sym->name);
-          goto unk;  
-        }
-        
-        if ($sym->branch !== $this->branch) {
-          $this->error_at($node->loc, ERR_ERROR, 'assigment of constant symbol `%s` must be in the same branch', $sym->name);
-          $this->error_at($sym->loc, ERR_INFO, 'declaration was here');
-          goto unk;
-        }
-        
-        if ($rhs->kind === VAL_KIND_UNKNOWN) {
-          $this->error_at($node->loc, ERR_ERROR, 'assingments to constant symbols must be computable at compile-time');
-          goto unk;
+        if ($sym->flags & SYM_FLAG_CONST) {
+          if ($sym->value->kind !== VAL_KIND_EMPTY) {
+            $this->error_at($node->loc, ERR_ERROR, 're-assignment of read-only symbol `%s`', $sym->name);
+            goto unk;  
+          }
+          
+          if ($sym->branch !== $this->branch) {
+            $this->error_at($node->loc, ERR_ERROR, 'assigment of constant symbol `%s` must be in the same branch', $sym->name);
+            $this->error_at($sym->loc, ERR_INFO, 'declaration was here');
+            goto unk;
+          }
+          
+          if ($rhs->kind === VAL_KIND_UNKNOWN) {
+            $this->error_at($node->loc, ERR_ERROR, 'assingments to constant symbols must be computable at compile-time');
+            goto unk;
+          }
         }
         
         // assign it!
@@ -2229,13 +2232,13 @@ class Analyzer extends Walker
       // use the member
       $key = $member->value;
       
-    if ($lhs->kind === VAL_KIND_EMPTY) {
+    if ($lhs->kind === VAL_KIND_EMPTY || $lhs->kind === VAL_KIND_NULL) {
       $ref = $lhs->symbol->name;
       $this->error_at($loc, ERR_WARN, 'access to (maybe) uninitialized symbol `%s`', $ref);      
       goto unk;
     }
     
-    if ($this->access === self::ACC_WRITE) {
+    if ($lhs->symbol->flags & SYM_FLAG_CONST && $this->access === self::ACC_WRITE) {
       $this->error_at($this->accloc, ERR_ERROR, 'write-access to constant member `%s`', $key);
       goto unk;
     }
@@ -2709,8 +2712,8 @@ class Analyzer extends Walker
     }
     
     sym:
-    if ($this->access === self::ACC_READ && 
-        $sym->kind === SYM_KIND_VAR && $sym->value->kind === VAL_KIND_EMPTY)
+    if ($this->access === self::ACC_READ && $sym->kind === SYM_KIND_VAR && 
+      ($sym->value->kind === VAL_KIND_EMPTY /*|| $sym->value->kind === VAL_KIND_NULL*/))
       $this->error_at($name->loc, ERR_WARN, 'access to (maybe) uninitialized symbol `%s`', name_to_str($name));
     
     $sym->reads++;
