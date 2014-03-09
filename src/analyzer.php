@@ -45,6 +45,12 @@ class Analyzer extends Walker
   // a value carried around to reduce constant-expressions
   private $value;
   
+  // branch-id
+  private $branch;
+  
+  // branch stack
+  private $bstack;
+  
   // class analyzing:
   // pass 1: vars without initializers
   // pass 2: methods without body
@@ -76,7 +82,10 @@ class Analyzer extends Walker
   private $astack;
   
   // anonymus function id-counter
-  private static $anon_fid = 0;
+  private static $anon_uid = 0;
+  
+  // branch counter
+  private static $branch_uid = 0;
   
   // require'd paths
   private static $require_paths = [];
@@ -112,6 +121,8 @@ class Analyzer extends Walker
     $this->access = self::ACC_READ;
     $this->accloc = $unit->loc;
     $this->astack = [];
+    $this->branch = 0;
+    $this->bstack = [];
     
     $this->walk($unit);
   }
@@ -244,6 +255,9 @@ class Analyzer extends Walker
       $sym->flags &= ~(SYM_FLAG_PUBLIC|SYM_FLAG_PRIVATE|SYM_FLAG_PROTECTED);
       $sym->flags |= $ppp;
     }
+    
+    // set branch
+    $sym->branch = $this->branch;
     
     // get kind for error-messages
     $kind = symkind_to_str($sym->kind);
@@ -821,12 +835,6 @@ class Analyzer extends Walker
     static $abs_re_nix = '/^\//';
     static $abs_re_win = '/^(?:[a-z]:)?(?:\/|\\\\)/i';
     
-    /*
-    print "path: $path\n";
-    var_dump(preg_match($abs_re_nix, $path));
-    var_dump(preg_match($abs_re_win, $path));
-    */
-    
     if (!preg_match((PHP_OS === 'WINNT') ? $abs_re_win : $abs_re_nix, $path))
       // make realtive path
       $path = dirname($node->loc->file) . DIRECTORY_SEPARATOR . $path;
@@ -883,31 +891,36 @@ class Analyzer extends Walker
     switch ($todo) {
       case 'dump':
         $val = $this->handle_expr($node->attr->value->name);
-        var_dump($val->value);
+        
+        if ($val->kind === VAL_KIND_FN)
+          print "$val\n";
+        else
+          var_dump($val->value);
+        
         break;
     }
   }
   
   protected function visit_do_stmt($node) 
   {
-    $this->walk_some($node->stmt);
+    $this->walk_branch($node->stmt);    
     $this->handle_expr($node->expr);
   }
   
   protected function visit_if_stmt($node) 
   {
-    $this->handle_expr($node->expr);
-    $this->walk_some($node->stmt);
+    $this->handle_expr($node->expr);    
+    $this->walk_branch($node->stmt);
     
     if ($node->elsifs !== null) {
       foreach ($node->elsifs as $elsif) {
         $this->handle_expr($elsif->expr);
-        $this->walk_some($elsif->stmt);
+        $this->walk_branch($elsif->stmt);
       }
     }
     
     if ($node->els !== null)
-      $this->walk_some($node->els->stmt);
+      $this->walk_branch($node->els->stmt);
   }
   
   protected function visit_for_stmt($n) {}
@@ -927,7 +940,7 @@ class Analyzer extends Walker
   protected function visit_while_stmt($node) 
   {
     $this->handle_expr($node->test);
-    $this->walk_some($node->stmt);
+    $this->walk_branch($node->stmt);
   }
   
   protected function visit_yield_stmt($n) {}
@@ -940,7 +953,7 @@ class Analyzer extends Walker
         
     if ($this->infn < 1) {
       $this->error_at($node->loc, ERR_ERROR, 'return outside of function');
-      return $this->drop();
+      return;
     }
   }
   
@@ -1630,7 +1643,7 @@ class Analyzer extends Walker
     if ($node->id !== null)
       $fid = ident_to_str($node->id);
     else
-      $fid = '#anonymus~' . (self::$anon_fid++);
+      $fid = '#anonymus~' . (self::$anon_uid++);
     
     $sym = new FnSym($fid, SYM_FLAG_NONE, $node->loc);  
       
@@ -2126,13 +2139,20 @@ class Analyzer extends Walker
     
     if (!$fail && $lhs->kind !== VAL_KIND_UNKNOWN) {
       if ($lhs->symbol !== null) {
-        if ($lhs->symbol->value->kind !== VAL_KIND_EMPTY) {
-          $this->error_at($node->loc, ERR_ERROR, 're-assignment of read-only symbol `%s`', $lhs->symbol->name);
+        $sym = $lhs->symbol;
+        
+        if ($sym->value->kind !== VAL_KIND_EMPTY) {
+          $this->error_at($node->loc, ERR_ERROR, 're-assignment of read-only symbol `%s`', $sym->name);
           goto unk;  
         }
         
+        if ($sym->branch !== $this->branch) {
+          $this->error_at($node->loc, ERR_ERROR, 'assigment of constant symbol `%s` must be in the same branch', $sym->name);
+          $this->error_at($sym->loc, ERR_INFO, 'declaration was here');
+          goto unk;
+        }
+        
         // assign it!
-        $sym = $lhs->symbol;
         $this->value = $sym->value = $rhs;
         $sym->writes++;       
         goto out;
@@ -2667,16 +2687,16 @@ class Analyzer extends Walker
     }
     
     sym:
+    if ($this->access === self::ACC_READ && 
+        $sym->kind === SYM_KIND_VAR && $sym->value->kind === VAL_KIND_EMPTY)
+      $this->error_at($name->loc, ERR_WARN, 'access to (maybe) uninitialized symbol `%s`', name_to_str($name));
+    
     if ($sym->flags & SYM_FLAG_CONST) {      
       // do not use values from non-const symbols
       $this->value = Value::from($sym);
       $sym->reads++;
       goto out;
     }
-    
-    if ($this->access === self::ACC_READ && 
-        $sym->kind === SYM_KIND_VAR && $sym->value->kind === VAL_KIND_EMPTY)
-      $this->error_at($name->loc, ERR_WARN, 'access to (maybe) uninitialized symbol `%s`', name_to_str($name));
     
     goto unk;
     
@@ -2762,6 +2782,16 @@ class Analyzer extends Walker
   }
     
   /* ------------------------------------ */
+    
+  public function walk_branch($node)
+  {
+    array_push($this->bstack, $this->branch);
+    $this->branch = ++self::$branch_uid;
+    
+    $this->walk_some($node);
+    
+    $this->branch = array_pop($this->bstack);
+  }
     
   /**
    * error handler
