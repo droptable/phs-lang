@@ -14,21 +14,11 @@
 %left ','
 %right T_PRINT 
 %right T_YIELD
-%right T_APLUS 
-       T_AMINUS 
-       T_AMUL 
-       T_ADIV
-       T_AMOD
-       T_APOW
-       T_ABIT_NOT 
-       T_ABIT_OR 
-       T_ABIT_AND 
-       T_ABIT_XOR
-       T_ABOOL_OR 
-       T_ABOOL_AND
-       T_ABOOL_XOR
-       T_ASHIFT_L
-       T_ASHIFT_R 
+%right T_APLUS T_AMINUS T_AMUL T_ADIV T_AMOD T_APOW
+       T_ACONCAT 
+       T_ABIT_OR T_ABIT_AND T_ABIT_XOR
+       T_ABOOL_OR T_ABOOL_AND T_ABOOL_XOR
+       T_ASHIFT_L T_ASHIFT_R 
        '='
 %left T_RANGE
 %right '?' ':'
@@ -843,7 +833,7 @@ lxpr
   | lxpr T_ADIV rxpr        { $$ = @AssignExpr($1, $2, $3); }
   | lxpr T_AMOD rxpr        { $$ = @AssignExpr($1, $2, $3); }
   | lxpr T_APOW rxpr        { $$ = @AssignExpr($1, $2, $3); }
-  | lxpr T_ABIT_NOT rxpr    { $$ = @AssignExpr($1, $2, $3); }
+  | lxpr T_ACONCAT rxpr     { $$ = @AssignExpr($1, $2, $3); }
   | lxpr T_ABIT_OR rxpr     { $$ = @AssignExpr($1, $2, $3); }
   | lxpr T_ABIT_AND rxpr    { $$ = @AssignExpr($1, $2, $3); }
   | lxpr T_ABIT_XOR rxpr    { $$ = @AssignExpr($1, $2, $3); }
@@ -914,7 +904,7 @@ rxpr
   | rxpr T_ADIV rxpr        { $$ = @AssignExpr($1, $2, $3); }
   | rxpr T_AMOD rxpr        { $$ = @AssignExpr($1, $2, $3); }
   | rxpr T_APOW rxpr        { $$ = @AssignExpr($1, $2, $3); }
-  | rxpr T_ABIT_NOT rxpr    { $$ = @AssignExpr($1, $2, $3); }
+  | rxpr T_ACONCAT rxpr     { $$ = @AssignExpr($1, $2, $3); }
   | rxpr T_ABIT_OR rxpr     { $$ = @AssignExpr($1, $2, $3); }
   | rxpr T_ABIT_AND rxpr    { $$ = @AssignExpr($1, $2, $3); }
   | rxpr T_ABIT_XOR rxpr    { $$ = @AssignExpr($1, $2, $3); }
@@ -987,7 +977,7 @@ rxpr_noin
   | rxpr_noin T_ADIV rxpr_noin        { $$ = @AssignExpr($1, $2, $3); }
   | rxpr_noin T_AMOD rxpr_noin        { $$ = @AssignExpr($1, $2, $3); }
   | rxpr_noin T_APOW rxpr_noin        { $$ = @AssignExpr($1, $2, $3); }
-  | rxpr_noin T_ABIT_NOT rxpr_noin    { $$ = @AssignExpr($1, $2, $3); }
+  | rxpr_noin T_ACONCAT rxpr_noin     { $$ = @AssignExpr($1, $2, $3); }
   | rxpr_noin T_ABIT_OR rxpr_noin     { $$ = @AssignExpr($1, $2, $3); }
   | rxpr_noin T_ABIT_AND rxpr_noin    { $$ = @AssignExpr($1, $2, $3); }
   | rxpr_noin T_ABIT_XOR rxpr_noin    { $$ = @AssignExpr($1, $2, $3); }

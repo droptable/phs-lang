@@ -745,7 +745,7 @@ class Lexer
     '**=' => T_APOW,
     '/=' => T_ADIV,
     '%=' => T_AMOD,
-    '~=' => T_ABIT_NOT,
+    '~=' => T_ACONCAT,
     '|=' => T_ABIT_OR,
     '&=' => T_ABIT_AND,
     '^=' => T_ABIT_XOR,

@@ -2475,6 +2475,14 @@ class Analyzer extends Walker
     $this->value = new Value(VAL_KIND_UNKNOWN);
   }
   
+  protected function visit_print_expr($node) 
+  {
+    $this->handle_expr($node->expr);
+    
+    // the return-valud of <print> is always 1
+    $this->value = new Value(VAL_KIND_LNUM, 1);
+  }
+  
   protected function visit_lnum_lit($node) 
   {
     $this->value = new Value(VAL_KIND_LNUM, $node->value);  

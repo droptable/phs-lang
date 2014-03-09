@@ -26,7 +26,7 @@ const T_AMUL = 261;
 const T_ADIV = 262;
 const T_AMOD = 263;
 const T_APOW = 264;
-const T_ABIT_NOT = 265;
+const T_ACONCAT = 265;
 const T_ABIT_OR = 266;
 const T_ABIT_AND = 267;
 const T_ABIT_XOR = 268;
@@ -260,7 +260,7 @@ class Parser extends ParserBase
     "T_ADIV",
     "T_AMOD",
     "T_APOW",
-    "T_ABIT_NOT",
+    "T_ACONCAT",
     "T_ABIT_OR",
     "T_ABIT_AND",
     "T_ABIT_XOR",

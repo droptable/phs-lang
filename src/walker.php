@@ -216,9 +216,9 @@ abstract class Walker
   protected function enter_fn_decl($n) {}
   protected function leave_fn_decl($n) {}
   
-  protected function visit_topex_attr_decl($n) {}
-  protected function visit_comp_attr_decl($n) {}
   protected function visit_attr_decl($n) {}
+  protected function visit_topex_attr($n) {}
+  protected function visit_comp_attr($n) {}
   
   protected function enter_block($n) {}
   protected function leave_block($n) {}
