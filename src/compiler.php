@@ -73,7 +73,7 @@ class Compiler
     
     // on this stage, the analyzer could have added more units
     
-    return;
+    /*
     
     // 2. resolve
     require_once "resolver.php";
@@ -95,6 +95,8 @@ class Compiler
     // on error: stop
     if (!$this->ctx->valid) return;
     
+    */
+   
     // 4. translate
     require_once "translator.php";
     $trs = new Translator($this->ctx);

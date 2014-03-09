@@ -114,6 +114,7 @@ class FileSource implements Source
         if ($try > 0) $cnt .= "-$try";
         $this->dest = "$dir/out-$cnt.php";
         
+        ++$try;
       } while (is_file($this->dest));
     }
     
