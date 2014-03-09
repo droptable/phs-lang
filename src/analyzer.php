@@ -891,7 +891,7 @@ class Analyzer extends Walker
     $todo = ident_to_str($node->attr->name);
     
     switch ($todo) {
-      case 'dump':
+      case 'dbg_value':
         $val = $this->handle_expr($node->attr->value->name);
         
         if ($val->kind === VAL_KIND_FN)
@@ -899,6 +899,10 @@ class Analyzer extends Walker
         else
           var_dump($val->value);
         
+        break;
+      case 'dbg_kind':
+        $val = $this->handle_expr($node->attr->value->name);
+        print "$val\n";
         break;
     }
   }
@@ -1163,6 +1167,8 @@ class Analyzer extends Walker
         }
         
         $sym = new VarSym($vid, $val, $flags, $var->loc);
+        $val->symbol = $sym;
+        
         return $this->add_symbol($vid, $sym);
       case 'obj_destr':
         return $this->handle_var_obj($var, $flags);
@@ -2128,7 +2134,7 @@ class Analyzer extends Walker
   }
   
   protected function visit_assign_expr($node) 
-  {    
+  {
     $kind = $node->left->kind();
     $fail = false;
     
@@ -2210,7 +2216,12 @@ class Analyzer extends Walker
         goto unk;
     }
     
-    if ($lhs->kind !== VAL_KIND_UNKNOWN) {
+    /*  
+      member expressions can only be reduced if:
+        - the value is not bound to a symbol 
+        - or the symbol is declared as constant 
+    */
+    if ((!$lhs->symbol || ($lhs->symbol->flags & SYM_FLAG_CONST)) && $lhs->kind !== VAL_KIND_UNKNOWN) {
       // try to reduce it
       $this->reduce_member_expr($lhs, $rhs, $node->member, $node->prop, $node->loc);
       goto out;    
@@ -2238,7 +2249,7 @@ class Analyzer extends Walker
       goto unk;
     }
     
-    if ($lhs->symbol->flags & SYM_FLAG_CONST && $this->access === self::ACC_WRITE) {
+    if ($lhs->symbol && $lhs->symbol->flags & SYM_FLAG_CONST && $this->access === self::ACC_WRITE) {
       $this->error_at($this->accloc, ERR_ERROR, 'write-access to constant member `%s`', $key);
       goto unk;
     }
@@ -2711,13 +2722,14 @@ class Analyzer extends Walker
       $sym = $sym->symbol;
     }
     
-    sym:
+    sym:    
+    /* allow NULL here */
     if ($this->access === self::ACC_READ && $sym->kind === SYM_KIND_VAR && 
       ($sym->value->kind === VAL_KIND_EMPTY /*|| $sym->value->kind === VAL_KIND_NULL*/))
       $this->error_at($name->loc, ERR_WARN, 'access to (maybe) uninitialized symbol `%s`', name_to_str($name));
     
     $sym->reads++;
-    if ($sym->flags & SYM_FLAG_CONST || $sym->branch === $this->branch) {      
+    if ($sym->flags & SYM_FLAG_CONST) {      
       // do not use values from non-const symbols
       $this->value = Value::from($sym);
       goto out;
@@ -2739,6 +2751,7 @@ class Analyzer extends Walker
     out:
   }
   
+  /* same rules as visit_name, but without the fancy lookup */
   protected function visit_ident($node) 
   {
     $sym = $this->scope->get($node->value, false, null, true);
@@ -2748,13 +2761,17 @@ class Analyzer extends Walker
       goto unk;
     }
     
-    // do not use values from non-const symbols
-    if (!($sym->flags & SYM_FLAG_CONST))
-      goto unk;
+    /* allow NULL here */
+    if ($this->access === self::ACC_READ && $sym->kind === SYM_KIND_VAR && 
+      ($sym->value->kind === VAL_KIND_EMPTY /*|| $sym->value->kind === VAL_KIND_NULL*/))
+      $this->error_at($name->loc, ERR_WARN, 'access to (maybe) uninitialized symbol `%s`', name_to_str($name));
     
-    $this->value = Value::from($sym);
     $sym->reads++;
-    goto out;
+    if ($sym->flags & SYM_FLAG_CONST) {      
+      // do not use values from non-const symbols
+      $this->value = Value::from($sym);
+      goto out;
+    }
     
     unk:
     $this->value = new Value(VAL_KIND_UNKNOWN);

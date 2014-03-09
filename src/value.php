@@ -55,16 +55,17 @@ class Value
   {
     switch ($this->kind) {
       case VAL_KIND_STR:
-        return '"' . strtr($this->value, [ '"' => '\\"']) . '"';
+        return '<string> "' . strtr($this->value, [ '"' => '\\"']) . '"';
       case VAL_KIND_REGEXP:
-        return $this->value;
+        return "<regexp> {$this->value}";
       case VAL_KIND_LNUM:
+        return "<lnum> {$this->value}";
       case VAL_KIND_DNUM:
-        return (string) $this->value;
+        return "<dnum> {$this->value}";
       case VAL_KIND_BOOL:
-        return $this->value ? 'true' : 'false';
+        return '<bool> ' . ($this->value ? 'true' : 'false');
       case VAL_KIND_NULL:
-        return 'null';
+        return '<null>';
       case VAL_KIND_EMPTY:
         return '(empty)';
       case VAL_KIND_OBJ:
