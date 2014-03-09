@@ -2090,12 +2090,16 @@ class Analyzer extends Walker
     
     if (!$fail && $lhs->kind !== VAL_KIND_UNKNOWN) {
       // store value
-      $node->expr->value = $lhs;
-      // reduce prefix-usage, postfix is not posible here (implement?)
-      if ($node->prefix === true) {
-        $this->reduce_update_expr($lhs, $node->op, $node->loc);
-        goto out;
-      }
+      $this->reduce_update_expr($lhs, $node->op, $node->loc);
+      
+      $lhs->symbol->value = $this->value;
+      $this->value->symbol = $lhs->symbol;
+      
+      if ($node->prefix === false)
+        $this->value = $lhs;
+      
+      $node->expr->value = $this->value;
+      goto out;
     }  
     
     $this->value = new Value(VAL_KIND_UNKNOWN);
