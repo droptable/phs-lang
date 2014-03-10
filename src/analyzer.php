@@ -1089,14 +1089,6 @@ class Analyzer extends Walker
     $this->walk_branch($node->stmt);
   }
   
-  protected function visit_yield_stmt($node) 
-  {
-    if ($this->infn < 1)
-      $this->error_at($node->loc, ERR_ERROR, 'yield outside of function');
-    
-    $this->handle_expr($node->expr);  
-  }
-  
   protected function visit_assert_stmt($node) 
   {
     $this->handle_expr($node->expr);  
@@ -2575,10 +2567,10 @@ class Analyzer extends Walker
   
   protected function visit_yield_expr($node) 
   {
-    $rhs = $this->handle_expr($node->expr);
+    if ($this->infn < 1)
+      $this->error_at($node->loc, ERR_ERROR, 'yield outside of function');
     
-    if ($rhs->kind !== VAL_KIND_UNKNOWN)
-      $node->expr->value = $rhs;  
+    $this->handle_expr($node->expr);
   }
   
   protected function visit_unary_expr($node) 

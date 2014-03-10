@@ -240,7 +240,6 @@ abstract class Walker
   protected function visit_continue_stmt($n) {}
   protected function visit_throw_stmt($n) {}
   protected function visit_while_stmt($n) {}
-  protected function visit_yield_stmt($n) {}
   protected function visit_assert_stmt($n) {}
   protected function visit_switch_stmt($n) {}
   protected function visit_return_stmt($n) {}

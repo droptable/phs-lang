@@ -650,7 +650,6 @@ stmt
   | T_CONTINUE ident ';'                              { $$ = @ContinueStmt($2); }
   | T_THROW rxpr ';'                                  { $$ = @ThrowStmt($2); }
   | T_WHILE pxpr stmt                                 { $$ = @WhileStmt($2, $3); }
-  | T_YIELD rxpr ';'                                  { $$ = @YieldStmt($2); }
   | T_ASSERT rxpr ';'                                 { $$ = @AssertStmt($2, null); }
   | T_ASSERT rxpr ':' str ';'                         { $$ = @AssertStmt($2, $4); }
   | T_SWITCH pxpr '{' cases '}'                       { $$ = @SwitchStmt($2, $4); }
@@ -799,7 +798,7 @@ rseq_noin
  
 /* left expression */
 /* this kind of expression can start a expression-statement. */
-/* excluded variants are `obj`, `fn_expr` and T_YIELD due to ambiguity */
+/* excluded variants are `obj` and `fn_expr` due to ambiguity */
   
 lxpr
   : lxpr '+' rxpr           { $$ = @BinExpr($1, $2, $3); }
@@ -853,6 +852,7 @@ lxpr
   | lxpr '?' rxpr ':' rxpr  { $$ = @CondExpr($1, $3, $5); } 
   | lxpr '?' ':' rxpr       { $$ = @CondExpr($1, null, $4); }
   | lxpr pargs              { $$ = @CallExpr($1, $2); }
+  | T_YIELD rxpr            { $$ = @YieldExpr($2); }
   | '-' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
   | '+' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
   | '~' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
