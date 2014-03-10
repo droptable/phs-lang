@@ -922,6 +922,8 @@ class Analyzer extends Walker
     }
   }
   
+  protected function visit_label($n) {}
+  
   protected function visit_do_stmt($node) 
   {
     // no branching needed here
@@ -1120,8 +1122,6 @@ class Analyzer extends Walker
     }
   }
   
-  protected function visit_labeled_stmt($n) {}
-  
   /* ------------------------------------ */
     
   /**
@@ -1302,10 +1302,12 @@ class Analyzer extends Walker
    * handles a variable declaration
    * 
    * @param  Ident|ArrDestr|ObjDestr $var
+   * @param  Node $init
    * @param  int $flags
+   * @param  Value $val
    * @return boolean
    */
-  protected function handle_var($var, $init, $flags)
+  protected function handle_var($var, $init, $flags, Value $val = null)
   {        
     switch ($var->kind()) {
       case 'ident':
@@ -1314,7 +1316,7 @@ class Analyzer extends Walker
         if ($this->pass > 0 && $this->pass !== 3)
           // do not handle expressions
           $val = new Value(VAL_KIND_EMPTY); 
-        else
+        elseif (!$val)
           $val = $this->handle_expr($init);
         
         if ($val->kind === VAL_KIND_UNKNOWN && $flags & SYM_FLAG_CONST) {
@@ -1351,7 +1353,7 @@ class Analyzer extends Walker
         continue;   
       }
       
-      $this->handle_var($item, null, $flags);
+      $this->handle_var($item, null, $flags, new Value(VAL_KIND_UNKNOWN));
     }
     
     return true;
@@ -1367,7 +1369,7 @@ class Analyzer extends Walker
   protected function handle_var_arr($dest, $flags)
   {
     foreach ($dest->items as $item)
-      $this->handle_var($item, null, $flags);
+      $this->handle_var($item, null, $flags, new Value(VAL_KIND_UNKNOWN));
     
     return true;
   }
@@ -2548,12 +2550,18 @@ class Analyzer extends Walker
             
       $node->callee->value = $lhs;
       
-    } elseif ($lhs->symbol !== null)
+    } elseif ($lhs->symbol !== null) {
       // direct call
-      if ($lhs->symbol->kind !== SYM_KIND_FN)
+      $sym = $lhs->symbol;
+      
+      while ($sym->kind > SYM_REF_DIVIDER)
+        $sym = $sym->symbol;
+      
+      if ($sym->kind !== SYM_KIND_FN)
         $this->error_at($node->callee->loc, ERR_ERROR, 'symbol `%s` is not callable', $lhs->symbol->name);
       else
-        $lhs->symbol->calls++;
+        $sym->calls++;
+    }
     
     if ($node->args !== null)
       foreach ($node->args as $arg)

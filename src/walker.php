@@ -228,6 +228,8 @@ abstract class Walker
   protected function visit_use_decl($n) {}
   protected function visit_require_decl($n) {}
   
+  protected function visit_label($n) {}
+  
   protected function visit_do_stmt($n) {}
   protected function visit_if_stmt($n) {}
   protected function visit_for_stmt($n) {}
@@ -243,7 +245,6 @@ abstract class Walker
   protected function visit_assert_stmt($n) {}
   protected function visit_switch_stmt($n) {}
   protected function visit_return_stmt($n) {}
-  protected function visit_labeled_stmt($n) {}
   protected function visit_expr_stmt($n) {}
   
   protected function visit_fn_expr($n) {}

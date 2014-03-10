@@ -496,6 +496,7 @@ inner
 comp
   : decl           { $$ = $1; }
   | stmt           { $$ = $1; }
+  | ident ':' comp { $$ = @Label($1, $3); }
   | comp_attr      { $$ = $1; }
   | '@' error T_NL { $$ = null; }
   | error T_SYNC   { $$ = null; }
@@ -655,7 +656,6 @@ stmt
   | T_SWITCH pxpr '{' cases '}'                       { $$ = @SwitchStmt($2, $4); }
   | T_RETURN rxpr ';'                                 { $$ = @ReturnStmt($2); }
   | T_RETURN ';'                                      { $$ = @ReturnStmt(null); }
-  | ident ':' comp                                    { $$ = @LabeledStmt($1, $3); }
   | lxpr_stmt                                         { $$ = $1; }
   | error ';'                                         { $$ = null; }
   ;

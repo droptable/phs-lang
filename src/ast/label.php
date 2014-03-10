@@ -2,9 +2,9 @@
 
 namespace phs\ast;
 
-class LabeledStmt extends Node
+class Label extends Node
 {
-  public $label;
+  public $id;
   public $stmt;
   
   public function __construct($label, $stmt)
