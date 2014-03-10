@@ -3224,7 +3224,7 @@ class Parser extends ParserBase
 
   private function yyn240() 
   {
-     new CaseItem($this->yyastk[$this->yysp-(2-1)], $this->yyastk[$this->yysp-(2-2)]); 
+     $this->yyval = new CaseItem($this->yyastk[$this->yysp-(2-1)], $this->yyastk[$this->yysp-(2-2)]); 
   }
 
 

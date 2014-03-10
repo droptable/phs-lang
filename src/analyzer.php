@@ -1055,17 +1055,32 @@ class Analyzer extends Walker
   
   protected function visit_php_stmt($node) 
   {
-    
+    if ($node->usage !== null)
+      foreach ($node->usage as $use)
+        foreach ($use->items as $item) {
+          $sid = ident_to_str($item->id);
+          $sym = $this->scope->get($sid, false, null, true);
+          
+          if (!$sym)
+            $this->error_at($item->id->loc, ERR_ERROR, 'access to undefined symbol `%s`', $sid);
+          else
+            $sym->reads++;
+        }  
   }
   
   protected function visit_goto_stmt($n) {} // super extra fun!
-  protected function visit_test_stmt($n) {}
+  
+  protected function visit_test_stmt($node) 
+  {
+    $this->walk_some($node->body);
+  }
+  
   protected function visit_break_stmt($n) {} // extra fun!
   protected function visit_continue_stmt($n) {} // extra fun!
   
   protected function visit_throw_stmt($node) 
   {
-    $this->handle_expr($node->expr);
+    $this->handle_expr($node->block);
   }
   
   protected function visit_while_stmt($node) 
@@ -1074,9 +1089,34 @@ class Analyzer extends Walker
     $this->walk_branch($node->stmt);
   }
   
-  protected function visit_yield_stmt($n) {}
-  protected function visit_assert_stmt($n) {}
-  protected function visit_switch_stmt($n) {}
+  protected function visit_yield_stmt($node) 
+  {
+    if ($this->infn < 1)
+      $this->error_at($node->loc, ERR_ERROR, 'yield outside of function');
+    
+    $this->handle_expr($node->expr);  
+  }
+  
+  protected function visit_assert_stmt($node) 
+  {
+    $this->handle_expr($node->expr);  
+  }
+  
+  protected function visit_switch_stmt($node) 
+  {
+    $this->handle_expr($node->test);
+    
+    if ($node->cases !== null) {
+      foreach ($node->cases as $citem) {
+        foreach ($citem->labels as $clabel)
+          if ($clabel->expr !== null)
+            $this->handle_expr($clabel->expr);
+          
+        if ($citem->body !== null)
+          $this->walk_scoped_branch($citem->body);
+      }
+    }
+  }
   
   protected function visit_return_stmt($node) 
   {
@@ -2888,14 +2928,14 @@ class Analyzer extends Walker
     $sym = $this->scope->get($node->value, false, null, true);
     
     if (!$sym) {
-      $this->error_at($node->loc, ERR_ERROR, 'access to undefined symbol `%s`', $node->value);
+      $this->error_at($node->loc, ERR_ERROR, 'access to undefined symbol `%s`', ident_to_str($node));
       goto unk;
     }
     
     /* allow NULL here */
     if ($this->access === self::ACC_READ && $sym->kind === SYM_KIND_VAR && 
       ($sym->value->kind === VAL_KIND_EMPTY /*|| $sym->value->kind === VAL_KIND_NULL*/))
-      $this->error_at($name->loc, ERR_WARN, 'access to (maybe) uninitialized symbol `%s`', name_to_str($name));
+      $this->error_at($node->loc, ERR_WARN, 'access to (maybe) uninitialized symbol `%s`', ident_to_str($node));
     
     $sym->reads++;
     if ($sym->flags & SYM_FLAG_CONST) {      

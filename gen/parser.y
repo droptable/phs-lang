@@ -740,7 +740,7 @@ cases
   ;
   
 case
-  : casels inner { @CaseItem($1, $2); }
+  : casels inner { $$ = @CaseItem($1, $2); }
   ;
   
 casels

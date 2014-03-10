@@ -4,12 +4,12 @@ namespace phs\ast;
 
 class CaseItem extends Node
 {
-  public $label;
+  public $labels;
   public $body;
   
-  public function __construct($label, $body)
+  public function __construct($labels, $body)
   {
-    $this->label = $label;
+    $this->labels = $labels;
     $this->body = $body;
   }
 }
