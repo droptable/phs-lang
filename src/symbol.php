@@ -110,6 +110,7 @@ class VarSym extends Symbol
   {
     parent::__construct(SYM_KIND_VAR, $name, $flags, $loc);
     $this->value = $value;
+    $this->value->symbol = $this;
   }
   
   /* ------------------------------------ */
@@ -200,6 +201,9 @@ class FnSym extends Symbol
   
   // parameters
   public $params;
+  
+  // calls
+  public $calls = 0;
   
   public function __construct($name, $flags, Location $loc = null)
   {

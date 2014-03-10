@@ -83,6 +83,10 @@ class Analyzer extends Walker
   // access stack
   private $astack;
   
+  // there a some positions in the code 
+  // where constant-assigments are not allowed
+  private $allow_const_assign;
+  
   // anonymus function id-counter
   private static $anon_uid = 0;
   
@@ -125,6 +129,8 @@ class Analyzer extends Walker
     $this->astack = [];
     $this->branch = 0;
     $this->bstack = [];
+    
+    $this->allow_const_assign = true;
     
     $this->walk($unit);
   }
@@ -883,8 +889,17 @@ class Analyzer extends Walker
     }
   }
   
-  protected function enter_block($node) {}
-  protected function leave_block($node) {}
+  protected function enter_block($node) 
+  {
+    array_push($this->sstack, $this->scope);
+    $node->scope = new Scope($this->scope);
+    $this->scope = $node->scope;
+  }
+  
+  protected function leave_block($node) 
+  {
+    $this->scope = array_pop($this->sstack);
+  }
   
   protected function visit_attr_decl($node) 
   {
@@ -930,10 +945,119 @@ class Analyzer extends Walker
       $this->walk_branch($node->els->stmt);
   }
   
-  protected function visit_for_stmt($n) {}
-  protected function visit_for_in_stmt($n) {}
-  protected function visit_try_stmt($n) {}
-  protected function visit_php_stmt($n) {}
+  protected function visit_for_stmt($node) 
+  {
+    $lexical = false;
+    
+    if ($node->init !== null) {
+      $kind = $node->init->kind();
+      
+      if ($kind === 'let_decl' || $kind === 'var_decl')
+        $lexical = true;
+      
+      if ($lexical === true) {
+        # print "creating lexical scope\n";
+        array_push($this->sstack, $this->scope);
+        $this->scope = new Scope($this->scope);
+      }
+      
+      $this->walk_some($node->init);
+    }
+    
+    $this->allow_const_assign = false;
+    
+    if ($node->test !== null)
+      $this->handle_expr($node->test);
+    
+    if ($node->each !== null)
+      $this->handle_expr($node->each);
+    
+    $this->allow_const_assign = true;
+      
+    if ($node->stmt->kind() === 'block' && $lexical === true) {
+      // no need to create a extra scope
+      # print "using lexical scope\n";
+      $node->stmt->scope = $this->scope;
+      $this->walk_some($node->stmt->body);
+      $this->scope = array_pop($this->sstack);
+    } else
+      $this->walk_some($node->stmt);
+  }
+  
+  protected function visit_for_in_stmt($node) 
+  {
+    $lexical = false;
+    
+    $kind = $node->lhs->kind();
+      
+    if ($kind === 'let_decl' || $kind === 'var_decl')
+      $lexical = true;
+    
+    if ($kind === 'var_decl' && $node->lhs->mods !== null)
+      if (mods_to_symflags($node->lhs->mods) & SYM_FLAG_CONST) {
+        $this->error_at($node->lhs->loc, ERR_ERROR, 'const-modifier not allowed here');
+        return;
+      }
+    
+    if ($lexical === true) {
+      # print "creating lexical scope\n";
+      array_push($this->sstack, $this->scope);
+      $this->scope = new Scope($this->scope);
+    }
+    
+    $this->walk_some($node->lhs);    
+    $this->handle_expr($node->rhs);
+      
+    if ($node->stmt->kind() === 'block' && $lexical === true) {
+      // no need to create a extra scope
+      # print "using lexical scope\n";
+      $node->stmt->scope = $this->scope;
+      $this->walk_some($node->stmt->body);
+      $this->scope = array_pop($this->sstack);
+    } else
+      $this->walk_some($node->stmt);
+  }
+  
+  protected function visit_try_stmt($node) 
+  {    
+    // no branch needed
+    $this->walk_some($node->stmt);
+    
+    if ($node->catches !== null) {
+      foreach ($node->catches as $catch) {
+        if ($catch->name !== null)
+          $this->handle_param_hint($catch->name);
+        
+        array_push($this->sstack, $this->scope);
+        $this->scope = new Scope($this->scope);
+        $catch->body->scope = $this->scope;
+        
+        if ($catch->id !== null) {
+          $sid = ident_to_str($catch->id);
+          $sym = new VarSym($sid, new Value(VAL_KIND_UNKNOWN), SYM_FLAG_NONE, $catch->id->loc);
+          
+          if (!$this->add_symbol($sid, $sym)) {
+            $this->scope = array_pop($this->sstack);
+            continue;
+          }
+        }
+        
+        // branch needed
+        $this->walk_branch($catch->body->body);
+        $this->scope = array_pop($this->sstack);
+      }
+    }  
+    
+    if ($node->finalizer !== null)
+      // branch needed
+      $this->walk_scoped_branch($node->finalizer->body); 
+  }
+  
+  protected function visit_php_stmt($node) 
+  {
+    
+  }
+  
   protected function visit_goto_stmt($n) {} // super extra fun!
   protected function visit_test_stmt($n) {}
   protected function visit_break_stmt($n) {} // extra fun!
@@ -1166,9 +1290,7 @@ class Analyzer extends Walker
           return false;
         }
         
-        $sym = new VarSym($vid, $val, $flags, $var->loc);
-        $val->symbol = $sym;
-        
+        $sym = new VarSym($vid, $val, $flags, $var->loc);       
         return $this->add_symbol($vid, $sym);
       case 'obj_destr':
         return $this->handle_var_obj($var, $flags);
@@ -2155,6 +2277,11 @@ class Analyzer extends Walker
         $sym = $lhs->symbol;
         
         if ($sym->flags & SYM_FLAG_CONST) {
+          if (!$this->allow_const_assign) {
+            $this->error_at($node->loc, ERR_ERROR, 'assigment of constant `%s` is not allowed here', $sym->name);
+            goto unk;  
+          }
+          
           if ($sym->value->kind !== VAL_KIND_EMPTY) {
             $this->error_at($node->loc, ERR_ERROR, 're-assignment of read-only symbol `%s`', $sym->name);
             goto unk;  
@@ -2380,24 +2507,28 @@ class Analyzer extends Walker
     list ($this->access, $this->accloc) = array_pop($this->astack);
     
     if ($lhs->kind !== VAL_KIND_UNKNOWN) {
-      if ($lhs->kind !== VAL_KIND_FN) {
+      // indirect call
+      if ($lhs->kind !== VAL_KIND_FN)
         if ($lhs->symbol !== null)
           $this->error_at($node->callee->loc, ERR_ERROR, 'symbol `%s` is not callable', $lhs->symbol->name);
         else
           $this->error_at($node->callee->loc, ERR_ERROR, 'value is not callable');
-      }
-      
+            
       $node->callee->value = $lhs;
-    }
+      
+    } elseif ($lhs->symbol !== null)
+      // direct call
+      if ($lhs->symbol->kind !== SYM_KIND_FN)
+        $this->error_at($node->callee->loc, ERR_ERROR, 'symbol `%s` is not callable', $lhs->symbol->name);
+      else
+        $lhs->symbol->calls++;
     
-    if ($node->args !== null) {
-      foreach ($node->args as $arg) {
+    if ($node->args !== null)
+      foreach ($node->args as $arg)
         if ($arg->kind() === 'rest_arg')
           $this->handle_expr($arg->expr); 
         else
           $this->handle_expr($arg);
-      }
-    }
     
     $this->value = new Value(VAL_KIND_UNKNOWN);
   }
@@ -2602,7 +2733,7 @@ class Analyzer extends Walker
     $mod = null;
     
     // its not a symbol in the current scope
-    if ($sym === null) {
+    if ($sym === null) {      
       gmd:
       // check if the $bid is a global module
       $mrt = $this->ctx->get_module();
@@ -2838,6 +2969,16 @@ class Analyzer extends Walker
     $this->scope = array_pop($this->sstack);
     $this->branch = array_pop($this->bstack);
   }
+    
+  public function walk_scoped_branch($node)
+  {
+    array_push($this->sstack, $this->scope);
+    $this->scope = new Scope($this->scope);
+    
+    $this->walk_branch($node);
+    
+    $this->scope = array_pop($this->sstack);
+  } 
     
   /**
    * error handler

@@ -9,6 +9,9 @@ class FnDecl extends Node
   public $params;
   public $body;
   
+  // gets filled-in by the analyzer
+  public $scope;  
+  
   public function __construct($mods, $id, $params, $body)
   {
     $this->mods = $mods;

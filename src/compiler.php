@@ -68,7 +68,7 @@ class Compiler
       }
     }
     
-    for (;;) sleep(10);
+    return;
     
     // on error: stop
     if (!$this->ctx->valid) return;
