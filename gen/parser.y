@@ -595,21 +595,25 @@ params
   ;
   
 param
-  : ident                              { $$ = @Param(null, null, $1, null, false); }
-  | ident '?'                          { $$ = @Param(null, null, $1, null, true); }
-  | ident '=' rxpr                     { $$ = @Param(null, null, $1, $3, false); }
-  | hint ident                         { $$ = @Param(null, $1, $2, null, false); }
-  | hint ident '?'                     { $$ = @Param(null, $1, $2, null, true); }
-  | hint ident '=' rxpr                { $$ = @Param(null, $1, $2, $4, false); }
-  | mods ident                         { $$ = @Param($1, null, $2, null, false); }
-  | mods ident '?'                     { $$ = @Param($1, null, $2, null, true); }
-  | mods ident '=' rxpr                { $$ = @Param($1, null, $2, $4, false); }
-  | mods hint ident                    { $$ = @Param($1, $2, $3, null, false); }
-  | mods hint ident '?'                { $$ = @Param($1, $2, $3, null, true); }
-  | mods hint ident '=' rxpr           { $$ = @Param($1, $2, $3, $5, false); }
+  : ident                              { $$ = @Param(false, null, null, $1, null, false); }
+  | ident '?'                          { $$ = @Param(false, null, null, $1, null, true); }
+  | ident '=' rxpr                     { $$ = @Param(false, null, null, $1, $3, false); }
+  | hint ident                         { $$ = @Param(false, null, $1, $2, null, false); }
+  | hint ident '?'                     { $$ = @Param(false, null, $1, $2, null, true); }
+  | hint ident '=' rxpr                { $$ = @Param(false, null, $1, $2, $4, false); }
+  | mods ident                         { $$ = @Param(false, $1, null, $2, null, false); }
+  | mods ident '?'                     { $$ = @Param(false, $1, null, $2, null, true); }
+  | mods ident '=' rxpr                { $$ = @Param(false, $1, null, $2, $4, false); }
+  | mods hint ident                    { $$ = @Param(false, $1, $2, $3, null, false); }
+  | mods hint ident '?'                { $$ = @Param(false, $1, $2, $3, null, true); }
+  | mods hint ident '=' rxpr           { $$ = @Param(false, $1, $2, $3, $5, false); }
   | hint_opt T_THIS dot_ident          { $$ = @ThisParam($1, $3, null); }
   | hint_opt T_THIS dot_ident '=' rxpr { $$ = @ThisParam($1, $3, $5); }
   | hint_opt T_REST ident              { $$ = @RestParam($1, $3); }
+  | '&' ident                          { $$ = @Param(true, null, null, $2, null, false); }
+  | hint '&' ident                     { $$ = @Param(true, null, $1, $3, null, false); }
+  | mods '&' ident                     { $$ = @Param(true, $1, null, $3, null, false); }
+  | mods hint '&' ident                { $$ = @Param(true, $1, $2, $4, null, false); }
   ;
   
 hint_opt

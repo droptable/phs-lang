@@ -404,7 +404,7 @@ class Lexer
    */
   protected function scan_concat($str)
   {
-    static $re = '/^[\h\v]*["]([^\\\\"]+|[\\\\].)*["]/';
+    static $re = '/^[\h\v]*["]((?:[^\\\\"]+|[\\\\].)*)["]/';
     
     for (;;) {
       if (!preg_match($re, $this->data, $m))
