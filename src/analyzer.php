@@ -1113,7 +1113,7 @@ class Analyzer extends Walker
             $this->handle_expr($clabel->expr);
           
         if ($citem->body !== null)
-          $this->walk_scoped_branch($citem->body);
+          $this->walk_branch($citem->body);
       }
     }
   }
