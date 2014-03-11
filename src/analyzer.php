@@ -2666,7 +2666,7 @@ class Analyzer extends Walker
       while ($sym->kind > SYM_REF_DIVIDER)
         $sym = $sym->symbol;
       
-      if ($sym->kind !== SYM_KIND_FN)
+      if ($sym->kind !== SYM_KIND_FN && $sym->value->kind !== VAL_KIND_FN)
         $this->error_at($node->callee->loc, ERR_ERROR, 'symbol `%s` is not callable', $lhs->symbol->name);
       else
         $sym->calls++;
