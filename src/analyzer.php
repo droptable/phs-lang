@@ -3207,12 +3207,13 @@ class Analyzer extends Walker
     
     // gotos inside a loop can jump to the outside world
     // merge new unresolved gotos
-    $gotos = $this->gotos;
+    $lgotos = $this->gotos;
     $this->gotos = array_pop($this->gstack);
     
-    foreach ($gotos as $goto)
-      if ($goto->resolved === false)
-        $this->gotos[$goto->id] = $goto;        
+    foreach ($lgotos as $lid => $gotos)
+      foreach ($gotos as $goto)
+        if ($goto->resolved === false)
+          $this->gotos[$lid][] = $goto;        
       
     // mark all labels inside the loop as unreachable
     foreach ($this->lframe as $label)

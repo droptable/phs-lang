@@ -180,7 +180,12 @@ topex
   | require        { $$ = $1; }
   | error T_SYNC   { $$ = null; }
   | T_END          { $$ = null; }
+  | label_decl     { $$ = $1; }
   | stmt           { $$ = $1; }
+  ;
+  
+label_decl
+  : ident ':' comp { $$ = @LabelDecl($1, $3); }
   ;
 
 module_nst
@@ -494,18 +499,14 @@ inner
   ;
 
 comp
-  : decl           { $$ = $1; }
-  | stmt           { $$ = $1; }
-  | ident ':' comp { $$ = @LabelDecl($1, $3); }
+  : fn_decl        { $$ = $1; }
+  | let_decl       { $$ = $1; }
+  | var_decl       { $$ = $1; }
+  | label_decl     { $$ = $1; }
   | comp_attr      { $$ = $1; }
+  | stmt           { $$ = $1; }
   | '@' error T_NL { $$ = null; }
   | error T_SYNC   { $$ = null; }
-  ;
-
-decl
-  : fn_decl  { $$ = $1; }
-  | let_decl { $$ = $1; }
-  | var_decl { $$ = $1; }
   ;
 
 let_decl
