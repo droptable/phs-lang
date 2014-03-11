@@ -496,7 +496,7 @@ inner
 comp
   : decl           { $$ = $1; }
   | stmt           { $$ = $1; }
-  | ident ':' comp { $$ = @Label($1, $3); }
+  | ident ':' comp { $$ = @LabelDecl($1, $3); }
   | comp_attr      { $$ = $1; }
   | '@' error T_NL { $$ = null; }
   | error T_SYNC   { $$ = null; }

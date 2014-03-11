@@ -4,10 +4,10 @@ namespace phs\ast;
 
 class ContinueStmt extends Node
 {
-  public $label;
+  public $id;
   
-  public function __construct($label)
+  public function __construct($id)
   {
-    $this->label = $label;
+    $this->id = $id;
   }
 }

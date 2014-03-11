@@ -162,7 +162,7 @@ use phs\ast\TraitUse;
 use phs\ast\TraitItem;
 use phs\ast\TraitDecl;
 use phs\ast\IfaceDecl;
-use phs\ast\Label;
+use phs\ast\LabelDecl;
 use phs\ast\LetDecl;
 use phs\ast\VarDecl;
 use phs\ast\FnDecl;
@@ -2511,7 +2511,7 @@ class Parser extends ParserBase
 
   private function yyn127() 
   {
-     $this->yyval = new Label($this->yyastk[$this->yysp-(3-1)], $this->yyastk[$this->yysp-(3-3)]); 
+     $this->yyval = new LabelDecl($this->yyastk[$this->yysp-(3-1)], $this->yyastk[$this->yysp-(3-3)]); 
   }
 
 

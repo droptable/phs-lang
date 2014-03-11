@@ -63,3 +63,35 @@ class Location
     return "{$this->file}:{$this->pos->line}:{$this->pos->coln}";
   }
 }
+
+// label
+class Label 
+{
+  public $id;
+  public $loc;
+  public $breakable;
+  public $reachable;
+  
+  public function __construct($id, Location $loc)
+  {
+    $this->id = $id;
+    $this->loc = $loc;
+    $this->breakable = true; // default
+    $this->reachable = true; // default
+  }
+}
+
+// goto
+class LGoto
+{
+  public $id;
+  public $loc;
+  public $resolved;
+  
+  public function __construct($id, Location $loc)
+  {
+    $this->id = $id;
+    $this->loc = $loc;
+    $this->resolved = false; // default
+  }
+}

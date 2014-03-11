@@ -64,6 +64,21 @@ class Analyzer extends Walker
   // pass stack
   private $pstack;
   
+  // labels
+  private $labels;
+  
+  // label stack
+  private $lstack;
+  
+  // label frame (used to track unreachable labels)
+  private $lframe;
+  
+  // gotos
+  private $gotos;
+  
+  // goto stack
+  private $gstack;
+  
   // for validation of return/break/continue
   private $infn = 0;
   private $inloop = 0;
@@ -129,10 +144,17 @@ class Analyzer extends Walker
     $this->astack = [];
     $this->branch = 0;
     $this->bstack = [];
+    $this->labels = [];
+    $this->lstack = [];
+    $this->lframe = [];
+    $this->gotos = [];
+    $this->gstack = [];
     
     $this->allow_const_assign = true;
     
     $this->walk($unit);
+    
+    $this->check_jumps();
   }
   
   /* ------------------------------------ */
@@ -164,8 +186,8 @@ class Analyzer extends Walker
   /**
    * handles a import (use)
    * 
+   * @param  Module $base
    * @param  Node $item
-   * @param  boolean $relative
    * @return boolean
    */
   protected function handle_import(Module $base, $item)
@@ -777,27 +799,20 @@ class Analyzer extends Walker
     array_push($this->sstack, $this->scope);
     $node->scope = new FnScope($sym, $this->scope);
     $this->scope = $node->scope;
-    
-    // backup flags
-    array_push($this->fstack, $this->flags);
-    $this->flags = SYM_FLAG_NONE;
-    
+        
     // just for debugging
     $sym->fn_scope = $this->scope;
     
+    $this->enter_fn();
+    
     if ($node->params !== null)
       $this->handle_params($sym, $node->params);
-    
-    ++$this->infn;
   }
   
   protected function leave_fn_decl($node)
   {
-    $this->scope = array_pop($this->sstack);
-    $this->flags = array_pop($this->fstack);
     $this->pass = array_pop($this->pstack);
-    
-    --$this->infn;
+    $this->leave_fn();
   }
     
   protected function visit_let_decl($node)
@@ -922,13 +937,43 @@ class Analyzer extends Walker
     }
   }
   
-  protected function visit_label($n) {}
+  protected function visit_label_decl($node) 
+  {
+    $lid = ident_to_str($node->id);
+    
+    if (isset ($this->labels[$lid])) {
+      $this->error_at($node->loc, ERR_ERROR, 'there is already a label with name `%s` in this scope');
+      $this->error_at($this->labels[$lid]->loc, ERR_INFO, 'previous label was here');
+      
+      // just for error reporting
+      $this->walk_some($node->comp);
+      
+    } else {
+      if (isset ($this->gotos[$lid]))
+        foreach ($this->gotos[$lid] as $goto)
+          $goto->resolved = true;
+      
+      $label = new Label($lid, $node->loc);
+      $label->reachable = true;
+      
+      $this->labels[$lid] = $label;
+      $this->lframe[$lid] = $label;
+      
+      $label->breakable = true;
+      $this->walk_some($node->comp);
+      $label->breakable = false;
+    }
+  }
   
   protected function visit_do_stmt($node) 
   {
+    $this->enter_loop();
+    
     // no branching needed here
     $this->walk_some($node->stmt);    
     $this->handle_expr($node->expr);
+    
+    $this->leave_loop();
   }
   
   protected function visit_if_stmt($node) 
@@ -975,7 +1020,9 @@ class Analyzer extends Walker
       $this->handle_expr($node->each);
     
     $this->allow_const_assign = true;
-      
+    
+    $this->enter_loop();
+     
     if ($node->stmt->kind() === 'block' && $lexical === true) {
       // no need to create a extra scope
       # print "using lexical scope\n";
@@ -984,6 +1031,8 @@ class Analyzer extends Walker
       $this->scope = array_pop($this->sstack);
     } else
       $this->walk_some($node->stmt);
+      
+    $this->leave_loop();
   }
   
   protected function visit_for_in_stmt($node) 
@@ -1009,7 +1058,9 @@ class Analyzer extends Walker
     
     $this->walk_some($node->lhs);    
     $this->handle_expr($node->rhs);
-      
+    
+    $this->enter_loop();
+    
     if ($node->stmt->kind() === 'block' && $lexical === true) {
       // no need to create a extra scope
       # print "using lexical scope\n";
@@ -1018,6 +1069,8 @@ class Analyzer extends Walker
       $this->scope = array_pop($this->sstack);
     } else
       $this->walk_some($node->stmt);
+      
+    $this->leave_loop();
   }
   
   protected function visit_try_stmt($node) 
@@ -1070,15 +1123,68 @@ class Analyzer extends Walker
         }  
   }
   
-  protected function visit_goto_stmt($n) {} // super extra fun!
+  protected function visit_goto_stmt($node) 
+  {
+    $lid = ident_to_str($node->id);
+    
+    if (isset($this->labels[$lid]) && $this->labels[$lid]->reachable)
+      return; // already resolved, no need to add it
+    
+    $goto = new LGoto($lid, $node->loc);
+    $goto->resolved = false;
+    
+    if (!isset ($this->gotos[$lid]))
+      $this->gotos[$lid] = [];
+    
+    $this->gotos[$lid][] = $goto;
+  }
   
   protected function visit_test_stmt($node) 
   {
     $this->walk_some($node->body);
   }
   
-  protected function visit_break_stmt($n) {} // extra fun!
-  protected function visit_continue_stmt($n) {} // extra fun!
+  protected function visit_break_stmt($node) 
+  {
+    if ($node->id !== null) {
+      $lid = ident_to_str($node->id);
+      
+      if (!isset ($this->labels[$lid]))
+        $this->error_at($node->loc, ERR_ERROR, 'can not break undefined label `%s`', $lid);
+      else {
+        $label = $this->labels[$lid];
+        
+        if (!$label->breakable) {
+          $this->error_at($node->loc, ERR_ERROR, 'can not break label `%s` from this position', $lid);
+          $this->error_at($label->loc, ERR_INFO, 'label was defined here');
+        }
+      }
+    } else {
+      if ($this->inloop === 0)
+        $this->error_at($node->loc, ERR_ERROR, 'break outside of loop/switch');
+    }
+  } 
+  
+  protected function visit_continue_stmt($node) 
+  {
+    if ($node->id !== null) {
+      $lid = ident_to_str($node->id);
+      
+      if (!isset ($this->labels[$lid]))
+        $this->error_at($node->loc, ERR_ERROR, 'can not continue undefined label `%s`', $lid);
+      else {
+        $label = $this->labels[$lid];
+        
+        if (!$label->breakable) {
+          $this->error_at($node->loc, ERR_ERROR, 'can not continue label `%s` from this position', $lid);
+          $this->error_at($label->loc, ERR_INFO, 'label was defined here');
+        }
+      }
+    } else {
+      if ($this->inloop === 0)
+        $this->error_at($node->loc, ERR_ERROR, 'continue outside of loop/switch');
+    } 
+  }
   
   protected function visit_throw_stmt($node) 
   {
@@ -1088,7 +1194,10 @@ class Analyzer extends Walker
   protected function visit_while_stmt($node) 
   {
     $this->handle_expr($node->test);
+    
+    $this->enter_loop();
     $this->walk_branch($node->stmt);
+    $this->leave_loop();
   }
   
   protected function visit_assert_stmt($node) 
@@ -1100,6 +1209,9 @@ class Analyzer extends Walker
   {
     $this->handle_expr($node->test);
     
+    // switch is not really a loop, but we can break and continue
+    $this->enter_loop();
+    
     if ($node->cases !== null) {
       foreach ($node->cases as $citem) {
         foreach ($citem->labels as $clabel)
@@ -1110,6 +1222,8 @@ class Analyzer extends Walker
           $this->walk_branch($citem->body);
       }
     }
+    
+    $this->leave_loop();
   }
   
   protected function visit_return_stmt($node) 
@@ -1823,20 +1937,15 @@ class Analyzer extends Walker
     // just for debugging
     $sym->fn_scope = $this->scope;
     
-    // backup flags
-    array_push($this->fstack, $this->flags);
-    $this->flags = SYM_FLAG_NONE;
-        
+    $this->enter_fn();
+           
     if ($node->params !== null)
       $this->handle_params($node->params);
     
-    ++$this->infn;
     $this->walk_some($node->body);
-    --$this->infn;
     
-    $this->scope = array_pop($this->sstack);
-    $this->flags = array_pop($this->fstack);
-    
+    $this->leave_fn();
+        
     $this->value = new FnValue($sym);
   }
   
@@ -3019,6 +3128,99 @@ class Analyzer extends Walker
     
     $this->scope = array_pop($this->sstack);
   } 
+  
+  /* ------------------------------------ */
+  
+  public function enter_fn()
+  {
+    ++$this->infn;
+    
+    array_push($this->fstack, $this->flags);
+    $this->flags = SYM_FLAG_NONE;
+    
+    array_push($this->lstack, $this->labels);
+    $this->labels = [];
+    
+    array_push($this->gstack, $this->gotos);
+    $this->gotos = [];
+  }
+  
+  public function leave_fn()
+  {
+    --$this->infn;
+    
+    $this->scope = array_pop($this->sstack);
+    $this->flags = array_pop($this->fstack);
+    
+    $this->check_jumps();
+    
+    $this->labels = array_pop($this->lstack);
+    $this->gotos = array_pop($this->gstack);
+  }
+  
+  /* ------------------------------------ */
+  
+  protected function check_jumps()
+  {
+    static $seen_loop_info = false;
+    
+    foreach ($this->gotos as $lid => $gotos) {      
+      foreach ($gotos as $goto) {
+        if ($goto->resolved === true)
+          continue;
+          
+        $label = isset ($this->labels[$lid]) ? $this->labels[$lid] : null;
+        
+        if ($label === null)
+          $this->error_at($goto->loc, ERR_ERROR, 'goto to undefined label `%s`', $goto->id);
+        else {
+          $this->error_at($goto->loc, ERR_ERROR, 'goto to unreachable label `%s`', $goto->id);
+          $this->error_at($label->loc, ERR_INFO, 'label was defined here');
+          
+          if (!$seen_loop_info) {
+            $seen_loop_info = true;
+            $this->error_at($goto->loc, ERR_INFO, 'it is not possible to jump inside a loop');
+          }
+        }
+      }
+    }
+  }
+  
+  /* ------------------------------------ */
+  
+  public function enter_loop()
+  {
+    ++$this->inloop;
+    
+    // labels inside a loop can not resolve gotos outside
+    array_push($this->gstack, $this->gotos);
+    $this->gotos = [];
+    
+    // hide outside labels
+    array_push($this->lstack, $this->lframe);
+    $this->lframe = [];
+  }
+  
+  public function leave_loop()
+  {
+    --$this->inloop;
+    
+    // gotos inside a loop can jump to the outside world
+    // merge new unresolved gotos
+    $gotos = $this->gotos;
+    $this->gotos = array_pop($this->gstack);
+    
+    foreach ($gotos as $goto)
+      if ($goto->resolved === false)
+        $this->gotos[$goto->id] = $goto;        
+      
+    // mark all labels inside the loop as unreachable
+    foreach ($this->lframe as $label)
+      $label->reachable = false;
+    
+    // restore label-frame
+    $this->lframe = array_pop($this->lstack);
+  }
     
   /**
    * error handler

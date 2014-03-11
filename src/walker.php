@@ -228,7 +228,7 @@ abstract class Walker
   protected function visit_use_decl($n) {}
   protected function visit_require_decl($n) {}
   
-  protected function visit_label($n) {}
+  protected function visit_label_decl($n) {}
   
   protected function visit_do_stmt($n) {}
   protected function visit_if_stmt($n) {}
