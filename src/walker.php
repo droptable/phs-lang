@@ -213,6 +213,8 @@ abstract class Walker
   protected function enter_iface_decl($n) {}
   protected function leave_iface_decl($n) {}
   
+  protected function visit_export_decl($n) {}
+  
   protected function enter_fn_decl($n) {}
   protected function leave_fn_decl($n) {}
   

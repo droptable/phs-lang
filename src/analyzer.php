@@ -9,6 +9,12 @@ require_once 'symbol.php';
 require_once 'scope.php';
 require_once 'branch.php';
 
+require_once 'builtin/map.php';
+require_once 'builtin/list.php';
+
+use phs\_Builtin_Map; // used for constant { ... } expressions
+use phs\_Builtin_List; // used for constant [ ... ] expressions
+
 use phs\ast\Unit;
 use phs\ast\Name;
 
@@ -188,26 +194,26 @@ class Analyzer extends Walker
    * 
    * @param  Module $base
    * @param  Node $item
-   * @return boolean
    */
   protected function handle_import(Module $base, $item)
   {    
     switch ($item->kind()) {
       case 'name':
-        return $this->fetch_import($base, $item, true);
+        $this->fetch_import($base, $item, true);
+        break;
       case 'use_alias':
-        return $this->fetch_import($base, $item->name, true, ident_to_str($item->alias));
+        $this->fetch_import($base, $item->name, true, ident_to_str($item->alias));
+        break;
       case 'use_unpack':
-        if (!$this->fetch_import($base, $item->base, false))
-          return false;
-        
-        $base = $base->fetch(name_to_stra($item->base));
+        if ($item->base !== null) {
+          if (!$this->fetch_import($base, $item->base, false))
+            break;
+          
+          $base = $base->fetch(name_to_stra($item->base));
+        }
         
         foreach ($item->items as $item)
-          if (!$this->handle_import($base, $item))
-            return false;
-          
-        return true;
+          $this->handle_import($base, $item);
     }
   }
   
@@ -424,6 +430,9 @@ class Analyzer extends Walker
         $base = name_to_stra($node->item);
         break;
       case 'use_unpack':
+        if ($node->item->base === null)
+          goto rmod;
+        
         $base = name_to_stra($node->item->base);
     }
     
@@ -434,8 +443,10 @@ class Analyzer extends Walker
       // use foo::bar; 
       // use bar::baz; -> use {foo::}bar::baz;
       $base = $bsym->module->get_prev();
-    else
+    else {
+      rmod:
       $base = $this->ctx->get_module();
+    }
     
     // this function is recursive
     return $this->handle_import($base, $node->item);
