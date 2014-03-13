@@ -130,6 +130,7 @@ class Analyzer extends Walker
    */
   public function analyze(Unit $unit)
   {
+    $this->error_at($unit->loc, ERR_ERROR, 'hello %node world', 'node');
     $this->scope = $this->ctx->get_root();
     $this->sstack = [];
     $this->flags = SYM_FLAG_NONE;

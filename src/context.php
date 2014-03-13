@@ -252,17 +252,15 @@ class Context
           switch ($t) {
             case 'node':
             case 'symbol':
-              assert(!empty($args));
-              $i += $s;
-              $a = array_splice($args, $f, 1)[0];
-              $d = $this->{"format_$t"}($a);
+              if (!isset($args[$f]))
+                // fill-in something
+                $args[$f] = '';
+              else
+                // format it
+                $args[$f] = $this->{"format_$t"}($args[$f]);
               
-              // deny "%..." results
-              if (preg_match('/(?<![%])[%](?![%])/', $d))
-                exit('a format-handler must not return format-able strings!'
-                   . 'result was: ' . $d);
-              
-              $r .= $d;
+              $i += $s;     
+              $r .= '%s';
               continue 2;
           }
         }
@@ -273,6 +271,7 @@ class Context
       $r .= $c;
     }
     
+    exit($r);
     return vsprintf($r, $args);
   }
   
@@ -286,5 +285,24 @@ class Context
   private function format_symbol()
   {
     return 'symbol';
+  }
+  
+  /* ------------------------------------ */
+  
+  private function escape_format($f)
+  {
+    $e = false;
+    $r = '';
+    
+    for ($i = 0, $l = strlen($f); $i < $l; ++$i) {
+      $c = $f[$i];
+      $r .= $c;
+      
+      if ($c === '%') {
+        
+      }
+    }
+    
+    return $r;
   }
 }
