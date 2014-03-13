@@ -286,23 +286,4 @@ class Context
   {
     return 'symbol';
   }
-  
-  /* ------------------------------------ */
-  
-  private function escape_format($f)
-  {
-    $e = false;
-    $r = '';
-    
-    for ($i = 0, $l = strlen($f); $i < $l; ++$i) {
-      $c = $f[$i];
-      $r .= $c;
-      
-      if ($c === '%') {
-        
-      }
-    }
-    
-    return $r;
-  }
 }
