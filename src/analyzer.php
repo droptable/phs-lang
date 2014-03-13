@@ -391,16 +391,15 @@ class Analyzer extends Walker
         $rmod = $this->scope;
       }
        
-      $rmod = $rmod->fetch(name_to_stra($name), true, SYM_FLAG_NONE, $node->loc);
+      $curr = $rmod->fetch(name_to_stra($name), true, SYM_FLAG_NONE, $node->loc);
       
-      if ($rmod === null) {
-        $this->error_at($name->loc, ERR_ERROR, 'could not enter module `%s` since its '.
-          'name collides with symbols in the current scope', name_to_str($name));
+      if ($curr === null) {
+        $this->reveal_collision($rmod, $name);        
         return $this->drop();
       }
        
       array_push($this->sstack, $this->scope);
-      $this->scope = $rmod;
+      $this->scope = $curr;
       $this->scope->enter();
     }
   }
@@ -3231,6 +3230,31 @@ class Analyzer extends Walker
     // restore label-frame
     $this->lframe = array_pop($this->lstack);
   }
+    
+  /* ------------------------------------ */
+  
+  public function reveal_collision($rmod, $name)
+  {
+    $err  = 'could not enter module `%s` because its name ';
+    $err .= 'collides with another symbol in its parent module';
+    
+    $this->error_at($name->loc, ERR_ERROR, $err, name_to_str($name));
+    
+    $last = null;
+    foreach (name_to_stra($name) as $part) {
+      $last = $part;
+      
+      if (!$rmod->has_child($part)) 
+        break;
+      
+      $rmod = $rmod->get_child($part);
+    }
+    
+    if ($last)
+      $this->error_at($rmod->get($last)->loc, ERR_INFO, 'declaration was here');
+  }
+  
+  /* ------------------------------------ */    
     
   /**
    * error handler

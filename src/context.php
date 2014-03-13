@@ -208,8 +208,20 @@ class Context
       $log .= "{$loc->file}:{$loc->pos->line}:{$loc->pos->coln}: ";
     }
     
-    $log .= $this->format($msg, $fmt);
-    fwrite(STDERR, "$log\n");
+    $text = $this->format($msg, $fmt);
+    $text = wordwrap($text, 60);
+    $loop = 0;
+    $wrap = explode("\n", $text);
+    
+    foreach ($wrap as $chnk) {
+      if ($loop++ > 0) 
+        $chnk = "... $chnk";
+      
+      if (isset ($wrap[$loop])) 
+        $chnk .= " ...";
+      
+      fwrite(STDERR, "$log$chnk\n");
+    }
   }
   
   /**
