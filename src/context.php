@@ -34,61 +34,24 @@ class Context
   // options
   private $opts = [];
   
-  // global scope
-  private $scope;
-  
-  // root modules
-  private $module;
+  // global scope/module
+  private $root;
   
   /**
    * returns the global scope
    * 
    * @return Scope
    */
-  public function get_scope()
+  public function get_root()
   {
-    if (!$this->scope) {
-      require_once 'scope.php';
-      $this->scope = new Scope;
-    }
-    
-    return $this->scope;
-  }
-  
-  /**
-   * sets the global scope
-   * 
-   * @param Scope $scope
-   */
-  public function set_scope(Scope $scope)
-  {
-    $this->scope = $scope;
-  }
-  
-  /**
-   * returns the global module
-   * 
-   * @return Module
-   */
-  public function get_module()
-  {
-    if (!$this->module) {
+    if (!$this->root) {
       require_once 'module.php';
-      $this->module = new Module('<root>');
-      $this->module->root = true;
+      $this->root = new Module('<root>');
+      $this->root->root = true; // mark it as root-module
+      $this->root->enter(); // enter it
     }
     
-    return $this->module;
-  }
-  
-  /**
-   * sets the global module
-   * 
-   * @param Module $mod
-   */
-  public function set_module(Module $mod)
-  {
-    $this->module = $mod;
+    return $this->root;
   }
   
   /**

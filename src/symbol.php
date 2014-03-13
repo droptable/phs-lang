@@ -24,11 +24,9 @@ const
 // typo recover
 const SYM_FLAGS_NONE = SYM_FLAG_NONE;
 
-const 
-  // not a real symbol
+const
+  // various symbol kinds 
   SYM_KIND_MODULE = 1, 
-  
-  // various symbol kinds
   SYM_KIND_CLASS = 2,
   SYM_KIND_TRAIT = 3,
   SYM_KIND_IFACE = 4,
@@ -236,6 +234,29 @@ class ParamSym extends VarSym
     parent::__construct($name, $value, $flags, $loc);
     $this->hint = null;
     $this->rest = false;
+  }
+}
+
+/** module symbol */
+class ModuleSym extends Symbol
+{
+  // the module
+  public $module;
+  
+  public function __construct($name, Module $module, $flags, Location $loc = null)
+  {
+    parent::__construct(SYM_KIND_MODULE, $name, $flags, $loc);
+    $this->module = $module;
+  }
+  
+  /* ------------------------------------ */
+  
+  public function debug($dp = '', $pf = '')
+  {
+    parent::debug($dp, '-> ');
+    print " module\n";
+    
+    $this->module->debug("$dp   ", '@ ');
   }
 }
 

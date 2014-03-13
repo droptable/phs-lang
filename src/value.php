@@ -94,7 +94,11 @@ class Value
    * @return Value
    */
   public static function from(Symbol $sym)
-  {              
+  {       
+    // if this happens, something went wrong       
+    assert($sym->kind !== REF_KIND_MODULE &&
+           $sym->kind !== SYM_KIND_MODULE);
+    
     if ($sym->kind === SYM_KIND_VAR)
       $nval = $sym->value; 
     elseif ($sym->kind === REF_KIND_VAR)

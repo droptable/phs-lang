@@ -29,7 +29,7 @@ class SymTable implements IteratorAggregate
   public function add($name, Symbol $sym)
   {
     if (!isset ($this->syms[$name])) {
-      $this->set($name, $sym);
+      $this->syms[$name] = $sym;
       return true;
     }
     

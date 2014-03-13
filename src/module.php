@@ -10,9 +10,6 @@ class Module extends Scope
   // name of this module
   public $name;
   
-  // child modules
-  private $childs = [];
-  
   /**
    * constructor
    * 
@@ -55,9 +52,12 @@ class Module extends Scope
    * fetch a child-module or create it
    * 
    * @param  array $path
+   * @param  int $flags
+   * @param  boolean $create
+   * @param  Location $loc
    * @return Module
    */
-  public function fetch($path)
+  public function fetch($path, $create = true, $flags = SYM_FLAG_NONE, Location $loc = null)
   {
     if (!is_array($path))
       $path = [ $path ];
@@ -66,106 +66,57 @@ class Module extends Scope
     
     foreach ($path as $name) {
       if (!$curr->has_child($name)) {
+        if (!$create) return null;
+        
         $newm = new Module($name, $curr);
-        $curr->set_child($name, $newm);
+        $news = new ModuleSym($name, $newm, $flags, $loc);
+        
+        // there is a collision
+        if (!$curr->add($name, $news))
+          return null;
+        
         $curr = $newm;
+        
       } else
-        $curr = $curr->get_child($name);
+        $curr = $curr->get_child($name);  
     }
     
     return $curr;
   }
   
-  /**
-   * check if a module exists
-   * 
-   * @param  string  $name
-   * @return boolean
-   */
   public function has_child($name)
   {
-    return isset ($this->childs[$name]);
+    // the symbol must be a direct child of this module -> do not walk up!
+    $sym = $this->get($name, false, null, false);
+    return $sym && $sym->kind === SYM_KIND_MODULE;
   }
   
-  /**
-   * add a new module
-   * 
-   * @param string $name
-   * @param Module $mod
-   */
-  public function add_child($name, Module $mod)
-  {
-    if (!$this->has_child($name))
-      $this->set_child($name, $mod);
-  }
-  
-  /**
-   * set (assign) a module
-   * 
-   * @param string $name
-   * @param Module $mod
-   */
-  public function set_child($name, Module $mod)
-  {
-    $this->childs[$name] = $mod;
-  }
-  
-  /**
-   * return a module 
-   * 
-   * @param  string $name
-   * @return Module
-   */
   public function get_child($name)
   {
-    if (!isset ($this->childs[$name]))
+    if (!$this->has_child($name))
       return null;
     
-    return $this->childs[$name];
+    return $this->get($name)->module;
   }
   
   /* ------------------------------------ */
   
-  // deny get() if this is the root-module
-  public function get($id, $track = true, Location $loc = null, $walk = false)
+  public function leave()
   {
-    if ($this->root) return null;
-    return parent::get($id, $track, $loc, $walk);
-  }
-  
-  // deny add() if this is the root-module
-  public function add($name, Symbol $sym) 
-  {
-    assert(!$this->root);
-    return parent::add($name, $sym);
-  }
-  
-  // deny set() if this is the root-module
-  public function set($name, Symbol $sym)
-  {
-    assert(!$this->root);
-    return parent::set($name, $sym);
-  }
-  
-  // deny rem() if this is the root-module
-  public function rem($name)
-  {
-    assert(!$this->root);
-    return parent::rem($name);
+    // leaving the root-module is not possible
+    if (!$this->root) parent::leave();
   }
   
   /* ------------------------------------ */
   
   public function debug($dp = '', $pf = '-> ')
   {       
-    print "{$dp}$pf{$this->name}\n";
+    if ($this->root) {
+      print "-> <root>\n";
+      $dp = "$dp   ";
+    }
     
     // the root-module has no symbols
-    if (!$this->root)
-      parent::debug("{$dp}   ", '@ ');
-    
-    if (!empty ($this->childs))
-      foreach ($this->childs as $child)
-        $child->debug("$dp   ", $pf);
+    parent::debug($dp, '@ ');
   }
 }

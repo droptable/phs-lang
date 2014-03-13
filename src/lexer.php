@@ -102,6 +102,20 @@ class Lexer
   }
   
   /**
+   * returns informations about the current file
+   * 
+   * @return array
+   */
+  public function get_info()
+  {
+    return [
+      'line' => $this->line,
+      'coln' => $this->coln,
+      'file' => $this->file
+    ];
+  }
+  
+  /**
    * error handler
    * 
    * @return void

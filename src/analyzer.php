@@ -32,12 +32,6 @@ class Analyzer extends Walker
   // scope stack
   private $sstack;
   
-  // module (if any)
-  private $module;
-  
-  // module stack
-  private $mstack;
-  
   // flags from nested-mods
   private $flags;
   
@@ -136,10 +130,8 @@ class Analyzer extends Walker
    */
   public function analyze(Unit $unit)
   {
-    $this->scope = $this->ctx->get_scope();
+    $this->scope = $this->ctx->get_root();
     $this->sstack = [];
-    $this->module = null;
-    $this->mstack = [];
     $this->flags = SYM_FLAG_NONE;
     $this->fstack = [];
     $this->valid = true;
@@ -166,30 +158,6 @@ class Analyzer extends Walker
   /* ------------------------------------ */
   
   /**
-   * enter a new scope
-   * 
-   * @param  boolean $ext extend (make current scope the parent)
-   */
-  protected function enter_scope($ext = true)
-  {
-    array_push($this->sstack, $this->scope);
-    $new_scope = new Scope($ext ? $this->scope : null);
-    $this->scope = $new_scope;
-  }
-  
-  /**
-   * leave the current scope
-   * 
-   */
-  protected function leave_scope()
-  {
-    $this->scope = array_pop($this->sstack);
-    assert($this->scope instanceof Scope);
-  }
-  
-  /* ------------------------------------ */
-  
-  /**
    * handles a import (use)
    * 
    * @param  Module $base
@@ -209,7 +177,12 @@ class Analyzer extends Walker
           if (!$this->fetch_import($base, $item->base, false))
             break;
           
-          $base = $base->fetch(name_to_stra($item->base));
+          $base = $base->fetch(name_to_stra($item->base), false);
+          
+          if (!$base) {
+            $this->error_at($item->base->loc, ERR_ERROR, 'import from non-existent module `%s`', name_to_str($item->base));
+            break;
+          }
         }
         
         foreach ($item->items as $item)
@@ -234,8 +207,14 @@ class Analyzer extends Walker
     if ($add && !$id)
       $id = $last;
     
-    if ($parts)
-      $base = $base->fetch($parts);
+    if ($parts) {
+      $base = $base->fetch($parts, false);
+      
+      if (!$base) {
+        $this->error_at($name->loc, ERR_ERROR, 'import from non-existent module `%s`', implode('::', $parts));
+        return false;
+      }
+    }
     
     if ($base->has_child($last)) {
       // import a module
@@ -278,7 +257,7 @@ class Analyzer extends Walker
   /* ------------------------------------ */
   
   protected function add_symbol($id, $sym)
-  {
+  {    
     // apply current flags
     $ppp = $sym->flags & SYM_FLAG_PUBLIC;
     $ppp |= $sym->flags & SYM_FLAG_PRIVATE;
@@ -373,6 +352,9 @@ class Analyzer extends Walker
       return false;
     }
     
+    // a reference can not hide other symbols
+    assert(!$ref);
+    
     # print "replacing previous symbol\n";
     
     // mark the previous symbol as unreachable
@@ -391,34 +373,42 @@ class Analyzer extends Walker
     $rmod = null;
     
     if ($name === null) {
-      // switch to global scope and root module
-      array_push($this->mstack, $this->module);
+      // switch to global scope
       array_push($this->sstack, $this->scope);
-      $this->module = $this->ctx->get_module();
-      $this->scope = $this->ctx->get_scope();
+      $this->scope = $this->ctx->get_root();
     } else {
-      if ($name->root || !$this->module)
+      if ($name->root)
         // use root module
-        $rmod = $this->ctx->get_module();
-      else
+        $rmod = $this->ctx->get_root();
+      else {
+        // this would be an error in the grammar
+        if (!($this->scope instanceof Module)) {
+          assert(0);
+          return $this->drop();
+        }
+        
         // use current module
-        $rmod = $this->module;
-            
-      $rmod = $rmod->fetch(name_to_stra($name)); 
+        $rmod = $this->scope;
+      }
+       
+      $rmod = $rmod->fetch(name_to_stra($name), true, SYM_FLAG_NONE, $node->loc);
       
-      array_push($this->mstack, $this->module);
+      if ($rmod === null) {
+        $this->error_at($name->loc, ERR_ERROR, 'could not enter module `%s` since its '.
+          'name collides with symbols in the current scope', name_to_str($name));
+        return $this->drop();
+      }
+       
       array_push($this->sstack, $this->scope);
-      $this->module = $rmod;
-      $this->scope = $rmod;         
+      $this->scope = $rmod;
+      $this->scope->enter();
     }
   }
   
   protected function leave_module($node) 
   {
-    // back to prev module
-    $this->module = array_pop($this->mstack);
-    
     // back to prev scope
+    $this->scope->leave();
     $this->scope = array_pop($this->sstack);
   }
   
@@ -445,7 +435,7 @@ class Analyzer extends Walker
       $base = $bsym->module->get_prev();
     else {
       rmod:
-      $base = $this->ctx->get_module();
+      $base = $this->ctx->get_root();
     }
     
     // this function is recursive
@@ -521,6 +511,7 @@ class Analyzer extends Walker
     array_push($this->sstack, $this->scope);
     $node->scope = new ClassScope($sym, $this->scope);
     $this->scope = $node->scope;
+    $this->scope->enter();
     
     // we don't need pass 1 and 2 here
     $this->pass = 3;
@@ -528,6 +519,7 @@ class Analyzer extends Walker
   
   protected function leave_iface_decl($node)
   {
+    $this->scope->leave();
     $this->scope = array_pop($this->sstack);
     $this->pass = 0;
   }
@@ -573,6 +565,7 @@ class Analyzer extends Walker
     array_push($this->sstack, $this->scope);
     $node->scope = new ClassScope($sym, $this->scope);
     $this->scope = $node->scope;
+    $this->scope->enter();
         
     // pass 1: add all member-symbols without entering functions
     // pass 2: improve symbols and enter functions ...
@@ -591,6 +584,7 @@ class Analyzer extends Walker
       $this->check_class_final($sym);
     
     // back to prev scope
+    $this->scope->leave();
     $this->scope = array_pop($this->sstack);
     $this->pass = 0;
   }
@@ -648,6 +642,7 @@ class Analyzer extends Walker
     array_push($this->sstack, $this->scope);
     $node->scope = new FnScope($sym, $this->scope);
     $this->scope = $node->scope;
+    $this->scope->enter();
     
     // backup flags
     array_push($this->fstack, $this->flags);
@@ -664,6 +659,7 @@ class Analyzer extends Walker
   
   protected function leave_ctor_decl($node) 
   {
+    $this->scope->leave();
     $this->scope = array_pop($this->sstack);
     $this->flags = array_pop($this->fstack);
     $this->pass = array_pop($this->pstack);
@@ -714,6 +710,7 @@ class Analyzer extends Walker
     array_push($this->sstack, $this->scope);
     $node->scope = new FnScope($sym, $this->scope);
     $this->scope = $node->scope;
+    $this->scope->enter();
     
     // backup flags
     array_push($this->fstack, $this->flags);
@@ -730,6 +727,7 @@ class Analyzer extends Walker
   
   protected function leave_dtor_decl($n) 
   {
+    $this->scope->leave();
     $this->scope = array_pop($this->sstack);
     $this->flags = array_pop($this->fstack);
     $this->pass = array_pop($this->pstack);
@@ -807,14 +805,9 @@ class Analyzer extends Walker
     array_push($this->pstack, $this->pass);
     $this->pass = 0;
     
-    array_push($this->sstack, $this->scope);
-    $node->scope = new FnScope($sym, $this->scope);
-    $this->scope = $node->scope;
-        
+    $this->enter_fn($sym, $node);
     // just for debugging
     $sym->fn_scope = $this->scope;
-    
-    $this->enter_fn();
     
     if ($node->params !== null)
       $this->handle_params($sym, $node->params);
@@ -920,10 +913,12 @@ class Analyzer extends Walker
     array_push($this->sstack, $this->scope);
     $node->scope = new Scope($this->scope);
     $this->scope = $node->scope;
+    $this->scope->enter();
   }
   
   protected function leave_block($node) 
   {
+    $this->scope->leave();
     $this->scope = array_pop($this->sstack);
   }
   
@@ -1017,6 +1012,7 @@ class Analyzer extends Walker
         # print "creating lexical scope\n";
         array_push($this->sstack, $this->scope);
         $this->scope = new Scope($this->scope);
+        $this->scope->enter();
       }
       
       $this->walk_some($node->init);
@@ -1039,6 +1035,7 @@ class Analyzer extends Walker
       # print "using lexical scope\n";
       $node->stmt->scope = $this->scope;
       $this->walk_some($node->stmt->body);
+      $this->scope->leave();
       $this->scope = array_pop($this->sstack);
     } else
       $this->walk_some($node->stmt);
@@ -1065,6 +1062,7 @@ class Analyzer extends Walker
       # print "creating lexical scope\n";
       array_push($this->sstack, $this->scope);
       $this->scope = new Scope($this->scope);
+      $this->scope->enter();
     }
     
     $this->walk_some($node->lhs);    
@@ -1077,6 +1075,7 @@ class Analyzer extends Walker
       # print "using lexical scope\n";
       $node->stmt->scope = $this->scope;
       $this->walk_some($node->stmt->body);
+      $this->scope->leave();
       $this->scope = array_pop($this->sstack);
     } else
       $this->walk_some($node->stmt);
@@ -1096,6 +1095,7 @@ class Analyzer extends Walker
         
         array_push($this->sstack, $this->scope);
         $this->scope = new Scope($this->scope);
+        $this->scope->enter();
         $catch->body->scope = $this->scope;
         
         if ($catch->id !== null) {
@@ -1103,6 +1103,7 @@ class Analyzer extends Walker
           $sym = new VarSym($sid, new Value(VAL_KIND_UNKNOWN), SYM_FLAG_NONE, $catch->id->loc);
           
           if (!$this->add_symbol($sid, $sym)) {
+            $this->scope->leave();
             $this->scope = array_pop($this->sstack);
             continue;
           }
@@ -1110,6 +1111,7 @@ class Analyzer extends Walker
         
         // branch needed
         $this->walk_branch($catch->body->body);
+        $this->scope->leave();
         $this->scope = array_pop($this->sstack);
       }
     }  
@@ -1617,7 +1619,10 @@ class Analyzer extends Walker
     $mod = $this->ctx->get_module();
     $nam = name_to_stra($ref->path);
     $lst = array_pop($nam);
-    $cnt = $mod->fetch($nam);
+    $cnt = $mod->fetch($nam, false);
+    
+    // the symbol can not be null here
+    assert($cnt !== null);
     
     if ($cnt->has($lst)) {
       $sym = $cnt->get($lst, false, null);
@@ -1936,27 +1941,23 @@ class Analyzer extends Walker
       $fid = '#anonymus~' . (self::$anon_uid++);
     
     $sym = new FnSym($fid, SYM_FLAG_NONE, $node->loc);  
-      
-    array_push($this->sstack, $this->scope);
-    $node->scope = new FnScope($sym, $this->scope);
-    $this->scope = $node->scope;
+    $this->enter_fn($sym, $node);
     
     // the symbol gets added after a new scope was entered
-    if (!$this->add_symbol($fid, $sym))
+    if (!$this->add_symbol($fid, $sym)) {
+      $this->leave_fn();
       return $this->drop();
-      
+    }
+    
     // just for debugging
     $sym->fn_scope = $this->scope;
-    
-    $this->enter_fn();
            
     if ($node->params !== null)
       $this->handle_params($node->params);
     
     $this->walk_some($node->body);
-    
     $this->leave_fn();
-        
+    
     $this->value = new FnValue($sym);
   }
   
@@ -2884,42 +2885,17 @@ class Analyzer extends Walker
   
   protected function visit_name($name) 
   {    
-    $bid = ident_to_str($name->base);
-    $sym = null;
-    
-    if ($name->root) goto gmd;
-    
-    $sym = $this->scope->get($bid, false, null, true);
+    $bid = ident_to_str($name->base);    
+    $scp = $name->root ? $this->ctx->get_root() : $this->scope; 
+    $sym = $scp->get($bid, false, null, true);
     $mod = null;
     
     // its not a symbol in the current scope
-    if ($sym === null) {      
-      gmd:
-      // check if the $bid is a global module
-      $mrt = $this->ctx->get_module();
-        
-      if ($mrt->has_child($bid)) {
-        if (empty ($name->parts))
-          // module can not be referenced
-          goto mod;  
-        
-        $mod = $mrt->get_child($bid);
-        goto lcm;
-      }
-      
-      // check if the symbol is a global symbol
-      if ($sym === null) {
-        $srt = $this->ctx->get_scope();
-        $sym = $srt->get($bid, false, null);
-      }
-      
-      // still not found?
-      if ($sym === null)
-        goto err;
-    }
+    if ($sym === null)     
+      goto err;
     
     switch ($sym->kind) {
-      // symbols
+      // symbols   
       case SYM_KIND_CLASS:
       case SYM_KIND_TRAIT:
       case SYM_KIND_IFACE:
@@ -2933,6 +2909,7 @@ class Analyzer extends Walker
         break;
       
       // references
+      case SYM_KIND_MODULE:
       case REF_KIND_MODULE:
         if (empty ($name->parts))
           // a module can not be referenced
@@ -2974,7 +2951,8 @@ class Analyzer extends Walker
     }
     */
     
-    if ($sym->kind !== REF_KIND_MODULE) {
+    if ($sym->kind !== REF_KIND_MODULE &&
+        $sym->kind !== SYM_KIND_MODULE) {
       $this->error_at($name->loc, ERR_ERROR, 'symbol `%s` used as module', $sym->name);
       goto unk;
     }
@@ -2991,21 +2969,31 @@ class Analyzer extends Walker
     // ignore base
     array_shift($arr);
     
-    $res = $mod->fetch($arr);
+    if (!empty ($arr)) {
+      print "hurr durr\n";
+      $res = $mod->fetch($arr, false);
     
-    if ($res === null)
-      goto err;
+      if ($res === null) {
+        $this->error_at($name->loc, ERR_ERROR, 'access to undefined sub-module `%s` of `%s`', implode('::', $arr), $mod->name);
+        goto unk;
+      }
+      
+      $mod = $res;
+    }
     
-    if ($res->has_child($lst))
+    if ($mod->has_child($lst)) {
+      $this->error_at($mod->get($lst)->loc, ERR_INFO, '');
       // module can not be referenced
       goto mod;
+    }
     
-    $sym = $res->get($lst);
+    $sym = $mod->get($lst);
+    assert($sym->kind !== SYM_KIND_MODULE);
     
     if ($sym === null)
       goto err;
       
-    if ($sym->kind > SYM_REF_DIVIDER) {
+    if ($sym->kind > SYM_REF_DIVIDER) {      
       if ($sym->kind === REF_KIND_MODULE)
         // module can not be a referenced
         goto mod;
@@ -3015,8 +3003,8 @@ class Analyzer extends Walker
     
     sym:    
     /* allow NULL here */
-    if ($this->access === self::ACC_READ && $sym->kind === SYM_KIND_VAR && 
-      ($sym->value->kind === VAL_KIND_EMPTY /*|| $sym->value->kind === VAL_KIND_NULL*/))
+    if ($this->access === self::ACC_READ && 
+        $sym->kind === SYM_KIND_VAR && $sym->value->kind === VAL_KIND_EMPTY)
       $this->error_at($name->loc, ERR_WARN, 'access to (maybe) uninitialized symbol `%s`', name_to_str($name));
     
     $sym->reads++;
@@ -3029,7 +3017,7 @@ class Analyzer extends Walker
     goto unk;
     
     mod:
-    $this->error_at($name->loc, ERR_ERROR, 'module used as value');
+    $this->error_at($name->loc, ERR_ERROR, 'module `%s` used as value', name_to_str($name));
     goto unk;
     
     err:    
@@ -3120,12 +3108,14 @@ class Analyzer extends Walker
   {
     array_push($this->sstack, $this->scope);
     $this->scope = new Branch($this->scope);
+    $this->scope->enter();
     
     array_push($this->bstack, $this->branch);
     $this->branch = ++self::$branch_uid;
     
     $this->walk_some($node);
     
+    $this->scope->leave();
     $this->scope = array_pop($this->sstack);
     $this->branch = array_pop($this->bstack);
   }
@@ -3134,17 +3124,24 @@ class Analyzer extends Walker
   {
     array_push($this->sstack, $this->scope);
     $this->scope = new Scope($this->scope);
+    $this->scope->enter();
     
     $this->walk_branch($node);
     
+    $this->scope->leave();
     $this->scope = array_pop($this->sstack);
   } 
   
   /* ------------------------------------ */
   
-  public function enter_fn()
+  public function enter_fn($sym, $node)
   {
     ++$this->infn;
+    
+    array_push($this->sstack, $this->scope);
+    $node->scope = new FnScope($sym, $this->scope);
+    $this->scope = $node->scope;
+    $this->scope->enter();
     
     array_push($this->fstack, $this->flags);
     $this->flags = SYM_FLAG_NONE;
@@ -3160,6 +3157,7 @@ class Analyzer extends Walker
   {
     --$this->infn;
     
+    $this->scope->leave();
     $this->scope = array_pop($this->sstack);
     $this->flags = array_pop($this->fstack);
     

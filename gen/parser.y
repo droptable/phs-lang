@@ -1204,8 +1204,8 @@ kwc
   | T_NULL    { $$ = @NullLit; }
   | T_TRUE    { $$ = @TrueLit; }
   | T_FALSE   { $$ = @FalseLit; }
-  | T_CDIR    { $$ = @StrLit(dirname($1->loc->file), 'c'); }
-  | T_CFILE   { $$ = @StrLit($1->loc->file, 'c'); }
+  | T_CDIR    { $$ = @StrLit($this->cdir, 'c'); }
+  | T_CFILE   { $$ = @StrLit($this->cfile, 'c'); }
   | T_CLINE   { $$ = @StrLit($1->loc->pos->line, 'c'); }
   | T_CCOLN   { $$ = @StrLit($1->loc->pos->coln, 'c'); }
   | T_CFN     { $$ = @EngineConst($1->type); }

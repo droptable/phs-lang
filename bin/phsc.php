@@ -22,7 +22,12 @@ $now = microtime();
 $cmp->compile();
 $end = microtime() - $now;
 
-print "{$end}s";
+print "\ndone in {$end}s\n";
+print "\nscope:\n------\n\n";
+$ctx->get_root()->debug();
+
+
+
 
 
 

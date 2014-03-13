@@ -1366,6 +1366,9 @@ class Parser extends ParserBase
   private $lex;
   private $invalid = false;
   
+  // current directory and filename
+  private $cdir, $cfile;
+  
   /**
    * returns the current location (last scanned token)
    * 
@@ -1423,6 +1426,10 @@ class Parser extends ParserBase
     
     // lexer
     $this->lex = $lex;
+    
+    $file = $this->lex->get_info()['file'];
+    $this->cdir = dirname($file);
+    $this->cfile = $file;
     
     // stacks
     $this->yysstk = [ 0 ]; 
@@ -5183,13 +5190,13 @@ class Parser extends ParserBase
 
   private function yyn572() 
   {
-     $this->yyval = new StrLit(dirname($this->yyastk[$this->yysp-(1-1)]->loc->file), 'c'); 
+     $this->yyval = new StrLit($this->cdir, 'c'); 
   }
 
 
   private function yyn573() 
   {
-     $this->yyval = new StrLit($this->yyastk[$this->yysp-(1-1)]->loc->file, 'c'); 
+     $this->yyval = new StrLit($this->cfile, 'c'); 
   }
 
 
