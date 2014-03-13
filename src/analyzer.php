@@ -300,7 +300,7 @@ class Analyzer extends Walker
     
     if ($cur instanceof SymRef) {
       $this->error_at($sym->loc, ERR_ERROR, '%s %s collides with a referenced symbol', $kind, $sym->name);
-      $this->error_at($cur->loc, ERR_ERROR, 'reference was here');
+      $this->error_at($cur->loc, ERR_INFO, 'reference was here');
       return false;
     }
     
@@ -330,7 +330,7 @@ class Analyzer extends Walker
     if ($cur->flags & SYM_FLAG_FINAL) {
       // whops, not allowed
       $this->error_at($sym->loc, ERR_ERROR, '%s `%s` hides a final symbol in this scope-chain', $kind, $sym->name);
-      $this->error_at($cur->loc, ERR_ERROR, 'previous declaration was here');
+      $this->error_at($cur->loc, ERR_INFO, 'previous declaration was here');
       return false;
     }
     
@@ -348,12 +348,16 @@ class Analyzer extends Walker
     if ($cur->flags & SYM_FLAG_CONST) {
       // same as final, but only applies in the same scope
       $this->error_at($sym->loc, ERR_ERROR, '%s `%s` overrides a constant symbol in the same scope', $kind, $sym->name);
-      $this->error_at($cur->loc, ERR_ERROR, 'previous declaration was here');
+      $this->error_at($cur->loc, ERR_INFO, 'previous declaration was here');
       return false;
     }
     
     // a reference can not hide other symbols
-    assert(!$ref);
+    if ($sym->kind > SYM_REF_DIVIDER) {
+      $this->error_at($sym->loc, ERR_ERROR, '%s `%s` collides with a already defined symbol in this scope', $kind, $sym->name);
+      $this->error_at($cur->loc, ERR_INFO, 'previous declaration was here');
+      return false;
+    }
     
     # print "replacing previous symbol\n";
     

@@ -271,7 +271,6 @@ class Context
       $r .= $c;
     }
     
-    exit($r);
     return vsprintf($r, $args);
   }
   
