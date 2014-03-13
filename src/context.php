@@ -212,13 +212,11 @@ class Context
     $text = wordwrap($text, 60);
     $loop = 0;
     $wrap = explode("\n", $text);
+    $wlen = count($wrap);
     
     foreach ($wrap as $chnk) {
-      if ($loop++ > 0) 
-        $chnk = "... $chnk";
-      
-      if (isset ($wrap[$loop])) 
-        $chnk .= " ...";
+      if ($loop++ > 0) $chnk = "... $chnk";
+      if ($loop < $wlen) $chnk .= " ...";
       
       fwrite(STDERR, "$log$chnk\n");
     }
