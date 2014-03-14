@@ -2877,7 +2877,7 @@ class Analyzer extends Walker
     $mod = null;
     
     // its not a symbol in the current scope
-    if ($sym === null)     
+    if ($sym === null)
       goto err;
     
     switch ($sym->kind) {
@@ -2954,6 +2954,10 @@ class Analyzer extends Walker
           goto unk;
         }
         
+        // use the reference path from now on for proper error-messages
+        if ($res->kind === REF_KIND_MODULE)
+          $trk = $res->path(false);
+        
         $res = $res->module;
       }
       
@@ -2973,9 +2977,9 @@ class Analyzer extends Walker
         $sym->kind === SYM_KIND_MODULE)
         // module can not be a referenced
         goto mod;
-      
+    
+    if ($sym->kind > SYM_REF_DIVIDER) 
       $sym = $sym->symbol;
-    }
     
     sym:    
     /* allow NULL here */
