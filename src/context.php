@@ -48,7 +48,6 @@ class Context
       require_once 'module.php';
       $this->root = new Module('<root>');
       $this->root->root = true; // mark it as root-module
-      $this->root->enter(); // enter it
     }
     
     return $this->root;

@@ -10,6 +10,9 @@ class Module extends Scope
   // name of this module
   public $name;
   
+  // reference stack
+  private $rstack;
+  
   /**
    * constructor
    * 
@@ -20,6 +23,7 @@ class Module extends Scope
     parent::__construct($prev);
     $this->name = $name;
     $this->root = false;
+    $this->rstack = [];
   }
   
   /**
@@ -97,14 +101,6 @@ class Module extends Scope
       return null;
     
     return $this->get($name)->module;
-  }
-  
-  /* ------------------------------------ */
-  
-  public function leave()
-  {
-    // leaving the root-module is not possible
-    if (!$this->root) parent::leave();
   }
   
   /* ------------------------------------ */

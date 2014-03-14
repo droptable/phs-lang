@@ -404,14 +404,12 @@ class Analyzer extends Walker
        
       array_push($this->sstack, $this->scope);
       $this->scope = $curr;
-      $this->scope->enter();
-    }
+          }
   }
   
   protected function leave_module($node) 
   {
     // back to prev scope
-    $this->scope->leave();
     $this->scope = array_pop($this->sstack);
   }
   
@@ -514,15 +512,13 @@ class Analyzer extends Walker
     array_push($this->sstack, $this->scope);
     $node->scope = new ClassScope($sym, $this->scope);
     $this->scope = $node->scope;
-    $this->scope->enter();
-    
+        
     // we don't need pass 1 and 2 here
     $this->pass = 3;
   }
   
   protected function leave_iface_decl($node)
   {
-    $this->scope->leave();
     $this->scope = array_pop($this->sstack);
     $this->pass = 0;
   }
@@ -568,8 +564,7 @@ class Analyzer extends Walker
     array_push($this->sstack, $this->scope);
     $node->scope = new ClassScope($sym, $this->scope);
     $this->scope = $node->scope;
-    $this->scope->enter();
-        
+            
     // pass 1: add all member-symbols without entering functions
     // pass 2: improve symbols and enter functions ...
     $this->handle_class_members($node->members); 
@@ -587,7 +582,6 @@ class Analyzer extends Walker
       $this->check_class_final($sym);
     
     // back to prev scope
-    $this->scope->leave();
     $this->scope = array_pop($this->sstack);
     $this->pass = 0;
   }
@@ -645,8 +639,7 @@ class Analyzer extends Walker
     array_push($this->sstack, $this->scope);
     $node->scope = new FnScope($sym, $this->scope);
     $this->scope = $node->scope;
-    $this->scope->enter();
-    
+        
     // backup flags
     array_push($this->fstack, $this->flags);
     $this->flags = SYM_FLAG_NONE;
@@ -662,7 +655,6 @@ class Analyzer extends Walker
   
   protected function leave_ctor_decl($node) 
   {
-    $this->scope->leave();
     $this->scope = array_pop($this->sstack);
     $this->flags = array_pop($this->fstack);
     $this->pass = array_pop($this->pstack);
@@ -713,8 +705,7 @@ class Analyzer extends Walker
     array_push($this->sstack, $this->scope);
     $node->scope = new FnScope($sym, $this->scope);
     $this->scope = $node->scope;
-    $this->scope->enter();
-    
+        
     // backup flags
     array_push($this->fstack, $this->flags);
     $this->flags = SYM_FLAG_NONE;
@@ -730,7 +721,6 @@ class Analyzer extends Walker
   
   protected function leave_dtor_decl($n) 
   {
-    $this->scope->leave();
     $this->scope = array_pop($this->sstack);
     $this->flags = array_pop($this->fstack);
     $this->pass = array_pop($this->pstack);
@@ -916,12 +906,10 @@ class Analyzer extends Walker
     array_push($this->sstack, $this->scope);
     $node->scope = new Scope($this->scope);
     $this->scope = $node->scope;
-    $this->scope->enter();
-  }
+      }
   
   protected function leave_block($node) 
   {
-    $this->scope->leave();
     $this->scope = array_pop($this->sstack);
   }
   
@@ -1015,8 +1003,7 @@ class Analyzer extends Walker
         # print "creating lexical scope\n";
         array_push($this->sstack, $this->scope);
         $this->scope = new Scope($this->scope);
-        $this->scope->enter();
-      }
+              }
       
       $this->walk_some($node->init);
     }
@@ -1038,7 +1025,6 @@ class Analyzer extends Walker
       # print "using lexical scope\n";
       $node->stmt->scope = $this->scope;
       $this->walk_some($node->stmt->body);
-      $this->scope->leave();
       $this->scope = array_pop($this->sstack);
     } else
       $this->walk_some($node->stmt);
@@ -1065,8 +1051,7 @@ class Analyzer extends Walker
       # print "creating lexical scope\n";
       array_push($this->sstack, $this->scope);
       $this->scope = new Scope($this->scope);
-      $this->scope->enter();
-    }
+          }
     
     $this->walk_some($node->lhs);    
     $this->handle_expr($node->rhs);
@@ -1078,7 +1063,6 @@ class Analyzer extends Walker
       # print "using lexical scope\n";
       $node->stmt->scope = $this->scope;
       $this->walk_some($node->stmt->body);
-      $this->scope->leave();
       $this->scope = array_pop($this->sstack);
     } else
       $this->walk_some($node->stmt);
@@ -1098,7 +1082,6 @@ class Analyzer extends Walker
         
         array_push($this->sstack, $this->scope);
         $this->scope = new Scope($this->scope);
-        $this->scope->enter();
         $catch->body->scope = $this->scope;
         
         if ($catch->id !== null) {
@@ -1106,7 +1089,6 @@ class Analyzer extends Walker
           $sym = new VarSym($sid, new Value(VAL_KIND_UNKNOWN), SYM_FLAG_NONE, $catch->id->loc);
           
           if (!$this->add_symbol($sid, $sym)) {
-            $this->scope->leave();
             $this->scope = array_pop($this->sstack);
             continue;
           }
@@ -1114,7 +1096,6 @@ class Analyzer extends Walker
         
         // branch needed
         $this->walk_branch($catch->body->body);
-        $this->scope->leave();
         $this->scope = array_pop($this->sstack);
       }
     }  
@@ -2973,7 +2954,6 @@ class Analyzer extends Walker
     array_shift($arr);
     
     if (!empty ($arr)) {
-      print "hurr durr\n";
       $res = $mod->fetch($arr, false);
     
       if ($res === null) {
@@ -2984,14 +2964,11 @@ class Analyzer extends Walker
       $mod = $res;
     }
     
-    if ($mod->has_child($lst)) {
-      $this->error_at($mod->get($lst)->loc, ERR_INFO, '');
+    if ($mod->has_child($lst))
       // module can not be referenced
       goto mod;
-    }
     
     $sym = $mod->get($lst);
-    assert($sym->kind !== SYM_KIND_MODULE);
     
     if ($sym === null)
       goto err;
@@ -3020,7 +2997,14 @@ class Analyzer extends Walker
     goto unk;
     
     mod:
-    $this->error_at($name->loc, ERR_ERROR, 'module `%s` used as value', name_to_str($name));
+    $path = name_to_str($name);
+    if (isset ($sym) && $sym->kind > SYM_REF_DIVIDER) {
+      $this->error_at($name->loc, ERR_ERROR, 'module-ref `%s` used as value', path_to_str($sym->path));
+      $this->error_at($name->loc, ERR_ERROR, 'used via `%s`', $path);
+      $this->error_at($sym->loc, ERR_INFO, 'declared as reference here');
+    } else
+      $this->error_at($name->loc, ERR_ERROR, 'module `%s` used as value', $path);  
+
     goto unk;
     
     err:    
@@ -3111,14 +3095,12 @@ class Analyzer extends Walker
   {
     array_push($this->sstack, $this->scope);
     $this->scope = new Branch($this->scope);
-    $this->scope->enter();
-    
+        
     array_push($this->bstack, $this->branch);
     $this->branch = ++self::$branch_uid;
     
     $this->walk_some($node);
     
-    $this->scope->leave();
     $this->scope = array_pop($this->sstack);
     $this->branch = array_pop($this->bstack);
   }
@@ -3127,11 +3109,9 @@ class Analyzer extends Walker
   {
     array_push($this->sstack, $this->scope);
     $this->scope = new Scope($this->scope);
-    $this->scope->enter();
-    
+        
     $this->walk_branch($node);
     
-    $this->scope->leave();
     $this->scope = array_pop($this->sstack);
   } 
   
@@ -3144,8 +3124,7 @@ class Analyzer extends Walker
     array_push($this->sstack, $this->scope);
     $node->scope = new FnScope($sym, $this->scope);
     $this->scope = $node->scope;
-    $this->scope->enter();
-    
+        
     array_push($this->fstack, $this->flags);
     $this->flags = SYM_FLAG_NONE;
     
@@ -3160,7 +3139,6 @@ class Analyzer extends Walker
   {
     --$this->infn;
     
-    $this->scope->leave();
     $this->scope = array_pop($this->sstack);
     $this->flags = array_pop($this->fstack);
     

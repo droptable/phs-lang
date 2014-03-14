@@ -10,17 +10,11 @@ class Scope extends SymTable
   // parent/previous scope
   private $prev;
   
-  // references symtable
-  private $refs;
-  
   // unresolved references (via get())
   private $uref;
   
   // unreachable (dropped) symbols
   private $drop;
-  
-  // active-state
-  private $active;
   
   /**
    * constructor
@@ -34,7 +28,6 @@ class Scope extends SymTable
     $this->prev = $prev;
     $this->uref = [];
     $this->drop = [];
-    $this->refs = new SymTable;
   }
   
   /**
@@ -49,12 +42,7 @@ class Scope extends SymTable
    */
   public function get($id, $track = true, Location $loc = null, $walk = true)
   {    
-    if ($this->active && $this->refs->has($id)) 
-      // references are only valid if the scope is active
-      $res = $this->refs->get($id, $track); 
-    else
-      // use the scope symtable
-      $res = parent::get($id, $track);
+    $res = parent::get($id, $track);
     
     if (!$res) {
       if ($this->prev && $walk)
@@ -76,11 +64,7 @@ class Scope extends SymTable
    */
   public function add($id, Symbol $sym)
   {        
-    $sym->scope = $this;
-    
-    if ($sym->kind > SYM_REF_DIVIDER)
-      return $this->refs->add($id, $sym);
-    
+    $sym->scope = $this;    
     return parent::add($id, $sym);
   }
   
@@ -92,10 +76,6 @@ class Scope extends SymTable
   public function set($id, Symbol $sym)
   {
     $sym->scope = $this;
-    
-    if (!$this->has($id) && $this->refs->has($id))
-      return $this->refs->set($id, $sym);
-    
     return parent::set($id, $sym);
   }
   
@@ -135,15 +115,6 @@ class Scope extends SymTable
   }
   
   /**
-   * returns all references
-   * @return SymTable
-   */
-  public function get_refs()
-  {
-    return $this->refs;
-  }
-  
-  /**
    * returns all dropped symbols this scope has collected
    * 
    * @return array
@@ -151,18 +122,6 @@ class Scope extends SymTable
   public function get_drop()
   {
     return $this->drop;
-  }
-  
-  /* ------------------------------------ */
-  
-  public function enter()
-  {
-    $this->active = true;
-  }
-  
-  public function leave()
-  {
-    $this->active = false;
   }
   
   /* ------------------------------------ */
