@@ -81,13 +81,10 @@
     )
   |
     # the "is" and "is not" operator
-    (?:is!|(?:!is|is(?:no?t)?)(?=\s|$))
+    (?:(?:!?is(?:no?t)?)(?=\s|$))
   |
     # words (identifiers)
     [a-zA-Z_\x7f-\xff\$][a-zA-Z0-9_\x7f-\xff\$]*
-    
-    # allow '?' and '!' as suffix on function-names or calls
-    # (?:[?!]\s*(?=[\(]))?
   | 
     # operators and punctuation
     (?:    
@@ -95,7 +92,7 @@
       [;,{}\(\)\[\]@\#]
       
       # combinations
-      | (?:[=]>|=~|!\.|:>|<:)
+      | (?:=>)
       
       # double or single with '=' at the end
       | (?:[|]{1,2}|[&]{1,2}|[*]{1,2}|[<]{1,2}|[>]{1,2})=

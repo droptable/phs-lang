@@ -221,7 +221,8 @@ class Analyzer extends Walker
       if (!$add) return true; 
       
       // add symbol to scope
-      $sym = ModuleRef::from($id, $base->get_child($last), $name, $name->loc);
+      // note: using get() instead of get_child() gives us the symbol
+      $sym = ModuleRef::from($id, $base->get($last), $name, $name->loc);
       return $this->add_symbol($id, $sym);
     }
     
@@ -2867,6 +2868,7 @@ class Analyzer extends Walker
       $this->value = new Value(VAL_KIND_OBJ, $res);
   }
   
+  /* TODO: needs refactoring */
   protected function visit_name($name) 
   {    
     $bid = ident_to_str($name->base);    
@@ -2914,27 +2916,6 @@ class Analyzer extends Walker
     /* ------------------------------------ */
     /* symbol lookup */
     
-    // lookup other parts
-    /*
-    if ($sym->kind === SYM_KIND_VAR) {
-      // the var could be a reference to a module
-      // TODO: is this allowed?
-      if ($sym->value === null)
-        return null;
-      
-      switch ($sym->value->kind) {
-        case REF_KIND_MODULE:
-          $sym = $sym->value;
-          break;
-          
-        default:
-          // a subname lookup is not possible
-          // this is an error actually, but fail silent here
-          return null;
-      }
-    }
-    */
-    
     if ($sym->kind !== REF_KIND_MODULE &&
         $sym->kind !== SYM_KIND_MODULE) {
       $this->error_at($name->loc, ERR_ERROR, 'symbol `%s` used as module', $sym->name);
@@ -2954,11 +2935,26 @@ class Analyzer extends Walker
     array_shift($arr);
     
     if (!empty ($arr)) {
-      $res = $mod->fetch($arr, false);
-    
-      if ($res === null) {
-        $this->error_at($name->loc, ERR_ERROR, 'access to undefined sub-module `%s` of `%s`', implode('::', $arr), $mod->name);
-        goto unk;
+      $res = $mod;
+      $trk = [];
+      
+      foreach ($arr as $item) {
+        // do not walk
+        $res = $res->get($item, false, null, false);
+        array_push($trk, $item);
+        
+        if ($res === null) {
+          $this->error_at($name->loc, ERR_ERROR, 'access to undefined sub-module `%s` of `%s`', implode('::', $trk), $mod->name);
+          goto unk;
+        }
+        
+        if ($res->kind !== REF_KIND_MODULE &&
+            $res->kind !== SYM_KIND_MODULE) {
+          $this->error_at($name->loc, ERR_ERROR, 'symbol `%s` used as module', implode('::', $trk));
+          goto unk;
+        }
+        
+        $res = $res->module;
       }
       
       $mod = $res;
@@ -2973,8 +2969,8 @@ class Analyzer extends Walker
     if ($sym === null)
       goto err;
       
-    if ($sym->kind > SYM_REF_DIVIDER) {      
-      if ($sym->kind === REF_KIND_MODULE)
+    if ($sym->kind === REF_KIND_MODULE ||
+        $sym->kind === SYM_KIND_MODULE)
         // module can not be a referenced
         goto mod;
       
@@ -3020,17 +3016,24 @@ class Analyzer extends Walker
   /* same rules as visit_name, but without the fancy lookup */
   protected function visit_ident($node) 
   {
-    $sym = $this->scope->get($node->value, false, null, true);
+    $sid = ident_to_str($node);
+    $sym = $this->scope->get($sid, false, null, true);
+    
+    if ($sym && ($sym->kind === REF_KIND_MODULE ||
+                 $sym->kind === SYM_KIND_MODULE)) {
+      $this->error_at($name->loc, ERR_ERROR, 'module `%s` used as value', $sid); 
+      goto unk;
+    }
     
     if (!$sym) {
-      $this->error_at($node->loc, ERR_ERROR, 'access to undefined symbol `%s`', ident_to_str($node));
+      $this->error_at($node->loc, ERR_ERROR, 'access to undefined symbol `%s`', $sid);
       goto unk;
     }
     
     /* allow NULL here */
-    if ($this->access === self::ACC_READ && $sym->kind === SYM_KIND_VAR && 
-      ($sym->value->kind === VAL_KIND_EMPTY /*|| $sym->value->kind === VAL_KIND_NULL*/))
-      $this->error_at($node->loc, ERR_WARN, 'access to (maybe) uninitialized symbol `%s`', ident_to_str($node));
+    if ($this->access === self::ACC_READ && 
+        $sym->kind === SYM_KIND_VAR && $sym->value->kind === VAL_KIND_EMPTY)
+      $this->error_at($node->loc, ERR_WARN, 'access to (maybe) uninitialized symbol `%s`', $sid);
     
     $sym->reads++;
     if ($sym->flags & SYM_FLAG_CONST) {      

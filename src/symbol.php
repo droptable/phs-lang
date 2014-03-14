@@ -304,37 +304,23 @@ class SymbolRef extends Symbol
 }
 
 /** module refernece */
-class ModuleRef extends Symbol
+class ModuleRef extends SymbolRef
 {
   // the module
   public $module;
   
-  // full path of this reference
-  public $path;
-  
-  public function __construct($name, Module $mod, Name $path, Location $loc)
+  public function __construct($name, ModuleSym $mod, Name $path, Location $loc)
   {
-    parent::__construct(REF_KIND_MODULE, $name, SYM_FLAG_NONE, $loc);
-    $this->module = $mod;
-    $this->path = $path;
+    parent::__construct(REF_KIND_MODULE, $name, $mod, $path, $loc);
+    $this->module = $mod->module;
   }
-  
-  /* ------------------------------------ */
-  
-  public function debug($dp = '', $pf = '') 
-  {
-    parent::debug($dp, $pf);
     
-    $kind = refkind_to_str($this->kind);
-    print " {$kind} -> ";
-    print path_to_str($this->path, false);
-    print "\n";
-  }
-  
   /* ------------------------------------ */
   
-  public static function from($id, Module $mod, Name $path, Location $loc)
+  public static function from($id, Symbol $mod, Name $path, Location $loc)
   {
+    assert($mod instanceof ModuleSym);
+    
     // just forward to the constructor (for now)
     return new ModuleRef($id, $mod, $path, $loc);
   }

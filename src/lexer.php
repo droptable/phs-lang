@@ -736,6 +736,8 @@ class Lexer
     'as' => T_AS,
     'is' => T_IS,
     'isnt' => T_ISNT,
+    '!is' => T_ISNT, // remove?
+    '!isnt' => T_IS, // remove?
     'in' => T_IN,
     
     'int' => T_TINT,
