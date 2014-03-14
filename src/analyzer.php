@@ -208,11 +208,27 @@ class Analyzer extends Walker
       $id = $last;
     
     if ($parts) {
-      $base = $base->fetch($parts, false);
+      $trk = [];
       
-      if (!$base) {
-        $this->error_at($name->loc, ERR_ERROR, 'import from non-existent module `%s`', implode('::', $parts));
-        return false;
+      foreach ($parts as $part) {
+        $base = $base->get($part, false, null, false);
+        array_push($trk, $part);
+        
+        if (!$base) {
+          $this->error_at($name->loc, ERR_ERROR, 'import from non-existent module `%s`', implode('::', $trk));
+          return false;
+        }  
+        
+        if ($base->kind !== REF_KIND_MODULE &&
+            $base->kind !== SYM_KIND_MODULE) {
+          $this->error_at($name->loc, ERR_ERROR, '`%s` is not a module, import failed', implode('::', $trk));
+          return false;
+        }
+        
+        if ($base->kind === REF_KIND_MODULE)
+          $trk = $base->module->path(false);
+        
+        $base = $base->module;
       }
     }
     
@@ -2956,7 +2972,7 @@ class Analyzer extends Walker
         
         // use the reference path from now on for proper error-messages
         if ($res->kind === REF_KIND_MODULE)
-          $trk = $res->path(false);
+          $trk = $res->module->path(false);
         
         $res = $res->module;
       }
