@@ -92,19 +92,19 @@
     # operators and punctuation
     (?:    
       # basic punctuation
-      [;,{}\(\)\[\]\$@\#]
+      [;,{}\(\)\[\]@\#]
       
       # combinations
       | (?:[=]>|=~|!\.|:>|<:)
       
       # double or single with '=' at the end
-      | (?:[|]{1,2}|[&]{1,2}|[*]{1,2})=
+      | (?:[|]{1,2}|[&]{1,2}|[*]{1,2}|[<]{1,2}|[>]{1,2})=
       
       # wrong tokens with error recovery
       | [!=]==
       
       # single with an optional '=' at the end
-      | [\/~%!<>]=?
+      | [\/~%!]=?
       
       # single with an '=' at the end
       | [+\-\^]=
