@@ -315,8 +315,8 @@ class Analyzer extends Walker
     
     assert(!($sym->flags & SYM_FLAG_WEAK));
     
-    if ($cur instanceof SymRef) {
-      $this->error_at($sym->loc, ERR_ERROR, '%s %s collides with a referenced symbol', $kind, $sym->name);
+    if ($cur->kind > SYM_REF_DIVIDER) {
+      $this->error_at($sym->loc, ERR_ERROR, '%s `%s` collides with a referenced symbol', $kind, $sym->name);
       $this->error_at($cur->loc, ERR_INFO, 'reference was here');
       return false;
     }
