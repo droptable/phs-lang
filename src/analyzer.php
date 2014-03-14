@@ -530,8 +530,7 @@ class Analyzer extends Walker
     $node->scope = new ClassScope($sym, $this->scope);
     $this->scope = $node->scope;
         
-    // we don't need pass 1 and 2 here
-    $this->pass = 3;
+    $this->pass = 5;
   }
   
   protected function leave_iface_decl($node)
