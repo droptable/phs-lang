@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class BinExpr extends Node
+class BinExpr extends Expr
 {
   public $left;
   public $op;

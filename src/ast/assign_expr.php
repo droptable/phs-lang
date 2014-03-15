@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class AssignExpr extends Node
+class AssignExpr extends Expr
 {
   public $left;
   public $op;
