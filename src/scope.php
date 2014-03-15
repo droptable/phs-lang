@@ -187,8 +187,8 @@ class ClassScope extends Scope
   }
   
   /**
-   * return a class-member.
-   * fallback to scope
+   * return a class-member or a inherited member.
+   * falls back to scope
    * 
    * @param  string $id
    * @param boolean $track 
@@ -201,50 +201,9 @@ class ClassScope extends Scope
     if ($this->symbol->members->has($id))
       return $this->symbol->members->get($id);
     
-    $istack = [];
-    
-    // TODO: check <private> flag!
-    
-    // dealing with a class
-    if ($this->symbol instanceof ClassSym) {
-      // check super-class
-      if ($this->symbol->super !== null) {
-        $super = $this->symbol->super;
-        
-        do {
-          if ($super->symbol->members->has($id))
-            return $super->symbol->members->get($id);
-          
-          // collect interfaces
-          if ($super->symbol->impls !== null)
-            array_push($istack, $super->symbol->impls);
-          
-          $super = $super->symbol->super;          
-        } while ($super !== null);
-      }
-      
-      // check current interfaces
-      if ($this->symbol->impls !== null)
-        array_push($istack, $this->symbol->impls);
-    } 
-    
-    // dealing with an interface
-    elseif ($this->symbol instanceof IFaceSym &&
-            $this->symbol->exts !== null)
-      array_push($istack, $this->symbol->exts);
-    
-    // check all collected interfaces
-    while (count($istack)) {
-      $impls = array_pop($istack);
-      
-      foreach ($impls as $impl) {        
-        if ($impl->symbol->members->has($id))
-          return $impl->symbol->members->get($id);
-        
-        if ($impl->symbol->exts !== null)
-          array_push($istack, $impl->symbol->exts);
-      }
-    }
+    // check inherited members
+    if ($this->symbol->inherit->has($id))
+      return $this->symbol->inherit->get($id);
     
     // use scope
     return parent::get($id, $track, $loc, $walk);

@@ -146,10 +146,14 @@ class ClassSym extends Symbol implements ClassLikeSym
   // member symboltable
   public $members;
   
+  // inherit symboltable
+  public $inherit;
+  
   public function __construct($name, $flags, Location $loc = null)
   {
     parent::__construct(SYM_KIND_CLASS, $name, $flags, $loc);
     $this->members = new SymTable;
+    $this->inherit = new SymTable;
   }
   
   /* ------------------------------------ */
@@ -173,10 +177,14 @@ class IFaceSym extends Symbol implements ClassLikeSym
   // member symboltable
   public $members;
   
+  // inherit symboltable
+  public $inherit;
+  
   public function __construct($name, $flags, Location $loc = null)
   {
     parent::__construct(SYM_KIND_IFACE, $name, $flags, $loc);
     $this->members = new SymTable;
+    $this->inherit = new SymTable;
   }
   
   /* ------------------------------------ */
@@ -216,7 +224,8 @@ class FnSym extends Symbol
     parent::debug($dp, $pf);
     print " function\n";
     
-    $this->fn_scope->debug("  $dp", '@ ');
+    if ($this->fn_scope)
+      $this->fn_scope->debug("  $dp", '@ ');
   }
 }
 

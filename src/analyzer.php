@@ -313,11 +313,11 @@ class Analyzer extends Walker
       return true;
     }
     
-    assert(!($sym->flags & SYM_FLAG_WEAK));
-    
     if ($cur->kind > SYM_REF_DIVIDER) {
-      $this->error_at($sym->loc, ERR_ERROR, '%s `%s` collides with a referenced symbol', $kind, $sym->name);
-      $this->error_at($cur->loc, ERR_INFO, 'reference was here');
+      if ($this->pass === 0 || $this->pass === 5) {
+        $this->error_at($sym->loc, ERR_ERROR, '%s `%s` collides with a referenced symbol', $kind, $sym->name);
+        $this->error_at($cur->loc, ERR_INFO, 'reference was here');
+      }
       return false;
     }
     
@@ -326,7 +326,8 @@ class Analyzer extends Walker
     
     if (($ninc || $pinc) && $cur->kind !== $sym->kind) {
       // incomplete symbols can only replace symbols of the same kind
-      $this->error_at($sym->loc, ERR_ERROR, 'type mismatch (incomplete symbol)');
+      if ($this->pass === 0 || $this->pass === 5)
+        $this->error_at($sym->loc, ERR_ERROR, 'type mismatch (incomplete symbol)');
       return false;
     }
     
@@ -346,8 +347,10 @@ class Analyzer extends Walker
     // TODO: if kind is a class, check base class and interfaces as well   
     if ($cur->flags & SYM_FLAG_FINAL) {
       // whops, not allowed
-      $this->error_at($sym->loc, ERR_ERROR, '%s `%s` hides a final symbol in this scope-chain', $kind, $sym->name);
-      $this->error_at($cur->loc, ERR_INFO, 'previous declaration was here');
+      if ($this->pass === 0 || $this->pass === 5) {
+        $this->error_at($sym->loc, ERR_ERROR, '%s `%s` hides a final symbol in this scope-chain', $kind, $sym->name);
+        $this->error_at($cur->loc, ERR_INFO, 'previous declaration was here');
+      }
       return false;
     }
     
@@ -364,15 +367,19 @@ class Analyzer extends Walker
     
     if ($cur->flags & SYM_FLAG_CONST) {
       // same as final, but only applies in the same scope
-      $this->error_at($sym->loc, ERR_ERROR, '%s `%s` overrides a constant symbol in the same scope', $kind, $sym->name);
-      $this->error_at($cur->loc, ERR_INFO, 'previous declaration was here');
+      if ($this->pass === 0 || $this->pass === 5) {
+        $this->error_at($sym->loc, ERR_ERROR, '%s `%s` overrides a constant symbol in the same scope', $kind, $sym->name);
+        $this->error_at($cur->loc, ERR_INFO, 'previous declaration was here');
+      }
       return false;
     }
     
     // a reference can not hide other symbols
     if ($sym->kind > SYM_REF_DIVIDER) {
-      $this->error_at($sym->loc, ERR_ERROR, '%s `%s` collides with a already defined symbol in this scope', $kind, $sym->name);
-      $this->error_at($cur->loc, ERR_INFO, 'previous declaration was here');
+      if ($this->pass === 0 || $this->pass === 5) {
+        $this->error_at($sym->loc, ERR_ERROR, '%s `%s` collides with a already defined symbol in this scope', $kind, $sym->name);
+        $this->error_at($cur->loc, ERR_INFO, 'previous declaration was here');
+      }
       return false;
     }
     
@@ -529,7 +536,8 @@ class Analyzer extends Walker
     array_push($this->sstack, $this->scope);
     $node->scope = new ClassScope($sym, $this->scope);
     $this->scope = $node->scope;
-        
+    
+    $this->collect_inherit($sym);
     $this->pass = 5;
   }
   
@@ -580,9 +588,8 @@ class Analyzer extends Walker
     array_push($this->sstack, $this->scope);
     $node->scope = new ClassScope($sym, $this->scope);
     $this->scope = $node->scope;
-            
-    // pass 1: add all member-symbols without entering functions
-    // pass 2: improve symbols and enter functions ...
+    
+    $this->collect_inherit($sym);
     $this->handle_class_members($node->members); 
     
     // TODO: inspect ctor here
@@ -593,7 +600,7 @@ class Analyzer extends Walker
   {    
     assert($this->scope instanceof ClassScope);
     $sym = $this->scope->symbol;
-    
+        
     if (!($sym->flags & SYM_FLAG_ABSTRACT))
       $this->check_class_final($sym);
     
@@ -1769,6 +1776,59 @@ class Analyzer extends Walker
   }
   
   /**
+   * collects inherited members
+   * 
+   * @param  ClassLikeSym $sym
+   */
+  protected function collect_inherit($sym)
+  {
+    $istack = [];
+    
+    // dealing with a class
+    if ($sym instanceof ClassSym) {
+      // check super-class
+      if ($sym->super !== null) {
+        $super = $sym->super;
+        
+        do {
+          foreach ($super->symbol->members as $mem)
+            if (!($mem->flags & SYM_FLAG_PRIVATE))
+              $sym->inherit->set($mem->name, $mem);
+                    
+          // collect interfaces
+          if ($super->symbol->impls !== null)
+            array_push($istack, $super->symbol->impls);
+          
+          $super = $super->symbol->super;          
+        } while ($super !== null);
+      }
+      
+      // check current interfaces
+      if ($sym->impls !== null)
+        array_push($istack, $sym->impls);
+    } 
+    
+    // dealing with an interface
+    elseif ($sym instanceof IFaceSym &&
+            $sym->exts !== null)
+      array_push($istack, $sym->exts);
+    
+    // check all collected interfaces
+    while (count($istack)) {
+      $impls = array_pop($istack);
+      
+      foreach ($impls as $impl) { 
+        foreach ($impl->symbol->members as $mem)
+          if (!($mem & SYM_FLAG_PRIVATE))
+            $sym->inherit->set($mem->name, $mem);
+        
+        if ($impl->symbol->exts !== null)
+          array_push($istack, $impl->symbol->exts);
+      }
+    }
+  }
+  
+  /**
    * checks a class-extend
    * 
    * @param  Name $ext
@@ -1862,10 +1922,10 @@ class Analyzer extends Walker
     $this->pass = 1; // vars without initializers
     $this->walk_some($members);
     
-    $this->flags = array_pop($this->fstack);
-    
     $this->pass = 2; // methods without body
     $this->walk_some($members);
+    
+    $this->flags = array_pop($this->fstack);
     
     $this->pass = 3; // vars with initializers
     $this->walk_some($members);
