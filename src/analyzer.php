@@ -452,7 +452,7 @@ class Analyzer extends Walker
       $curr = $rmod->fetch(name_to_stra($name), true, SYM_FLAG_NONE, $node->loc);
       
       if ($curr === null) {
-        $this->reveal_collision($rmod, $name);        
+        $this->reveal_module_collision($rmod, $name);        
         return $this->drop();
       }
        
@@ -3331,7 +3331,7 @@ class Analyzer extends Walker
     
   /* ------------------------------------ */
   
-  public function reveal_collision($rmod, $name)
+  public function reveal_module_collision($rmod, $name)
   {
     $err  = 'could not enter module `%s` because its name ';
     $err .= 'collides with another symbol in its parent module';
@@ -3349,7 +3349,7 @@ class Analyzer extends Walker
     }
     
     if ($last)
-      $this->error_at($rmod->get($last)->loc, ERR_INFO, 'declaration was here');
+      $this->error_at($rmod->scope->get($last)->loc, ERR_INFO, 'declaration was here');
   }
   
   /* ------------------------------------ */    

@@ -79,7 +79,7 @@ class Module extends Scope
         $news = new ModuleSym($name, $newm, $flags, $loc);
         
         // there is a collision
-        if (!$curr->add($name, $news))
+        if (!$curr->scope->add($name, $news))
           return null;
         
         $curr = $newm;

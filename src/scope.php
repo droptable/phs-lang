@@ -158,6 +158,9 @@ class UnitScope extends Scope
    */
   public function add($id, Symbol $sym)
   {
+    if (parent::has($id) || $this->super->has($id))
+      return false; // abort early
+        
     if ($sym->kind > SYM_REF_DIVIDER || $sym->flags & SYM_FLAG_PRIVATE)
       return parent::add($id, $sym);
     
@@ -218,18 +221,6 @@ class UnitScope extends Scope
   public function get_prev()
   {
     return $this->super;
-  }
-}
-
-class ModuleScope extends UnitScope
-{
-  // the module
-  public $module;
-  
-  public function __construct(Module $module, Scope $super)
-  {
-    parent::__construct($super);
-    $this->module = $module;
   }
 }
 
