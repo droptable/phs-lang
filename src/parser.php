@@ -102,31 +102,30 @@ const T_FINAL = 337;
 const T_GLOBAL = 338;
 const T_STATIC = 339;
 const T_EXTERN = 340;
-const T_EXPORT = 341;
-const T_PUBLIC = 342;
-const T_PRIVATE = 343;
-const T_PROTECTED = 344;
-const T_SEALED = 345;
-const T_INLINE = 346;
-const T_PHP = 347;
-const T_TEST = 348;
-const T_CDIR = 349;
-const T_CFILE = 350;
-const T_CLINE = 351;
-const T_CCOLN = 352;
-const T_CFN = 353;
-const T_CCLASS = 354;
-const T_CMETHOD = 355;
-const T_CMODULE = 356;
-const T_NL = 357;
-const T_TINT = 358;
-const T_TBOOL = 359;
-const T_TFLOAT = 360;
-const T_TSTRING = 361;
-const T_TREGEXP = 362;
-const T_INVL = 363;
-const T_END = 364;
-const T_SYNC = 365;
+const T_PUBLIC = 341;
+const T_PRIVATE = 342;
+const T_PROTECTED = 343;
+const T_SEALED = 344;
+const T_INLINE = 345;
+const T_PHP = 346;
+const T_TEST = 347;
+const T_CDIR = 348;
+const T_CFILE = 349;
+const T_CLINE = 350;
+const T_CCOLN = 351;
+const T_CFN = 352;
+const T_CCLASS = 353;
+const T_CMETHOD = 354;
+const T_CMODULE = 355;
+const T_NL = 356;
+const T_TINT = 357;
+const T_TBOOL = 358;
+const T_TFLOAT = 359;
+const T_TSTRING = 360;
+const T_TREGEXP = 361;
+const T_INVL = 362;
+const T_END = 363;
+const T_SYNC = 364;
 
 require_once 'context.php';
 require_once 'parser_base.php';
@@ -237,7 +236,7 @@ class Parser extends ParserBase
   const TOKEN_NONE    = -1;
   const TOKEN_INVALID = 134;
 
-  const TOKEN_MAP_SIZE = 366;
+  const TOKEN_MAP_SIZE = 365;
 
   const YYLAST       = 1611;
   const YY2TBLSTATE  = 600;
@@ -422,9 +421,9 @@ class Parser extends ParserBase
        76,   77,   78,   79,   80,   81,   82,   83,   84,   85,
        86,   87,   88,   89,   90,   91,   92,   93,   94,   95,
        96,   97,   98,   99,  100,  101,  102,  103,  104,  105,
-      106,  134,  107,  108,  109,  110,  111,  112,  113,  114,
-      115,  116,  117,  118,  119,  120,  121,  122,  123,  124,
-      125,  126,  127,  134,  128,  129
+      106,  107,  108,  109,  110,  111,  112,  113,  114,  115,
+      116,  117,  118,  119,  120,  121,  122,  123,  124,  125,
+      126,  127,  134,  128,  129
   ];
 
   private static $yyaction = [

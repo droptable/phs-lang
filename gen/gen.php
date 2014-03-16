@@ -75,7 +75,7 @@ function deploy($O, $ctx) {
   $P = __DIR__ . '/' . basename($O, '.y') . '.php';
   if (is_file($P)) unlink($P);
   
-  $t = !empty ($ctx->opts['debug']) ? '-t' : '';
+  $t = !empty ($ctx->opts['--debug']) ? '-t' : '';
   $y = `kmyacc -v -m "kmyacc.php.parser" $t -p "Parser" -l -L php "$O" 2>&1`;
   
   if (!empty($y)) {
