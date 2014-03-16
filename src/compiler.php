@@ -52,6 +52,15 @@ class Compiler
    */
   public function add_source(Source $src)
   {
+    if ($src instanceof FileSource) {
+      $path = $src->get_name();
+      
+      if ($this->ctx->has_path($path))
+        return false;
+      
+      $this->ctx->add_path($path);
+    }
+    
     $this->srcs[] = $src;
     
     if ($this->state === self::ST_COMPILING)

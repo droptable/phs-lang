@@ -37,6 +37,9 @@ class Context
   // global scope/module
   private $root;
   
+  // paths "required"
+  private $paths = [];
+  
   /**
    * returns the global scope
    * 
@@ -51,6 +54,27 @@ class Context
     }
     
     return $this->root;
+  }
+  
+  /**
+   * adds a path
+   * 
+   * @param  string  $path
+   * @return boolean
+   */
+  public function has_path($path)
+  {
+    return in_array($path, $this->paths);
+  }
+  
+  /** 
+   * adds a path
+   * 
+   * @param string $path
+   */
+  public function add_path($path)
+  {
+    array_push($this->paths, $path);
   }
   
   /**

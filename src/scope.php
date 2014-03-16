@@ -150,8 +150,6 @@ class UnitScope extends Scope
   
   public function add($id, Symbol $sym)
   {
-    $sym->scope = $this;
-    
     if ($sym->kind > SYM_REF_DIVIDER)
       return parent::add($id, $sym);
     
@@ -160,8 +158,6 @@ class UnitScope extends Scope
   
   public function set($id, Symbol $sym)
   {
-    $sym->scope = $this;
-    
     if ($sym->kind > SYM_REF_DIVIDER)
       return parent::set($id, $sym);
     
@@ -182,6 +178,16 @@ class UnitScope extends Scope
       return parent::get($id, $track, $loc, $walk);
     
     return $this->root->get($id, $track, $loc, $walk);
+  }
+  
+  /**
+   * returns the parent scope
+   * 
+   * @return Scope
+   */
+  public function get_prev()
+  {
+    return $this->root;
   }
 }
 

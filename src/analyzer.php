@@ -118,9 +118,6 @@ class Analyzer extends Walker
   // branch counter
   private static $branch_uid = 0;
   
-  // require'd paths
-  private static $require_paths = [];
-  
   /**
    * constructor
    * 
@@ -891,39 +888,15 @@ class Analyzer extends Walker
       return $this->drop();
     }
     
-    $path = $path->value;
-    $user = $path;
-    
-    // require is always relative, except if the path starts with an '/'
-    // or on windows [letter]:/ or [letter]:\
-    static $abs_re_nix = '/^\//';
-    static $abs_re_win = '/^(?:[a-z]:)?(?:\/|\\\\)/i';
-    
-    if (!preg_match((PHP_OS === 'WINNT') ? $abs_re_win : $abs_re_nix, $path))
-      // make realtive path
-      $path = dirname($node->loc->file) . DIRECTORY_SEPARATOR . $path;
-    
-    switch (substr(strrchr($path, '.'), 1)) {
-      case 'phs': case 'phm';
-        break;
-      
-      default:
-        // try 'phm', then fallback to 'phs'
-        if (!is_file($path . '.phm'))
-          $path .= '.phs';
-        else
-          $path .= '.phm';
-    }
-    
-    if (!is_file($path)) {
-      $this->error_at($node->loc, ERR_ERROR, 'unable to import file "%s"', $user);
+    $rpath = $path->value;
+    $epath = expand_filepath($rpath, $node->loc->file);
+            
+    if ($epath === null) {
+      $this->error_at($node->loc, ERR_ERROR, 'unable to import file "%s"', $rpath);
       return;
     }
     
-    if (!in_array($path, self::$require_paths)) {
-      self::$require_paths[] = $path;
-      $this->com->add_source(new FileSource($path));
-    }
+    $this->com->add_source(new FileSource($epath));
   }
   
   protected function enter_block($node) 

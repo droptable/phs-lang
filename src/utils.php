@@ -188,3 +188,34 @@ function refkind_to_str($kind) {
   return symkind_to_str($kind - SYM_REF_DIVIDER) . '-ref';
 }
 
+/**
+ * expand a file-path 
+ * 
+ * @param  string $path
+ * @param  string $file
+ * @return string|null
+ */
+function expand_filepath($path, $file) {
+  // require is always relative, except if the path starts with an '/'
+  // or on windows [letter]:/ or [letter]:\
+  static $abs_re_nix = '/^\//';
+  static $abs_re_win = '/^(?:[a-z]:)?(?:\/|\\\\)/i';
+  
+  if (!preg_match((PHP_OS === 'WINNT') ? $abs_re_win : $abs_re_nix, $path))
+    // make realtive path
+    $path = dirname($file) . DIRECTORY_SEPARATOR . $path;
+  
+  switch (substr(strrchr($path, '.'), 1)) {
+    case 'phs': case 'phm';
+      break;
+    
+    default:
+      // try 'phm', then fallback to 'phs'
+      if (!is_file($path . '.phm'))
+        $path .= '.phs';
+      else
+        $path .= '.phm';
+  }
+  
+  return is_file($path) ? $path : null;
+}
