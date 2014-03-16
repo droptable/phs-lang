@@ -182,7 +182,7 @@ class Analyzer extends Walker
         $this->fetch_import($base, $item, true, $path);
         break;
       case 'use_alias':
-        $this->fetch_import($base, $item->name, true, $path, ident_to_str($item->alias));
+        $res = $this->fetch_import($base, $item->name, true, $path, ident_to_str($item->alias));
         break;
       case 'use_unpack':
         if ($item->base !== null) {
@@ -218,7 +218,7 @@ class Analyzer extends Walker
     
     if ($add && !$id)
       $id = $last;
-    
+          
     if ($parts) {      
       foreach ($parts as $part) {
         $base = $base->get($part, false, null, false);
@@ -235,6 +235,9 @@ class Analyzer extends Walker
           return false;
         }
         
+        // let the optimizer know
+        $base->reads++;
+        
         if ($base->kind === REF_KIND_MODULE)
           $path = $base->module->path(false);
         
@@ -245,12 +248,15 @@ class Analyzer extends Walker
     array_push($path, $last);
     
     if ($base->has_child($last)) {
+      // note: using get() instead of get_child() gives us the symbol
+      $mod = $base->get($last);
+      $mod->reads++;
+      
       // import a module
-      if (!$add) return true; 
+      if (!$add) return true;
       
       // add symbol to scope
-      // note: using get() instead of get_child() gives us the symbol
-      $sym = ModuleRef::from($id, $base->get($last), $path, $name->loc);
+      $sym = ModuleRef::from($id, $mod, $path, $name->loc);
       return $this->add_symbol($id, $sym);
     }
     
@@ -260,23 +266,17 @@ class Analyzer extends Walker
       
       // TODO: allow unknown imports?
       return false;
-      
-      /*
-      // import a module
-      if (!$add) return true;
-      
-      $this->error_at($name->loc, ERR_INFO, 'assuming <module> (default assumption)');
-      
-      // add symbol to scope
-      $sym = new ModuleRef($id, $base->get_child($last), $name, $name->loc, REF_WEAK);      
-      return $this->add_symbol($id, $sym);
-      */
     }
+    
+    $sym = $base->get($last);
+    $sym->reads++;
     
     if (!$add) return true;
     
-    $sym = $base->get($last);
-    $ref = SymbolRef::from($id, $sym, $path, $name->loc);
+    if ($sym->kind === REF_KIND_MODULE)
+      $ref = ModuleRef::from($id, $sym, $path, $name->loc);
+    else
+      $ref = SymbolRef::from($id, $sym, $path, $name->loc);
     
     // TODO: remove const/final flags?
     
@@ -286,7 +286,7 @@ class Analyzer extends Walker
   /* ------------------------------------ */
   
   protected function add_symbol($id, $sym)
-  {    
+  {
     // apply current flags
     $ppp = $sym->flags & SYM_FLAG_PUBLIC;
     $ppp |= $sym->flags & SYM_FLAG_PRIVATE;
@@ -310,7 +310,6 @@ class Analyzer extends Walker
     $cur = $this->scope->get($id, false, null, true);
     
     if (!$cur) {
-      # print "no previous entry, adding it!\n";
       // simply add it
       $this->scope->add($id, $sym);
       return true;
@@ -378,7 +377,6 @@ class Analyzer extends Walker
     
     if (!$cur) {
       // prev symbol is not directly in the same scope
-      # print "symbol is not in the same scope, adding it!\n";
       $this->scope->add($id, $sym);
       return true;
     }
@@ -400,8 +398,6 @@ class Analyzer extends Walker
       }
       return false;
     }
-    
-    # print "replacing previous symbol\n";
     
     // mark the previous symbol as unreachable
     $this->scope->drop($id, $cur);
@@ -2976,7 +2972,7 @@ class Analyzer extends Walker
   
   /* TODO: needs refactoring */
   protected function visit_name($name) 
-  {    
+  {        
     $bid = ident_to_str($name->base);    
     $scp = $name->root ? $this->ctx->get_root() : $this->scope; 
     $sym = $scp->get($bid, false, null, true);
@@ -3007,6 +3003,9 @@ class Analyzer extends Walker
           // a module can not be referenced
           goto mod;
         
+        // let the optimizer know
+        $sym->reads++;
+                
         $mod = $sym->module;
         goto lcm;
         
@@ -3060,6 +3059,9 @@ class Analyzer extends Walker
           goto unk;
         }
         
+        // let the optimizer know
+        $res->reads++;
+        
         // use the reference path from now on for proper error-messages
         if ($res->kind === REF_KIND_MODULE)
           $trk = $res->module->path(false);
@@ -3084,10 +3086,13 @@ class Analyzer extends Walker
         // module can not be a referenced
         goto mod;
     
-    if ($sym->kind > SYM_REF_DIVIDER) 
-      $sym = $sym->symbol;
-    
     sym:    
+    if ($sym->kind > SYM_REF_DIVIDER) {
+      // let the optimizer know
+      $sym->reads++;
+      $sym = $sym->symbol;
+    }
+    
     /* allow NULL here */
     if ($this->access === self::ACC_READ && $sym->kind === SYM_KIND_VAR && 
         $sym->value->kind === VAL_KIND_EMPTY && $sym->value->guarded !== true)

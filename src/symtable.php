@@ -60,14 +60,10 @@ class SymTable implements IteratorAggregate
    * @param  string $name
    * @return Symbol
    */
-  public function get($name, $track = false)
+  public function get($name)
   {
-    if (isset ($this->syms[$name])) {
-      $sym = $this->syms[$name];
-      if ($track) $sym->reads++;
-      
-      return $sym;
-    }
+    if (isset ($this->syms[$name]))
+      return $this->syms[$name];      
     
     return null;
   }

@@ -302,12 +302,12 @@ class SymbolRef extends Symbol
   public static function from($id, Symbol $sym, $path, Location $loc)
   {
     // no need to create a reference for a reference
-    if ($sym->kind > SYM_REF_DIVIDER) {
-      #print "reusing " . name_to_str($sym->path) . "\n";
-      return $sym;
-    }
+    if ($sym->kind > SYM_REF_DIVIDER)
+      // ignore the given path and use the reference-path which is 
+      // most likely shorter (points directly to the origin)
+      return new SymbolRef($sym->kind, $id, $sym->symbol, $sym->path, $loc);
     
-    #print "creating reference for " . name_to_str($path) . "\n";
+    // create a new refernece
     return new SymbolRef($sym->kind + SYM_REF_DIVIDER, $id, $sym, $path, $loc);
   }
 }
@@ -328,7 +328,14 @@ class ModuleRef extends SymbolRef
   
   public static function from($id, Symbol $mod, $path, Location $loc)
   {
-    assert($mod instanceof ModuleSym);
+    assert($mod->kind === SYM_KIND_MODULE ||
+           $mod->kind === REF_KIND_MODULE);
+    
+    // no need to create a reference for a reference
+    if ($mod->kind === REF_KIND_MODULE)
+      // ignore the given path and use the reference-path which is 
+      // most likely shorter (points directly to the origin)
+      return new ModuleRef($id, $mod->symbol, $mod->path, $loc);
     
     // just forward to the constructor (for now)
     return new ModuleRef($id, $mod, $path, $loc);
