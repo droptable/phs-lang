@@ -19,6 +19,7 @@ const
   VAL_KIND_TRAIT = 15,
   VAL_KIND_IFACE = 16,
   VAL_KIND_TYPE = 17,
+  VAL_KIND_NEW = 18, // instance of a class via `new ...`
   VAL_KIND_UNKNOWN = 99
 ;
 

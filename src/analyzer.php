@@ -322,19 +322,12 @@ class Analyzer extends Walker
     */
     
     // get kind for error-messages
-    $kind = symkind_to_str($sym->kind);
-    
-    if ($sym->flags & SYM_FLAG_EXPORT) {
-      $dest = $this->ctx->get_root();
-      assert(!($sym->flags & SYM_FLAG_STATIC));
-    } else
-      $dest = $this->scope;
-    
-    $cur = $dest->get($id, false, null, true);
+    $kind = symkind_to_str($sym->kind);    
+    $cur = $this->scope->get($id, false, null, true);
     
     if (!$cur) {
       // simply add it
-      $dest->add($id, $sym);
+      $this->scope->add($id, $sym);
       return true;
     }
     
@@ -343,14 +336,14 @@ class Analyzer extends Walker
     if ($cur->flags & SYM_FLAG_WEAK) {
       // the prev symbol must not be dropped in this case,
       // just forget about it
-      $dest->set($id, $sym);
+      $this->scope->set($id, $sym);
       return true;
     }
         
     if ($cur->kind > SYM_REF_DIVIDER) {
       if ($sym->kind === $cur->kind && $cur->symbol === $sym->symbol) {
         // same reference, add it, but do not override
-        $dest->add($id, $sym);
+        $this->scope->add($id, $sym);
         return true;
       }
       
@@ -379,7 +372,7 @@ class Analyzer extends Walker
     
     if ($pinc && !$ninc) {
       // replace symbol
-      $dest->set($id, $sym);      
+      $this->scope->set($id, $sym);      
       return true;
     }
      
@@ -394,12 +387,12 @@ class Analyzer extends Walker
     }
     
     // check again, but now only in the same scope
-    $cur = $dest->get($id, false, null, false); // TODO: bad api
+    $cur = $this->scope->get($id, false, null, false); // TODO: bad api
     # print "checking same scope\n";
     
     if (!$cur) {
       // prev symbol is not directly in the same scope
-      $dest->add($id, $sym);
+      $this->scope->add($id, $sym);
       return true;
     }
     
@@ -422,10 +415,10 @@ class Analyzer extends Walker
     }
     
     // mark the previous symbol as unreachable
-    $dest->drop($id, $cur);
+    $this->scope->drop($id, $cur);
     
     // replace previous symbol
-    $dest->set($id, $sym);
+    $this->scope->set($id, $sym);
     return true;
   }
   
@@ -632,8 +625,10 @@ class Analyzer extends Walker
   {    
     //assert($this->scope instanceof ClassScope);
     if (!($this->scope instanceof ClassScope)) {
-      print get_class($this->scope) . "\n";  
-      print $this->scope->symbol->name . "\n";
+      $this->error_at($node->loc, ERR_ERROR, '[internal] the analyzer got stuck');
+      $this->error_at($this->scope->symbol->loc, ERR_ERROR, '[internal] last visited symbol was here');
+      $this->error_at($node->loc, ERR_ERROR, '[internal] aborting');
+      assert(0);
       exit;
     }
     
@@ -796,7 +791,7 @@ class Analyzer extends Walker
     if (!$this->check_mods($node->mods, true, false))
       return $this->drop();
     
-    $flags = mods_to_symflags($node->mods, true);
+    $flags = mods_to_symflags($node->mods);
     
     array_push($this->fstack, $this->flags);
     $this->flags |= $flags;
@@ -887,13 +882,13 @@ class Analyzer extends Walker
       return;
     
     $flags = SYM_FLAG_NONE;
-    $apppf = $this->pass > 0;
+    $klass = $this->pass > 0;
     
     if ($node->mods) {
-      if (!$this->check_mods($node->mods, $apppf, !$apppf))
+      if (!$this->check_mods($node->mods, $klass, !$klass))
         return $this->drop();
       
-      $flags = mods_to_symflags($node->mods, $flags, $apppf);
+      $flags = mods_to_symflags($node->mods, $flags, $klass);
     }
     
     foreach ($node->vars as $var)
@@ -1481,6 +1476,11 @@ class Analyzer extends Walker
           return false;
         }
         
+        if ($val->kind === VAL_KIND_NEW && $flags & SYM_FLAG_CONST) {
+          $this->error_at($var->loc, ERR_ERROR, 'invalid constant value');
+          return false;
+        }
+        
         $sym = new VarSym($vid, $val, $flags, $var->loc);       
         return $this->add_symbol($vid, $sym);
       case 'obj_destr':
@@ -1971,7 +1971,10 @@ class Analyzer extends Walker
   protected function check_mods($mods, $pps = false, $ext = true) 
   {
     $seen = [];
-    static $ppsa = [ T_PUBLIC, T_PROTECTED, T_STATIC ];
+    $ppsa = [ T_PUBLIC, T_PROTECTED ];
+    
+    if ($this->infn === 0)
+      array_push($ppsa, T_STATIC);
     
     foreach ($mods as $mod) {
       $type = $mod->type;
@@ -2522,6 +2525,7 @@ class Analyzer extends Walker
           
           if ($sym->value->kind !== VAL_KIND_EMPTY) {
             $this->error_at($node->loc, ERR_ERROR, 're-assignment of read-only symbol `%s`', $sym->name);
+            $this->error_at($sym->loc, ERR_INFO, 'declaration was here');
             goto unk;  
           }
           
@@ -2533,6 +2537,11 @@ class Analyzer extends Walker
           
           if ($rhs->kind === VAL_KIND_UNKNOWN) {
             $this->error_at($node->loc, ERR_ERROR, 'assingments to constant symbols must be computable at compile-time');
+            goto unk;
+          }
+          
+          if ($rhs->kind === VAL_KIND_NEW) {
+            $this->error_at($node->loc, ERR_ERROR, 'invalid constant value');
             goto unk;
           }
         }
@@ -2653,19 +2662,43 @@ class Analyzer extends Walker
       } else {
         $key = (string) $key;
         
-        if ($lhs->kind !== VAL_KIND_OBJ) {
+        if ($lhs->kind !== VAL_KIND_OBJ && $lhs->kind !== VAL_KIND_NEW) {
           $ref = $lhs->symbol ? "symbol `{$lhs->symbol->name}`" : '(unknown)';
           $this->error_at($loc, ERR_ERROR, 'trying to get property "%s" of non-object %s', $key, $ref);
           $this->error_at($loc, ERR_INFO, 'left-hand-side is %s', $lhs);          
           goto unk;
         }
         
-        if (!isset ($lhs->value[$key])) {
-          $this->error_at($loc, ERR_WARN, 'access to undefined property "%s"', $key);
-          $lhs->value[$key] = new Value(VAL_KIND_UNKNOWN);
+        if ($lhs->kind === VAL_KIND_NEW) {
+          $sym = $lhs->value->members->get($key);
+          
+          if ($sym === null) {
+            $this->error_at($loc, ERR_WARN, 'access to maybe undefined symbol `%s` of class `%s`', $key, $lhs->value->name);
+            goto unk;
+          }
+          
+          if ($sym->flags & SYM_FLAG_PROTECTED) {
+            $this->error_at($loc, ERR_ERROR, 'access to protected symbol `%s` of class `%s`', $key, $lhs->value->name);
+            goto unk;
+          }
+          
+          if ($sym->flags & SYM_FLAG_PRIVATE) {
+            $this->error_at($loc, ERR_ERROR, 'access to private symbol `%s` of class `%s`', $key, $lhs->value->name);
+            goto unk;
+          }
+          
+          if (!($sym->flags & SYM_FLAG_CONST))
+            goto unk;
+          
+          $this->value = Value::from($sym);
+        } else {
+          if (!isset ($lhs->value[$key])) {
+            $this->error_at($loc, ERR_WARN, 'access to undefined property "%s"', $key);
+            $lhs->value[$key] = new Value(VAL_KIND_UNKNOWN);
+          }
+          
+          $this->value = Value::from($lhs->value[$key]);
         }
-        
-        $this->value = $lhs->value[$key];
       }
     } else {
       // array-access
@@ -2861,13 +2894,27 @@ class Analyzer extends Walker
   
   protected function visit_new_expr($node) 
   {
-    // TODO: implement reduce (value -> VAL_KIND_NEW)
-    $this->handle_expr($node->name);
+    $val = $this->handle_expr($node->name);
+    $new = null;
+    
+    if ($val->kind !== VAL_KIND_UNKNOWN) {
+      if ($val->kind !== VAL_KIND_CLASS) {
+        $this->error_at($node->loc, ERR_ERROR, 'symbol does not resolve to a class');
+        
+        if ($val->symbol !== null)
+          $this->error_at($val->symbol->loc, ERR_INFO, 'declaration was here');
+        
+      } else
+        $new = new Value(VAL_KIND_NEW, $val->symbol);
+    }
     
     if ($node->args !== null)
       $this->handle_expr($node->args);
     
-    $this->value = new Value(VAL_KIND_UNKNOWN);
+    if ($new === null)
+      $new = new Value(VAL_KIND_UNKNOWN);
+    
+    $this->value = $new;
   }
   
   protected function visit_del_expr($node) 
