@@ -138,14 +138,14 @@ class UnitScope extends Scope
   // the root-module
   public $root;
   
-  // references in this scope
-  public $refs;
-  
   public function __construct(Scope $root)
   {
-    parent::__construct($root);
+    parent::__construct(/* root not needed */);
+    
+    assert($root instanceof Module);
+    assert($root->root === true);
+    
     $this->root = $root;
-    $this->refs = new SymTable;
   }
   
   public function add($id, Symbol $sym)
@@ -153,9 +153,9 @@ class UnitScope extends Scope
     $sym->scope = $this;
     
     if ($sym->kind > SYM_REF_DIVIDER)
-      return $this->refs->add($id, $sym);
+      return parent::add($id, $sym);
     
-    return parent::add($id, $sym);
+    return $this->root->add($id, $sym);
   }
   
   public function set($id, Symbol $sym)
@@ -163,25 +163,25 @@ class UnitScope extends Scope
     $sym->scope = $this;
     
     if ($sym->kind > SYM_REF_DIVIDER)
-      return $this->refs->set($id, $sym);
+      return parent::set($id, $sym);
     
-    return parent::set($id, $sym);
+    return $this->root->set($id, $sym);
   }
   
   public function has($id)
   {
-    if ($this->refs->has($id))
+    if (parent::has($id))
       return true;
     
-    return parent::has($id);
+    return $this->root->has($id);
   }
   
   public function get($id, $track = true, Location $loc = null, $walk = true)
   {
-    if ($this->refs->has($id))
-      return $this->refs->get($id);
+    if ($this->has($id))
+      return parent::get($id, $track, $loc, $walk);
     
-    return parent::get($id, $track, $loc, $walk);
+    return $this->root->get($id, $track, $loc, $walk);
   }
 }
 
