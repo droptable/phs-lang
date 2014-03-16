@@ -284,6 +284,18 @@ class Analyzer extends Walker
   
   /* ------------------------------------ */
   
+  protected function fetch_additional_flags($id, $kind)
+  {
+    $sym = $this->scope->get($id, false, null, false);
+    
+    if ($sym && $sym->flags & SYM_FLAG_INCOMPLETE && $sym->kind === $kind)
+      return $sym->flags & ~SYM_FLAG_INCOMPLETE;
+    
+    return SYM_FLAG_NONE;
+  }
+  
+  /* ------------------------------------ */
+  
   protected function add_symbol($id, $sym)
   {
     // apply current flags
@@ -305,12 +317,17 @@ class Analyzer extends Walker
     // get kind for error-messages
     $kind = symkind_to_str($sym->kind);
     
-    # print "adding symbol $id\n";
-    $cur = $this->scope->get($id, false, null, true);
+    if ($sym->flags & SYM_FLAG_EXPORT) {
+      $dest = $this->ctx->get_root();
+      assert(!($sym->flags & SYM_FLAG_STATIC));
+    } else
+      $dest = $this->scope;
+    
+    $cur = $dest->get($id, false, null, true);
     
     if (!$cur) {
       // simply add it
-      $this->scope->add($id, $sym);
+      $dest->add($id, $sym);
       return true;
     }
     
@@ -319,14 +336,14 @@ class Analyzer extends Walker
     if ($cur->flags & SYM_FLAG_WEAK) {
       // the prev symbol must not be dropped in this case,
       // just forget about it
-      $this->scope->set($id, $sym);
+      $dest->set($id, $sym);
       return true;
     }
         
     if ($cur->kind > SYM_REF_DIVIDER) {
       if ($sym->kind === $cur->kind && $cur->symbol === $sym->symbol) {
         // same reference, add it, but do not override
-        $this->scope->add($id, $sym);
+        $dest->add($id, $sym);
         return true;
       }
       
@@ -355,8 +372,12 @@ class Analyzer extends Walker
     
     if ($pinc && !$ninc) {
       // replace symbol
-      # print "replacing previous incomplete symbol\n";
-      $this->scope->set($id, $sym);
+      $dest->set($id, $sym);
+      
+      if ($cur->exported === true)
+        // update the exported symbol too
+        $this->export_symbol($sym, $cur->export_alias, $sym->loc, true);
+      
       return true;
     }
      
@@ -371,12 +392,12 @@ class Analyzer extends Walker
     }
     
     // check again, but now only in the same scope
-    $cur = $this->scope->get($id, false, null, false); // TODO: bad api
+    $cur = $dest->get($id, false, null, false); // TODO: bad api
     # print "checking same scope\n";
     
     if (!$cur) {
       // prev symbol is not directly in the same scope
-      $this->scope->add($id, $sym);
+      $dest->add($id, $sym);
       return true;
     }
     
@@ -399,11 +420,27 @@ class Analyzer extends Walker
     }
     
     // mark the previous symbol as unreachable
-    $this->scope->drop($id, $cur);
+    $dest->drop($id, $cur);
     
     // replace previous symbol
-    $this->scope->set($id, $sym);
+    $dest->set($id, $sym);
     return true;
+  }
+  
+  private function export_symbol($sym, $id, $loc, $replace = false)
+  {
+    $ref = SymbolRef::from($id, $sym, [ '<' . $sym->loc->file . '>', $sym->name ], $loc);
+    $ref->flags |= SYM_FLAG_EXPORT;
+    $ref->flags &= ~SYM_FLAG_STATIC;
+    
+    if ($replace === true)
+      $this->ctx->get_root()->set($id, $ref);
+    else
+      $this->add_symbol($id, $ref);
+    
+    // mark the symbol as exported
+    $sym->exported = true;
+    $sym->export_alias = $id;
   }
   
   /* ------------------------------------ */
@@ -570,6 +607,9 @@ class Analyzer extends Walker
       $flags = mods_to_symflags($node->mods, $flags);
     }
     
+    $cid = ident_to_str($node->id);
+    $flags |= $this->fetch_additional_flags($cid, SYM_KIND_CLASS);
+    
     if ($node->members === null)
       $flags |= SYM_FLAG_INCOMPLETE;
     else
@@ -589,7 +629,6 @@ class Analyzer extends Walker
       if (!$impls) return $this->drop();
     }
           
-    $cid = ident_to_str($node->id);
     $sym = new ClassSym($cid, $flags, $node->loc);
     $sym->super = $super;
     $sym->impls = $impls;
@@ -787,6 +826,40 @@ class Analyzer extends Walker
     $this->flags = array_pop($this->fstack);
   }
   
+  protected function visit_export_decl($node) 
+  {
+    foreach ($node->items as $item) {
+      $sid = ident_to_str($item->id);
+      $sym = $this->scope->get($sid, false, null, false);
+      
+      if ($sym === null) {
+        $this->error_at($item->loc, ERR_ERROR, 'export of undefined symbol');
+        continue;
+      }
+      
+      if (!($sym->flags & SYM_FLAG_STATIC)) {
+        $this->error_at($item->loc, ERR_ERROR, 'only static (unit-private) symbols can be exported');
+        $this->error_at($sym->loc, ERR_INFO, 'declaration was here');
+        continue;
+      }
+      
+      /*
+      if ($sym->flags & SYM_FLAG_INCOMPLETE) {
+        // this will be fixed later
+        $this->error_at($item->loc, ERR_ERROR, 'export of incomplete symbols is disabled');
+        $this->error_at($sym->loc, ERR_INFO, 'declaration was here');
+        continue;
+      }
+      */
+      
+      assert($sym->kind < SYM_REF_DIVIDER);
+      assert($sym->kind !== SYM_KIND_MODULE);
+      
+      $aid = $item->alias !== null ? ident_to_str($item->alias) : $sid;
+      $this->export_symbol($sym, $aid, $item->loc);
+    }
+  }
+  
   protected function enter_fn_decl($node)
   {        
     // skip on pass 1, 3 and 4
@@ -802,6 +875,9 @@ class Analyzer extends Walker
       
       $flags = mods_to_symflags($node->mods, $flags);
     }
+    
+    $fid = ident_to_str($node->id);
+    $flags |= $this->fetch_additional_flags($cid, SYM_KIND_FN);
     
     if ($flags & SYM_FLAG_EXTERN && $node->body !== null) {
       $this->error_at($node->loc, ERR_ERROR, 'extern function can not have a body');
@@ -827,7 +903,6 @@ class Analyzer extends Walker
       if (!$this->check_params($node->params, false))
         return $this->drop();
     
-    $fid = ident_to_str($node->id);
     $sym = new FnSym($fid, $flags, $node->loc);
     
     if (!$this->add_symbol($fid, $sym))

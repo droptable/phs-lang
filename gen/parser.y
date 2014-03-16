@@ -511,7 +511,7 @@ iface_decl
 export_decl
   : T_EXPORT export_item ';'                
     { 
-      $$ = @ExportDecl($2); 
+      $$ = @ExportDecl([ $2 ]); 
       $this->eat_semis(); 
     }
   | T_EXPORT '{' export_items comma_opt '}' 

@@ -63,7 +63,7 @@ class Scope extends SymTable
    * @see SymTable#add
    */
   public function add($id, Symbol $sym)
-  {        
+  {
     $sym->scope = $this;    
     return parent::add($id, $sym);
   }

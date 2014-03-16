@@ -2487,7 +2487,7 @@ class Parser extends ParserBase
   private function yyn127() 
   {
      
-      $this->yyval = new ExportDecl($this->yyastk[$this->yysp-(3-2)]); 
+      $this->yyval = new ExportDecl([ $this->yyastk[$this->yysp-(3-2)] ]); 
       $this->eat_semis(); 
     
   }

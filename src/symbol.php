@@ -18,7 +18,8 @@ const
   SYM_FLAG_EXTERN     = 0x0200, // symbol is extern
   SYM_FLAG_ABSTRACT   = 0x0400, // symbol is abstract (for classes)
   SYM_FLAG_INCOMPLETE = 0x0800, // symbol is incomplete
-  SYM_FLAG_WEAK       = 0x1000  // symbol is weak (can be replaced)
+  SYM_FLAG_WEAK       = 0x1000, // symbol is weak (can be replaced)
+  SYM_FLAG_EXPORT     = 0x2000  // symbol is a export
 ;
 
 // typo recover
@@ -68,6 +69,12 @@ abstract class Symbol
   // the scope where this symbol is defined
   public $scope;
   
+  // true if the symbol was exported
+  public $exported;
+  
+  // the name of the exported symbol
+  public $export_alias;
+  
   public function __construct($kind, $name, $flags, Location $loc = null)
   {
     $this->name = $name;
@@ -76,6 +83,7 @@ abstract class Symbol
     $this->reads = 0;
     $this->writes = 0;
     $this->kind = $kind;
+    $this->exported = false;
   }
   
   public function is_ref()
