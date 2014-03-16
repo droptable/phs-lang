@@ -132,6 +132,59 @@ class Scope extends SymTable
   }
 }
 
+/** delegating unit-scope */
+class UnitScope extends Scope
+{
+  // the root-module
+  public $root;
+  
+  // references in this scope
+  public $refs;
+  
+  public function __construct(Scope $root)
+  {
+    parent::__construct($root);
+    $this->root = $root;
+    $this->refs = new SymTable;
+  }
+  
+  public function add($id, Symbol $sym)
+  {
+    $sym->scope = $this;
+    
+    if ($sym->kind > SYM_REF_DIVIDER)
+      return $this->refs->add($id, $sym);
+    
+    return parent::add($id, $sym);
+  }
+  
+  public function set($id, Symbol $sym)
+  {
+    $sym->scope = $this;
+    
+    if ($sym->kind > SYM_REF_DIVIDER)
+      return $this->refs->set($id, $sym);
+    
+    return parent::set($id, $sym);
+  }
+  
+  public function has($id)
+  {
+    if ($this->refs->has($id))
+      return true;
+    
+    return parent::has($id);
+  }
+  
+  public function get($id, $track = true, Location $loc = null, $walk = true)
+  {
+    if ($this->refs->has($id))
+      return $this->refs->get($id);
+    
+    return parent::get($id, $track, $loc, $walk);
+  }
+}
+
 /** delegateing class-scope */
 class ClassScope extends Scope
 {

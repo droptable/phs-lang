@@ -140,7 +140,9 @@ class Analyzer extends Walker
    */
   public function analyze(Unit $unit)
   {
-    $this->scope = $this->ctx->get_root();
+    $this->scope = new UnitScope($this->ctx->get_root());
+    $unit->scope = $this->scope;
+    
     $this->sstack = [];
     $this->flags = SYM_FLAG_NONE;
     $this->fstack = [];
@@ -423,14 +425,13 @@ class Analyzer extends Walker
         // use root module
         $rmod = $this->ctx->get_root();
       else {
-        // this would be an error in the grammar
         if (!($this->scope instanceof Module)) {
-          assert(0);
-          return $this->drop();
-        }
-        
-        // use current module
-        $rmod = $this->scope;
+          // this would be an error in the grammar
+          assert($this->scope instanceof UnitScope);
+          $rmod = $this->scope->root;
+        } else        
+          // use current module
+          $rmod = $this->scope;
       }
        
       $curr = $rmod->fetch(name_to_stra($name), true, SYM_FLAG_NONE, $node->loc);
