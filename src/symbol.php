@@ -69,12 +69,6 @@ abstract class Symbol
   // the scope where this symbol is defined
   public $scope;
   
-  // true if the symbol was exported
-  public $exported;
-  
-  // the name of the exported symbol
-  public $export_alias;
-  
   public function __construct($kind, $name, $flags, Location $loc = null)
   {
     $this->name = $name;

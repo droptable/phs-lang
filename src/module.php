@@ -10,8 +10,11 @@ class Module extends Scope
   // name of this module
   public $name;
   
-  // reference stack
-  private $rstack;
+  // parent module
+  private $prev;
+  
+  // internal scope, delegates back to this module
+  public $scope;
   
   /**
    * constructor
@@ -23,7 +26,7 @@ class Module extends Scope
     parent::__construct($prev);
     $this->name = $name;
     $this->root = false;
-    $this->rstack = [];
+    $this->scope = new UnitScope($this);
   }
   
   /**

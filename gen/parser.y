@@ -93,7 +93,6 @@
 %token T_GLOBAL
 %token T_STATIC
 %token T_EXTERN
-%token T_EXPORT
 %token T_PUBLIC
 %token T_PRIVATE
 %token T_PROTECTED
@@ -182,7 +181,6 @@ topex
   | class_decl     { $$ = $1; }
   | trait_decl     { $$ = $1; }
   | iface_decl     { $$ = $1; }
-  | export_decl    { $$ = $1; }
   | topex_attr     { $$ = $1; }
   | fn_decl        { $$ = $1; }
   | let_decl       { $$ = $1; }
@@ -506,29 +504,6 @@ iface_decl
       $$ = @IfaceDecl($2, $3, null); 
       $this->eat_semis(); 
     } 
-  ;
-  
-export_decl
-  : T_EXPORT export_item ';'                
-    { 
-      $$ = @ExportDecl([ $2 ]); 
-      $this->eat_semis(); 
-    }
-  | T_EXPORT '{' export_items comma_opt '}' 
-    { 
-      $$ = @ExportDecl($3); 
-      $this->eat_semis(); 
-    }
-  ;
-  
-export_items
-  : export_item                  { $$ = [ $1 ]; }
-  | export_items ',' export_item { $1[] = $3; $$ = $1; }
-  ;
-  
-export_item
-  : ident            { $$ = @ExportItem($1, null); }
-  | ident T_AS ident { $$ = @ExportItem($1, $3); }
   ;
 
 inner

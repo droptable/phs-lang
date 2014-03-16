@@ -135,49 +135,79 @@ class Scope extends SymTable
 /** delegating unit-scope */
 class UnitScope extends Scope
 {
-  // the root-module
-  public $root;
+  // the superior scope (module)
+  public $super;
   
-  public function __construct(Scope $root)
+  /** 
+   * constructor
+   * 
+   * @param Scope $super
+   */
+  public function __construct(Scope $super)
   {
-    parent::__construct(/* root not needed */);
-    
-    assert($root instanceof Module);
-    assert($root->root === true);
-    
-    $this->root = $root;
+    parent::__construct(/* super not needed */);
+    $this->super = $super;
   }
   
+  /**
+   * adds a symbol
+   * 
+   * @param string $id
+   * @param Symbol $sym
+   * @return boolean
+   */
   public function add($id, Symbol $sym)
   {
-    if ($sym->kind > SYM_REF_DIVIDER || $sym->flags & SYM_FLAG_STATIC)
+    if ($sym->kind > SYM_REF_DIVIDER || $sym->flags & SYM_FLAG_PRIVATE)
       return parent::add($id, $sym);
     
-    return $this->root->add($id, $sym);
+    return $this->super->add($id, $sym);
   }
   
+  /** 
+   * sets/updates a symbol
+   * 
+   * @param string $id
+   * @param Symbol $sym
+   * @return boolean
+   */
   public function set($id, Symbol $sym)
   {
-    if ($sym->kind > SYM_REF_DIVIDER || $sym->flags & SYM_FLAG_STATIC)
+    if ($sym->kind > SYM_REF_DIVIDER || $sym->flags & SYM_FLAG_PRIVATE)
       return parent::set($id, $sym);
     
-    return $this->root->set($id, $sym);
+    return $this->super->set($id, $sym);
   }
   
+  /** 
+   * checks if symbol exists
+   * 
+   * @param  string  $id
+   * @return boolean
+   */
   public function has($id)
   {
     if (parent::has($id))
       return true;
     
-    return $this->root->has($id);
+    return $this->super->has($id);
   }
   
+  /** 
+   * returns a symbol
+   * 
+   * @param  string  $id
+   * @param  boolean $track
+   * @param  Location  $loc
+   * @param  boolean $walk
+   * @return Symbol
+   */
   public function get($id, $track = true, Location $loc = null, $walk = true)
   {
     if (parent::has($id))
       return parent::get($id, $track, $loc, $walk);
     
-    return $this->root->get($id, $track, $loc, $walk);
+    return $this->super->get($id, $track, $loc, $walk);
   }
   
   /**
@@ -187,7 +217,19 @@ class UnitScope extends Scope
    */
   public function get_prev()
   {
-    return $this->root;
+    return $this->super;
+  }
+}
+
+class ModuleScope extends UnitScope
+{
+  // the module
+  public $module;
+  
+  public function __construct(Module $module, Scope $super)
+  {
+    parent::__construct($super);
+    $this->module = $module;
   }
 }
 

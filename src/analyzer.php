@@ -314,6 +314,13 @@ class Analyzer extends Walker
     // set branch
     $sym->branch = $this->branch;
     
+    /*
+    if ($sym->flags & SYM_FLAG_PRIVATE && $this->scope instanceof Module) {
+      $this->error_at($sym->loc, ERR_ERROR, 'module-private symbols are not supported');
+      return false;
+    }
+    */
+    
     // get kind for error-messages
     $kind = symkind_to_str($sym->kind);
     
@@ -372,12 +379,7 @@ class Analyzer extends Walker
     
     if ($pinc && !$ninc) {
       // replace symbol
-      $dest->set($id, $sym);
-      
-      if ($cur->exported === true)
-        // update the exported symbol too
-        $this->export_symbol($sym, $cur->export_alias, $sym->loc, true);
-      
+      $dest->set($id, $sym);      
       return true;
     }
      
@@ -427,22 +429,6 @@ class Analyzer extends Walker
     return true;
   }
   
-  private function export_symbol($sym, $id, $loc, $replace = false)
-  {
-    $ref = SymbolRef::from($id, $sym, [ '<' . $sym->loc->file . '>', $sym->name ], $loc);
-    $ref->flags |= SYM_FLAG_EXPORT;
-    $ref->flags &= ~SYM_FLAG_STATIC;
-    
-    if ($replace === true)
-      $this->ctx->get_root()->set($id, $ref);
-    else
-      $this->add_symbol($id, $ref);
-    
-    // mark the symbol as exported
-    $sym->exported = true;
-    $sym->export_alias = $id;
-  }
-  
   /* ------------------------------------ */
   
   protected function enter_module($node)
@@ -459,13 +445,8 @@ class Analyzer extends Walker
         // use root module
         $rmod = $this->ctx->get_root();
       else {
-        if (!($this->scope instanceof Module)) {
-          // this would be an error in the grammar
-          assert($this->scope instanceof UnitScope);
-          $rmod = $this->scope->root;
-        } else        
-          // use current module
-          $rmod = $this->scope;
+        assert($this->scope instanceof UnitScope);
+        $rmod = $this->scope->super;
       }
        
       $curr = $rmod->fetch(name_to_stra($name), true, SYM_FLAG_NONE, $node->loc);
@@ -476,8 +457,8 @@ class Analyzer extends Walker
       }
        
       array_push($this->sstack, $this->scope);
-      $this->scope = $curr;
-          }
+      $this->scope = $curr->scope;
+    }
   }
   
   protected function leave_module($node) 
@@ -527,7 +508,7 @@ class Analyzer extends Walker
       if (!$this->check_mods($node->mods, false, false))
         return $this->drop();
       
-      $flags = mods_to_symflags($node->mods, $flags);
+      $flags = mods_to_symflags($node->mods, $flags, false);
     }
     
     $base = 0;
@@ -815,7 +796,7 @@ class Analyzer extends Walker
     if (!$this->check_mods($node->mods, true, false))
       return $this->drop();
     
-    $flags = mods_to_symflags($node->mods);
+    $flags = mods_to_symflags($node->mods, true);
     
     array_push($this->fstack, $this->flags);
     $this->flags |= $flags;
@@ -826,40 +807,6 @@ class Analyzer extends Walker
     $this->flags = array_pop($this->fstack);
   }
   
-  protected function visit_export_decl($node) 
-  {
-    foreach ($node->items as $item) {
-      $sid = ident_to_str($item->id);
-      $sym = $this->scope->get($sid, false, null, false);
-      
-      if ($sym === null) {
-        $this->error_at($item->loc, ERR_ERROR, 'export of undefined symbol');
-        continue;
-      }
-      
-      if (!($sym->flags & SYM_FLAG_STATIC)) {
-        $this->error_at($item->loc, ERR_ERROR, 'only static (unit-private) symbols can be exported');
-        $this->error_at($sym->loc, ERR_INFO, 'declaration was here');
-        continue;
-      }
-      
-      /*
-      if ($sym->flags & SYM_FLAG_INCOMPLETE) {
-        // this will be fixed later
-        $this->error_at($item->loc, ERR_ERROR, 'export of incomplete symbols is disabled');
-        $this->error_at($sym->loc, ERR_INFO, 'declaration was here');
-        continue;
-      }
-      */
-      
-      assert($sym->kind < SYM_REF_DIVIDER);
-      assert($sym->kind !== SYM_KIND_MODULE);
-      
-      $aid = $item->alias !== null ? ident_to_str($item->alias) : $sid;
-      $this->export_symbol($sym, $aid, $item->loc);
-    }
-  }
-  
   protected function enter_fn_decl($node)
   {        
     // skip on pass 1, 3 and 4
@@ -867,17 +814,17 @@ class Analyzer extends Walker
       return $this->drop();
     
     $flags = SYM_FLAG_NONE;
-    $apppf = $this->pass > 0;
+    $klass = $this->pass > 0;
     
     if ($node->mods) {
-      if (!$this->check_mods($node->mods, $apppf, !$apppf))
+      if (!$this->check_mods($node->mods, $klass, !$klass))
         return $this->drop();
       
       $flags = mods_to_symflags($node->mods, $flags);
     }
     
     $fid = ident_to_str($node->id);
-    $flags |= $this->fetch_additional_flags($cid, SYM_KIND_FN);
+    $flags |= $this->fetch_additional_flags($fid, SYM_KIND_FN);
     
     if ($flags & SYM_FLAG_EXTERN && $node->body !== null) {
       $this->error_at($node->loc, ERR_ERROR, 'extern function can not have a body');
@@ -885,13 +832,13 @@ class Analyzer extends Walker
     }
     
     // if (in class) and (has modifier static) and (has no modifier extern) and (has no body)
-    if ($apppf && $flags & SYM_FLAG_STATIC && !($flags & SYM_FLAG_EXTERN) && $node->body === null) {
+    if ($klass && $flags & SYM_FLAG_STATIC && !($flags & SYM_FLAG_EXTERN) && $node->body === null) {
       $this->error_at($node->loc, ERR_ERROR, 'static function can not be abstract');
       return $this->drop();
     }
     
     // if (not in class) and (has modifier static) and (has modifier extern)
-    if (!$apppf && $flags & SYM_FLAG_STATIC && $flags & SYM_FLAG_EXTERN) {
+    if (!$klass && $flags & SYM_FLAG_STATIC && $flags & SYM_FLAG_EXTERN) {
       $this->error_at($node->loc, ERR_ERROR, 'static function can not be extern');
       return $this->drop();
     }
@@ -946,7 +893,7 @@ class Analyzer extends Walker
       if (!$this->check_mods($node->mods, $apppf, !$apppf))
         return $this->drop();
       
-      $flags = mods_to_symflags($node->mods, $flags);
+      $flags = mods_to_symflags($node->mods, $flags, $apppf);
     }
     
     foreach ($node->vars as $var)
@@ -1354,7 +1301,7 @@ class Analyzer extends Walker
             continue;
           }
           
-          $flags = mods_to_symflags($param->mods, $flags);
+          $flags = mods_to_symflags($param->mods, $flags, false);
         }
         
         $pid = ident_to_str($param->id);
@@ -2017,14 +1964,14 @@ class Analyzer extends Walker
    * checks mods
    * 
    * @param  array  $mods
-   * @param  boolean $ppp  allow p(ublic|rivate|rotected)
+   * @param  boolean $pps  allow p(ublic|rotected) and static
    * @param  boolean $ext  allow extern
    * @return boolean
    */
-  protected function check_mods($mods, $ppp = false, $ext = true) 
+  protected function check_mods($mods, $pps = false, $ext = true) 
   {
     $seen = [];
-    static $pppa = [ T_PUBLIC, T_PRIVATE, T_PROTECTED ];
+    static $ppsa = [ T_PUBLIC, T_PROTECTED, T_STATIC ];
     
     foreach ($mods as $mod) {
       $type = $mod->type;
@@ -2034,8 +1981,8 @@ class Analyzer extends Walker
         $this->error_at($seen[$type], ERR_INFO, 'previous modifier was here');
       }
       
-      if ((!$ext && $type === T_EXTERN) || 
-          (!$ppp && in_array($type, $pppa))) {
+      elseif ((!$ext && $type === T_EXTERN) || 
+              (!$pps && in_array($type, $ppsa))) {
         $this->error_at($mod->loc, ERR_ERROR, 'modifier `%s` is not allowed here', $mod->value);
         return false;
       }

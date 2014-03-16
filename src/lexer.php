@@ -705,7 +705,6 @@ class Lexer
     'global' => T_GLOBAL,
     'static' => T_STATIC,
     'extern' => T_EXTERN,
-    'export' => T_EXPORT,
     'public' => T_PUBLIC,
     'private' => T_PRIVATE,
     'protected' => T_PROTECTED,
