@@ -150,7 +150,7 @@ class UnitScope extends Scope
   
   public function add($id, Symbol $sym)
   {
-    if ($sym->kind > SYM_REF_DIVIDER)
+    if ($sym->kind > SYM_REF_DIVIDER || $sym->flags & SYM_FLAG_STATIC)
       return parent::add($id, $sym);
     
     return $this->root->add($id, $sym);
@@ -158,7 +158,7 @@ class UnitScope extends Scope
   
   public function set($id, Symbol $sym)
   {
-    if ($sym->kind > SYM_REF_DIVIDER)
+    if ($sym->kind > SYM_REF_DIVIDER || $sym->flags & SYM_FLAG_STATIC)
       return parent::set($id, $sym);
     
     return $this->root->set($id, $sym);
@@ -174,7 +174,7 @@ class UnitScope extends Scope
   
   public function get($id, $track = true, Location $loc = null, $walk = true)
   {
-    if ($this->has($id))
+    if (parent::has($id))
       return parent::get($id, $track, $loc, $walk);
     
     return $this->root->get($id, $track, $loc, $walk);
