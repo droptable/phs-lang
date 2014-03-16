@@ -5,6 +5,10 @@ namespace phs;
 require_once "source.php";
 require_once "context.php";
 
+require_once "parser.php";
+require_once "analyzer.php";
+require_once "translator.php";
+
 use phs\ast\Unit;
 
 class Compiler
@@ -18,11 +22,27 @@ class Compiler
   // parsed units
   private $units;
   
+  // current state
+  private $state;
+  
+  // compiler states
+  const
+    ST_WAITING = 1,
+    ST_COMPILING = 2
+  ;
+  
+  // components
+  private $parser;
+  private $analyzer;
+  private $optimizer;
+  private $translator;
+  
   public function __construct(Context $ctx)
   {
     $this->ctx = $ctx;
     $this->srcs = [];
     $this->units = [];
+    $this->state = self::ST_WAITING;
   }
   
   /**
@@ -33,6 +53,10 @@ class Compiler
   public function add_source(Source $src)
   {
     $this->srcs[] = $src;
+    
+    if ($this->state === self::ST_COMPILING)
+      // analyze it now
+      $this->analyze($src, true);
   }
   
   /**
@@ -45,65 +69,87 @@ class Compiler
     $this->units[] = $unit;
   }
   
+  /**
+   * compiler entry-point
+   * 
+   */
   public function compile()
   {    
-    // 1. parse units and analyze them
-    require_once "parser.php";
-    require_once "analyzer.php";
+    $this->state = self::ST_COMPILING;
+    $this->parser = new Parser($this->ctx);
+    $this->analyzer = new Analyzer($this->ctx, $this);
+    // $this->optimizer = new Optimizer($this->ctx);
+    // $this->translator = new Translator($this->ctx);
     
-    $psr = new Parser($this->ctx);
-    $anl = new Analyzer($this->ctx, $this);
-    
-    foreach ($this->srcs as $src) {
-      $unit = $psr->parse_source($src);
-            
-      if ($unit !== null) {
-        $unit->dest = $src->get_dest();
-        
-        // analyze unit
-        $anl->analyze($unit);
-        
-        // add it to the queue
-        $this->units[] = $unit;
-      }
-    }
+    // 1. analyze
+    foreach ($this->srcs as $src)
+      $this->analyze($src);
     
     return;
     
-    // on error: stop
-    if (!$this->ctx->valid) return;
+    // on error: abort
+    if (!$this->ctx->valid)
+      return;
     
-    // on this stage, the analyzer could have added more units
-    
-    /*
-    
-    // 2. resolve
-    require_once "resolver.php";
-    $rsv = new Resolver($this->ctx);
-    
+    // 2. optimize
     foreach ($this->units as $unit)
-      $rsv->resolve($unit);
+      $this->optimize($unit);
     
-    // on error: stop
-    if (!$this->ctx->valid) return;
+    // on error: abort
+    if (!$this->ctx->valid)
+      return;
     
-    // 3. improve
-    require_once "improver.php";
-    $imp = new Improver($this->ctx);
-    
+    // 3. translate
     foreach ($this->units as $unit)
-      $imp->improve($unit);
+      $this->translate($unit);
+  }
+  
+  /**
+   * analyze source 
+   * 
+   * @param  Source  $src
+   * @param  boolean $excl  exclusive
+   */
+  protected function analyze(Source $src, $excl = false)
+  {
+    if ($excl === true)
+      // use an exclusive analyzer
+      $anl = new Analyzer($this->ctx, $this);
+    else
+      // use the shared analyzer
+      $anl = $this->analyzer;
     
-    // on error: stop
-    if (!$this->ctx->valid) return;
-    
-    */
-   
-    // 4. translate
-    require_once "translator.php";
-    $trs = new Translator($this->ctx);
-    
-    foreach ($this->units as $unit)
-      $trs->translate($unit);
+    // parse source
+    $unit = $this->parser->parse_source($src);
+            
+    if ($unit !== null) {
+      $unit->dest = $src->get_dest();
+        
+      // analyze unit
+      $anl->analyze($unit);
+        
+      // add it to the queue
+      $this->add_unit($unit);
+    }
+  }
+  
+  /**
+   * optimize unit
+   * 
+   * @param  Unit   $unit
+   */
+  protected function optimize(Unit $unit)
+  {
+    $this->optimizer->optimize($unit);
+  }
+  
+  /**
+   * translate unit
+   * 
+   * @param  Unit   $unit
+   */
+  protected function translate(Unit $unit)
+  {
+    $this->translator->translate($unit);
   }
 }

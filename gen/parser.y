@@ -138,13 +138,21 @@
 %%
 
 start
-  : /* empty */ { $$ = @Unit(null); }
-  | unit        { $$ = @Unit($1); }
+  : /* empty */ { $$ = null; }
+  | unit        { $$ = $1; }
   ;
   
 unit
-  : module  { $$ = $1; $this->eat_end(); }
-  | program { $$ = $1; $this->eat_end(); }
+  : module  
+    { 
+      $$ = @Unit($1); 
+      $this->eat_end(); 
+    }
+  | program 
+    { 
+      $$ = @Unit($1); 
+      $this->eat_end(); 
+    }
   ;
   
 module
@@ -254,12 +262,12 @@ use_decl
       $$ = @UseDecl(@UseAlias($2, $4)); 
       $this->eat_semis(); 
     }
-  | T_USE use_name '{' use_items comma_opt '}' 
+  | T_USE use_name '{' use_items comma_opt '}' ';'
     { 
       $$ = @UseDecl(@UseUnpack($2, $4)); 
       $this->eat_semis(); 
     }
-  | T_USE '{' use_items comma_opt '}'
+  | T_USE '{' use_items comma_opt '}' ';'
     {
       $$ = @UseDecl(@UseUnpack(null, $3));
       $this->eat_semis();

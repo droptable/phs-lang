@@ -34,6 +34,10 @@ class Value
   // the symbol associated with this value
   public $symbol;
   
+  // this value has guards and access to it must not be checked.
+  // for now, only <empty> values can have guards
+  public $guarded;
+  
   /**
    * constructor
    * 
@@ -44,6 +48,7 @@ class Value
   {
     $this->kind = $kind;
     $this->value = $value;
+    $this->guarded = false;
   }
 
   /**

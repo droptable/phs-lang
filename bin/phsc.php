@@ -2,6 +2,14 @@
 
 $SRC = realpath(__DIR__ . '/../src');
 
+assert_options(ASSERT_ACTIVE, true);
+assert_options(ASSERT_BAIL, true);
+assert_options(ASSERT_CALLBACK, function($s, $l, $m = null) {
+  $w = $m ? " with message: $m" : '!';
+  print "\nassertion failed$w\n\nfile: $s\nline: $l\n";
+  exit;
+});
+
 require "$SRC/source.php";
 require "$SRC/context.php";
 require "$SRC/compiler.php";

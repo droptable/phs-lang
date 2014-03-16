@@ -278,7 +278,7 @@ class SymbolRef extends Symbol
   // the full name of this reference
   public $path;
   
-  public function __construct($kind, $name, Symbol $sym, Name $path, Location $loc = null)
+  public function __construct($kind, $name, Symbol $sym, $path, Location $loc = null)
   {
     parent::__construct($kind, $name, $sym->flags, $loc);
     $this->symbol = $sym;
@@ -299,7 +299,7 @@ class SymbolRef extends Symbol
   
   /* ------------------------------------ */
   
-  public static function from($id, Symbol $sym, Name $path, Location $loc)
+  public static function from($id, Symbol $sym, $path, Location $loc)
   {
     // no need to create a reference for a reference
     if ($sym->kind > SYM_REF_DIVIDER) {
@@ -318,7 +318,7 @@ class ModuleRef extends SymbolRef
   // the module
   public $module;
   
-  public function __construct($name, ModuleSym $mod, Name $path, Location $loc)
+  public function __construct($name, ModuleSym $mod, $path, Location $loc)
   {
     parent::__construct(REF_KIND_MODULE, $name, $mod, $path, $loc);
     $this->module = $mod->module;
@@ -326,7 +326,7 @@ class ModuleRef extends SymbolRef
     
   /* ------------------------------------ */
   
-  public static function from($id, Symbol $mod, Name $path, Location $loc)
+  public static function from($id, Symbol $mod, $path, Location $loc)
   {
     assert($mod instanceof ModuleSym);
     

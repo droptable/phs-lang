@@ -100,7 +100,17 @@ class Analyzer extends Walker
   
   // there a some positions in the code 
   // where constant-assigments are not allowed
+  // ```
+  // const a; 
+  // for (...; ...; a = 1) ...
+  // ```
+  // -> the assigment to `a` is not guaranteed
   private $allow_const_assign;
+  
+  // mark <empty> vars as guarded (mute warnings on access)
+  //  `for(let a in b) ...` 
+  //  -> `a` empty-value after declaration will be guarded
+  private $guard_empty_vars;
   
   // anonymus function id-counter
   private static $anon_uid = 0;
@@ -148,6 +158,7 @@ class Analyzer extends Walker
     $this->gotos = [];
     $this->gstack = [];
     
+    $this->guard_empty_vars = false;
     $this->allow_const_assign = true;
     
     $this->walk($unit);
@@ -162,31 +173,32 @@ class Analyzer extends Walker
    * 
    * @param  Module $base
    * @param  Node $item
+   * @param  array $path
    */
-  protected function handle_import(Module $base, $item)
+  protected function handle_import(Module $base, $item, $path = [])
   {    
     switch ($item->kind()) {
       case 'name':
-        $this->fetch_import($base, $item, true);
+        $this->fetch_import($base, $item, true, $path);
         break;
       case 'use_alias':
-        $this->fetch_import($base, $item->name, true, ident_to_str($item->alias));
+        $this->fetch_import($base, $item->name, true, $path, ident_to_str($item->alias));
         break;
       case 'use_unpack':
         if ($item->base !== null) {
-          if (!$this->fetch_import($base, $item->base, false))
+          if (!$this->fetch_import($base, $item->base, false, $path))
             break;
           
           $base = $base->fetch(name_to_stra($item->base), false);
           
           if (!$base) {
-            $this->error_at($item->base->loc, ERR_ERROR, 'import from non-existent module `%s`', name_to_str($item->base));
+            $this->error_at($item->base->loc, ERR_ERROR, 'import from undefined module `%s`', name_to_str($item->base));
             break;
           }
         }
         
         foreach ($item->items as $item)
-          $this->handle_import($base, $item);
+          $this->handle_import($base, $item, $path);
     }
   }
   
@@ -199,7 +211,7 @@ class Analyzer extends Walker
    * @param  string $id a name for the symtable
    * @return boolean
    */
-  protected function fetch_import(Module $base, Name $name, $add, $id = null) 
+  protected function fetch_import(Module $base, Name $name, $add, &$path, $id = null) 
   {
     $parts = name_to_stra($name);
     $last = array_pop($parts);
@@ -207,30 +219,30 @@ class Analyzer extends Walker
     if ($add && !$id)
       $id = $last;
     
-    if ($parts) {
-      $trk = [];
-      
+    if ($parts) {      
       foreach ($parts as $part) {
         $base = $base->get($part, false, null, false);
-        array_push($trk, $part);
+        array_push($path, $part);
         
         if (!$base) {
-          $this->error_at($name->loc, ERR_ERROR, 'import from non-existent module `%s`', implode('::', $trk));
+          $this->error_at($name->loc, ERR_ERROR, 'import from undefined module `%s`', implode('::', $path));
           return false;
         }  
         
         if ($base->kind !== REF_KIND_MODULE &&
             $base->kind !== SYM_KIND_MODULE) {
-          $this->error_at($name->loc, ERR_ERROR, '`%s` is not a module, import failed', implode('::', $trk));
+          $this->error_at($name->loc, ERR_ERROR, '`%s` is not a module, import failed', implode('::', $path));
           return false;
         }
         
         if ($base->kind === REF_KIND_MODULE)
-          $trk = $base->module->path(false);
+          $path = $base->module->path(false);
         
         $base = $base->module;
       }
     }
+    
+    array_push($path, $last);
     
     if ($base->has_child($last)) {
       // import a module
@@ -238,7 +250,7 @@ class Analyzer extends Walker
       
       // add symbol to scope
       // note: using get() instead of get_child() gives us the symbol
-      $sym = ModuleRef::from($id, $base->get($last), $name, $name->loc);
+      $sym = ModuleRef::from($id, $base->get($last), $path, $name->loc);
       return $this->add_symbol($id, $sym);
     }
     
@@ -264,7 +276,7 @@ class Analyzer extends Walker
     if (!$add) return true;
     
     $sym = $base->get($last);
-    $ref = SymbolRef::from($id, $sym, $name, $name->loc);
+    $ref = SymbolRef::from($id, $sym, $path, $name->loc);
     
     // TODO: remove const/final flags?
     
@@ -312,8 +324,14 @@ class Analyzer extends Walker
       $this->scope->set($id, $sym);
       return true;
     }
-    
+        
     if ($cur->kind > SYM_REF_DIVIDER) {
+      if ($sym->kind === $cur->kind && $cur->symbol === $sym->symbol) {
+        // same reference, add it, but do not override
+        $this->scope->add($id, $sym);
+        return true;
+      }
+      
       if ($this->pass === 0 || $this->pass === 5) {
         $this->error_at($sym->loc, ERR_ERROR, '%s `%s` collides with a referenced symbol', $kind, $sym->name);
         $this->error_at($cur->loc, ERR_INFO, 'reference was here');
@@ -598,7 +616,13 @@ class Analyzer extends Walker
   
   protected function leave_class_decl($node)
   {    
-    assert($this->scope instanceof ClassScope);
+    //assert($this->scope instanceof ClassScope);
+    if (!($this->scope instanceof ClassScope)) {
+      print get_class($this->scope) . "\n";  
+      print $this->scope->symbol->name . "\n";
+      exit;
+    }
+    
     $sym = $this->scope->symbol;
         
     if (!($sym->flags & SYM_FLAG_ABSTRACT))
@@ -901,26 +925,7 @@ class Analyzer extends Walker
     
     if (!in_array($path, self::$require_paths)) {
       self::$require_paths[] = $path;
-      
-      require_once 'parser.php';
-      require_once 'source.php';
-      
-      // cache parser?
-      $psr = new Parser($this->ctx);
-      $src = new FileSource($path);
-      
-      $ast = $psr->parse_source($src);
-      
-      if ($ast) {
-        $ast->dest = $src->get_dest();
-        $anl = new Analyzer($this->ctx, $this->com);
-        
-        // analyze unit
-        $anl->analyze($ast);
-            
-        // add it to the compiler
-        $this->com->add_unit($ast);
-      }
+      $this->com->add_source(new FileSource($path));
     }
   }
   
@@ -1026,11 +1031,12 @@ class Analyzer extends Walker
         # print "creating lexical scope\n";
         array_push($this->sstack, $this->scope);
         $this->scope = new Scope($this->scope);
-              }
+      }
       
       $this->walk_some($node->init);
     }
     
+    $aca = $this->allow_const_assign;
     $this->allow_const_assign = false;
     
     if ($node->test !== null)
@@ -1039,7 +1045,7 @@ class Analyzer extends Walker
     if ($node->each !== null)
       $this->handle_expr($node->each);
     
-    $this->allow_const_assign = true;
+    $this->allow_const_assign = $aca;
     
     $this->enter_loop();
      
@@ -1048,9 +1054,11 @@ class Analyzer extends Walker
       # print "using lexical scope\n";
       $node->stmt->scope = $this->scope;
       $this->walk_some($node->stmt->body);
-      $this->scope = array_pop($this->sstack);
     } else
       $this->walk_some($node->stmt);
+      
+    if ($lexical === true)
+      $this->scope = array_pop($this->sstack);
       
     $this->leave_loop();
   }
@@ -1060,7 +1068,19 @@ class Analyzer extends Walker
     $lexical = false;
     
     $kind = $node->lhs->kind();
-      
+    
+    switch ($kind) {
+      case 'let_decl':
+      case 'var_decl':
+      case 'member_expr':
+      case 'name':
+      case 'ident':
+        break; // pass
+      default:
+        $this->error_at($node->lhs->loc, ERR_ERROR, 'invalid for-in left-hand-side');
+        return;
+    }
+       
     if ($kind === 'let_decl' || $kind === 'var_decl')
       $lexical = true;
     
@@ -1074,9 +1094,15 @@ class Analyzer extends Walker
       # print "creating lexical scope\n";
       array_push($this->sstack, $this->scope);
       $this->scope = new Scope($this->scope);
-          }
+    }
+    
+    $gev = $this->guard_empty_vars;
+    $this->guard_empty_vars = true;
     
     $this->walk_some($node->lhs);    
+    
+    $this->guard_empty_vars = $gev;
+    
     $this->handle_expr($node->rhs);
     
     $this->enter_loop();
@@ -1086,9 +1112,11 @@ class Analyzer extends Walker
       # print "using lexical scope\n";
       $node->stmt->scope = $this->scope;
       $this->walk_some($node->stmt->body);
-      $this->scope = array_pop($this->sstack);
     } else
       $this->walk_some($node->stmt);
+      
+    if ($lexical === true)
+      $this->scope = array_pop($this->sstack);
       
     $this->leave_loop();
   }
@@ -1452,6 +1480,9 @@ class Analyzer extends Walker
           $val = new Value(VAL_KIND_EMPTY); 
         elseif (!$val)
           $val = $this->handle_expr($init);
+        
+        if ($val->kind === VAL_KIND_EMPTY)
+          $val->guarded = $this->guard_empty_vars;
         
         if ($val->kind === VAL_KIND_UNKNOWN && $flags & SYM_FLAG_CONST) {
           $this->error_at($var->loc, ERR_ERROR, 'constant variables must be reducible at compile-time');
@@ -2607,7 +2638,7 @@ class Analyzer extends Walker
         assert($lhs->symbol !== null);
         
         // fetch member
-        $sym = $lhs->symbol->mst->get((string) $key, false);
+        $sym = $lhs->symbol->members->get((string) $key, false);
         
         if (!$sym) {
           // symbol not found
@@ -3058,8 +3089,8 @@ class Analyzer extends Walker
     
     sym:    
     /* allow NULL here */
-    if ($this->access === self::ACC_READ && 
-        $sym->kind === SYM_KIND_VAR && $sym->value->kind === VAL_KIND_EMPTY)
+    if ($this->access === self::ACC_READ && $sym->kind === SYM_KIND_VAR && 
+        $sym->value->kind === VAL_KIND_EMPTY && $sym->value->guarded !== true)
       $this->error_at($name->loc, ERR_WARN, 'access to (maybe) uninitialized symbol `%s`', name_to_str($name));
     
     $sym->reads++;
@@ -3110,8 +3141,8 @@ class Analyzer extends Walker
     }
     
     /* allow NULL here */
-    if ($this->access === self::ACC_READ && 
-        $sym->kind === SYM_KIND_VAR && $sym->value->kind === VAL_KIND_EMPTY)
+    if ($this->access === self::ACC_READ && $sym->kind === SYM_KIND_VAR && 
+        $sym->value->kind === VAL_KIND_EMPTY && $sym->value->guarded !== true)
       $this->error_at($node->loc, ERR_WARN, 'access to (maybe) uninitialized symbol `%s`', $sid);
     
     $sym->reads++;
@@ -3201,6 +3232,7 @@ class Analyzer extends Walker
   
   public function enter_fn($sym, $node)
   {
+    #print "enter function {$sym->name}\n";
     ++$this->infn;
     
     array_push($this->sstack, $this->scope);
@@ -3219,6 +3251,7 @@ class Analyzer extends Walker
   
   public function leave_fn()
   {
+    #print "leave function {$this->scope->symbol->name}\n";
     --$this->infn;
     
     $this->scope = array_pop($this->sstack);
