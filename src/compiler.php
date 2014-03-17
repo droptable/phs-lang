@@ -7,7 +7,7 @@ require_once "context.php";
 
 require_once "parser.php";
 require_once "analyzer.php";
-require_once "translator.php";
+require_once "generator.php";
 
 use phs\ast\Unit;
 
@@ -35,7 +35,7 @@ class Compiler
   private $parser;
   private $analyzer;
   private $optimizer;
-  private $translator;
+  private $generator;
   
   public function __construct(Context $ctx)
   {
@@ -88,18 +88,17 @@ class Compiler
     $this->parser = new Parser($this->ctx);
     $this->analyzer = new Analyzer($this->ctx, $this);
     // $this->optimizer = new Optimizer($this->ctx);
-    // $this->translator = new Translator($this->ctx);
+    $this->generator = new Generator($this->ctx);
     
     // 1. analyze
     foreach ($this->srcs as $src)
       $this->analyze($src);
     
-    return;
-    
     // on error: abort
     if (!$this->ctx->valid)
       return;
     
+    /*
     // 2. optimize
     foreach ($this->units as $unit)
       $this->optimize($unit);
@@ -107,10 +106,11 @@ class Compiler
     // on error: abort
     if (!$this->ctx->valid)
       return;
-    
-    // 3. translate
+    */
+   
+    // 3. emit code
     foreach ($this->units as $unit)
-      $this->translate($unit);
+      $this->generate($unit);
   }
   
   /**
@@ -153,12 +153,12 @@ class Compiler
   }
   
   /**
-   * translate unit
+   * generate target code
    * 
    * @param  Unit   $unit
    */
-  protected function translate(Unit $unit)
+  protected function generate(Unit $unit)
   {
-    $this->translator->translate($unit);
+    $this->generator->generate($unit);
   }
 }

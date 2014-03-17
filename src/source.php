@@ -58,7 +58,7 @@ class TextSource implements Source
   public function get_dest()
   {
     if (!$this->dest)
-      $this->dest = tempnam(getcwd(), 'out');
+      $this->dest = tempnam(realpath(__DIR__ . '/../out'), 'out');
     
     return $this->dest;
   }
@@ -95,11 +95,11 @@ class FileSource implements Source
     if (!$this->dest) {
       $try = 0;
       $stt = 0;
-      $dir = dirname($this->path);
       $nam = basename($this->path, '.phs');
+      $dir = realpath(__DIR__ . '/../out');
       
       do {
-        if ($try > 10) {
+        if ($try > 1000) {
           if ($stt === 1)
             // TODO: this should be reported via Context#error
             exit('unable to create a temp destination for file ' . $this->path);
@@ -112,7 +112,7 @@ class FileSource implements Source
         
         $cnt = $nam;
         if ($try > 0) $cnt .= "-$try";
-        $this->dest = "$dir/out-$cnt.php";
+        $this->dest = "$dir/$cnt.php";
         
         ++$try;
       } while (is_file($this->dest));

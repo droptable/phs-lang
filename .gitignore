@@ -8,3 +8,4 @@ bin/test.php
 src/old/
 test/
 lib/
+out/
