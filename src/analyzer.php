@@ -98,6 +98,12 @@ class Analyzer extends Walker
   // access stack
   private $astack;
   
+  // class member states
+  const 
+    MST_INCOMPLETE = 1,
+    MST_COMPLETE = 2
+  ;
+  
   // there a some positions in the code 
   // where constant-assigments are not allowed
   // ```
@@ -589,11 +595,11 @@ class Analyzer extends Walker
     else
       // simple test to detect abstract-members
       if (!$this->check_class($node, $flags))
-        return $this->drop();    
+        return $this->drop();
     
     $super = null;
     if ($node->ext !== null) {
-      $super = $this->handle_class_ext($node->ext);
+      $super = $this->handle_class_ext($cid, $node->ext);
       if (!$super) return $this->drop();
     }
     
@@ -1646,7 +1652,7 @@ class Analyzer extends Walker
     if (!($sym->flags & SYM_FLAG_INCOMPLETE))
       return $sym;
     
-    $mod = $this->ctx->get_module();
+    $mod = $this->ctx->get_root();
     $nam = name_to_stra($ref->path);
     $lst = array_pop($nam);
     $cnt = $mod->fetch($nam, false);
@@ -1678,23 +1684,25 @@ class Analyzer extends Walker
       $csym = $this->ensure_complete_symbol($base);
       
       if ($csym === null) {
-        $this->error_at($sym->loc, ERR_ERROR, '`%s` must be fully defined before it can be used', $csym->name);
-        $this->error_at($csym->loc, ERR_INFO, 'declaration was here');
-        continue;
+        $this->error_at($base->loc, ERR_ERROR, '`%s` must be fully defined before it can be used', $base->name);
+        $this->error_at($base->symbol->loc, ERR_INFO, 'declaration was here');
+        
+        // for validation only
+        $base = $base->symbol->super;
+      } else {
+        foreach ($csym->members as $mem)
+          // which means abstract in this context
+          if ($mem->flags & SYM_FLAG_INCOMPLETE) {
+            $need->set($mem->name, $mem);
+            $nloc->set($mem->name, $csym);
+          } else
+            $done->add($mem->name, $mem);
+        
+        if ($csym->impls !== null)
+          $this->collect_iface_impls($csym->impls, $need, $nloc, $csym);
+        
+        $base = $csym->super;
       }
-      
-      foreach ($csym->members as $mem)
-        // which means abstract in this context
-        if ($mem->flags & SYM_FLAG_INCOMPLETE) {
-          $need->set($mem->name, $mem);
-          $nloc->set($mem->name, $csym);
-        } else
-          $done->add($mem->name, $mem);
-      
-      if ($csym->impls !== null)
-        $this->collect_iface_impls($csym->impls, $need, $nloc, $csym);
-      
-      $base = $csym->super;
     }
   }
   
@@ -1857,12 +1865,22 @@ class Analyzer extends Walker
    * @param  Name $ext
    * @return Symbol
    */
-  protected function handle_class_ext($name)
+  protected function handle_class_ext($cid, $name)
   {    
     $val = $this->handle_expr($name);
     
     if ($val->kind !== VAL_KIND_CLASS) {
       $this->error_at($name->loc, ERR_ERROR, '`%s` can not be extended (used as class)', name_to_str($name));
+      
+      if ($val->symbol !== null)
+        $this->error_at($val->symbol->loc, ERR_INFO, 'declaration was here');
+      
+      return null;
+    }
+    
+    if ($val->symbol->flags & SYM_FLAG_FINAL) {
+      $this->error_at($name->loc, ERR_ERROR, '`%s` cannot inherit from final class `%s`', $cid, name_to_str($name));
+      $this->error_at($val->symbol->loc, ERR_INFO, 'declaration was here');
       return null;
     }
     
@@ -1906,21 +1924,37 @@ class Analyzer extends Walker
   protected function check_class_members($members, &$flags, $ext)
   {
     $error = false;
+    $check = [];
     
     foreach ($members as $mem) {
       $kind = $mem->kind();
       
       if ($kind === 'fn_decl') {
+        $id = ident_to_str($mem->id);
+        
         // extern + function-body is a no-no
         if ($ext && $mem->body !== null) {
           $this->error_at($mem->body->loc, ERR_ERROR, 'extern class-method can not have a body');
           $error = true;
         }
         
-        // mark the class itself as abstract
-        if (!$ext && $mem->body === null)
-          $flags |= SYM_FLAG_ABSTRACT;
-        
+        // store member state
+        if (!$ext && $mem->body === null) {
+          if ($flags & SYM_FLAG_FINAL) {
+            $this->error_at($mem->loc, ERR_ERROR, 'abstract method `%s` in final class', $id);
+            $error = true;
+          } 
+          
+          elseif (mods_to_symflags($mem->mods) & SYM_FLAG_FINAL) {
+            $this->error_at($mem->loc, ERR_ERROR, 'abstract method `%s` declared as final', $id);
+            $error = true;
+          }
+          
+          elseif (!isset ($check[$id])) 
+            $check[$id] = self::MST_INCOMPLETE;
+          
+        } else
+          $check[$id] = self::MST_COMPLETE;
       } 
       
       elseif ($kind === 'nested_mods')
@@ -1934,7 +1968,19 @@ class Analyzer extends Walker
       }
     }
     
-    return !$error;
+    if (!$error) {
+      foreach ($check as $mem) {
+        if ($mem === self::MST_INCOMPLETE) {
+          // mark the class itself as abstract
+          $flags |= SYM_FLAG_ABSTRACT;
+          break;
+        }
+      }
+      
+      return true;
+    }
+    
+    return false;
   }
   
   protected function handle_class_members($members)
@@ -1972,6 +2018,7 @@ class Analyzer extends Walker
   {
     $seen = [];
     $ppsa = [ T_PUBLIC, T_PROTECTED ];
+    $seen_access = null;
     
     if ($this->infn === 0)
       array_push($ppsa, T_STATIC);
@@ -1980,14 +2027,31 @@ class Analyzer extends Walker
       $type = $mod->type;
       
       if (isset ($seen[$type])) {
-        $this->error_at($mod->loc, ERR_WARN, 'duplicate modifier `%s`', $mod->value);
-        $this->error_at($seen[$type], ERR_INFO, 'previous modifier was here');
+        if ($this->pass === 0 || $this->pass === 2) {
+          $this->error_at($mod->loc, ERR_WARN, 'duplicate modifier `%s`', $mod->value);
+          $this->error_at($seen[$type], ERR_INFO, 'previous modifier was here');
+        }
       }
       
       elseif ((!$ext && $type === T_EXTERN) || 
               (!$pps && in_array($type, $ppsa))) {
-        $this->error_at($mod->loc, ERR_ERROR, 'modifier `%s` is not allowed here', $mod->value);
+        if ($this->pass === 0 || $this->pass === 2)
+          $this->error_at($mod->loc, ERR_ERROR, 'modifier `%s` is not allowed here', $mod->value);
         return false;
+      }
+      
+      elseif ($type === T_PUBLIC || 
+              $type === T_PRIVATE ||
+              $type === T_PROTECTED) {
+        if ($seen_access !== null) {
+          if ($this->pass === 0 || $this->pass === 2) {
+            $this->error_at($mod->loc, ERR_ERROR, 'duplicate access modifier');
+            $this->error_at($seen_access, ERR_INFO, 'previous modifier was here');
+          }
+          return false;
+        } 
+        
+        $seen_access = $mod->loc;
       }
       
       $seen[$type] = $mod->loc;

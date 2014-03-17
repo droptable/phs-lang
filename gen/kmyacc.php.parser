@@ -7,7 +7,7 @@
 /**
  * This is an automatically GENERATED file, which should not be manually edited.
  * Instead edit one of the following:
- *   the grammar file gen/yy-parser-tpl.y
+ *   the grammar file gen/parser.y
  *   the parser skeleton gen/kymacc.php.parser
  *
  * The skeleton for this parser was written by Moriyoshi Koizumi and is based on

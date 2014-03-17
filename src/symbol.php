@@ -303,6 +303,8 @@ class SymbolRef extends Symbol
   
   public static function from($id, Symbol $sym, $path, Location $loc)
   {
+    if ($id === null) $id = $sym->name;
+    
     // no need to create a reference for a reference
     if ($sym->kind > SYM_REF_DIVIDER)
       // ignore the given path and use the reference-path which is 
@@ -332,6 +334,8 @@ class ModuleRef extends SymbolRef
   {
     assert($mod->kind === SYM_KIND_MODULE ||
            $mod->kind === REF_KIND_MODULE);
+    
+    if ($id === null) $id = $sym->name;
     
     // no need to create a reference for a reference
     if ($mod->kind === REF_KIND_MODULE)
