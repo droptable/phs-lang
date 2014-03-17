@@ -108,9 +108,17 @@ class Value
     if ($sym->kind === SYM_KIND_VAR)
       $nval = $sym->value; 
     elseif ($sym->kind === REF_KIND_VAR)
-      $nval = $sym->symbol->value;     
+      $nval = $sym->symbol->value; 
     else {
       $skind = $sym->kind;
+      
+      if ($skind === REF_KIND_FN ||
+          $skind === SYM_KIND_FN) {
+        if ($skind === REF_KIND_FN)
+          $sym = $sym->symbol;
+        $nval = new FnValue($sym);
+        goto out;
+      }
       
       if ($skind > SYM_REF_DIVIDER)
         $skind -= SYM_REF_DIVIDER;
@@ -127,9 +135,6 @@ class Value
         case SYM_KIND_IFACE:
           $nkind = VAL_KIND_IFACE;
           break;
-        case SYM_KIND_FN:
-          $nkind = VAL_KIND_FN;
-          break;
         default:
           assert(0);
       }
@@ -137,6 +142,7 @@ class Value
       $nval = new Value($nkind);
     }
     
+    out:
     $nval->symbol = $sym;
     return $nval;    
   }
@@ -156,7 +162,7 @@ class FnValue extends Value
   public $name;
   
   // the function symbol
-  public $sfym;
+  public $fsym;
   
   public function __construct(FnSym $sym)
   {

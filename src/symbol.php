@@ -98,6 +98,9 @@ class VarSym extends Symbol
   // the value
   public $value;
   
+  // the var saw an assigment
+  public $assigned;
+  
   /**
    * constructor
    * 
@@ -111,6 +114,7 @@ class VarSym extends Symbol
     parent::__construct(SYM_KIND_VAR, $name, $flags, $loc);
     $this->value = $value;
     $this->value->symbol = $this;
+    $this->assigned = false;
   }
   
   /* ------------------------------------ */

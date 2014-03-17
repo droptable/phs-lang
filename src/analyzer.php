@@ -828,19 +828,22 @@ class Analyzer extends Walker
     $flags |= $this->fetch_additional_flags($fid, SYM_KIND_FN);
     
     if ($flags & SYM_FLAG_EXTERN && $node->body !== null) {
-      $this->error_at($node->loc, ERR_ERROR, 'extern function can not have a body');
+      if ($this->pass === 0 || $this->pass === 2)
+        $this->error_at($node->loc, ERR_ERROR, 'extern function can not have a body');
       return $this->drop();
     }
     
     // if (in class) and (has modifier static) and (has no modifier extern) and (has no body)
     if ($klass && $flags & SYM_FLAG_STATIC && !($flags & SYM_FLAG_EXTERN) && $node->body === null) {
-      $this->error_at($node->loc, ERR_ERROR, 'static function can not be abstract');
+      if ($this->pass === 0 || $this->pass === 2)
+        $this->error_at($node->loc, ERR_ERROR, 'static function can not be abstract');
       return $this->drop();
     }
     
     // if (not in class) and (has modifier static) and (has modifier extern)
     if (!$klass && $flags & SYM_FLAG_STATIC && $flags & SYM_FLAG_EXTERN) {
-      $this->error_at($node->loc, ERR_ERROR, 'static function can not be extern');
+      if ($this->pass === 0 || $this->pass === 2)
+        $this->error_at($node->loc, ERR_ERROR, 'static function can not be extern');
       return $this->drop();
     }
     
@@ -1487,7 +1490,8 @@ class Analyzer extends Walker
           return false;
         }
         
-        $sym = new VarSym($vid, $val, $flags, $var->loc);       
+        $sym = new VarSym($vid, $val, $flags, $var->loc); 
+        $sym->assigned = $init !== null;      
         return $this->add_symbol($vid, $sym);
       case 'obj_destr':
         return $this->handle_var_obj($var, $flags);
@@ -2587,7 +2591,7 @@ class Analyzer extends Walker
             goto unk;  
           }
           
-          if ($sym->value->kind !== VAL_KIND_EMPTY) {
+          if ($sym->assigned === true) {
             $this->error_at($node->loc, ERR_ERROR, 're-assignment of read-only symbol `%s`', $sym->name);
             $this->error_at($sym->loc, ERR_INFO, 'declaration was here');
             goto unk;  
@@ -2613,7 +2617,8 @@ class Analyzer extends Walker
         // assign it!
         $this->value = $sym->value = $rhs;
         $rhs->symbol = $sym;
-        $sym->writes++;       
+        $sym->writes++;
+        $sym->assigned = true;   
         goto out;
       } else {
         // the left-hand-side gets thrown-away anyway
@@ -2711,10 +2716,11 @@ class Analyzer extends Walker
           goto unk;  
         }
         
-        // if symbol is constant and it has a value
+        // if symbol is constant and it has a value (or it is a function)
         // the value can be unknown though
         // TODO: implement static access
-        if (($sym->flags & SYM_FLAG_CONST) && $sym->value->kind !== VAL_KIND_EMPTY) {
+        if (($sym->flags & SYM_FLAG_CONST) && ($sym->kind === SYM_KIND_FN || $sym->kind === REF_KIND_FN || 
+                                               ($sym->value && $sym->value->kind !== VAL_KIND_EMPTY))) {
           $this->value = Value::from($sym);
           $sym->reads++;
         } else {

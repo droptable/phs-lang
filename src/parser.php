@@ -7,7 +7,7 @@
 /**
  * This is an automatically GENERATED file, which should not be manually edited.
  * Instead edit one of the following:
- *   the grammar file gen/yy-parser-tpl.y
+ *   the grammar file gen/parser.y
  *   the parser skeleton gen/kymacc.php.parser
  *
  * The skeleton for this parser was written by Moriyoshi Koizumi and is based on
@@ -1453,7 +1453,10 @@ class Parser extends ParserBase
     
     // location stack
     $yylstk = [];
-
+    
+    // ignore semicolons at the beginning
+    $this->eat_semis();
+    
     for (;;) {
       if (self::$yybase[$yystate] == 0)
         $yyn = self::$yydefault[$yystate];
@@ -1545,8 +1548,7 @@ class Parser extends ParserBase
           
           $yyn = self::$yylhs[$yyn];
           
-          if (($yyp = self::$yygbase[$yyn]
-           + $this->yysstk[$this->yysp]) >= 0
+          if (($yyp = self::$yygbase[$yyn] + $this->yysstk[$this->yysp]) >= 0
             && $yyp < self::YYGLAST && self::$yygcheck[$yyp] == $yyn)
             $yystate = self::$yygoto[$yyp];
           else

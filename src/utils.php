@@ -217,5 +217,7 @@ function expand_filepath($path, $file) {
         $path .= '.phm';
   }
   
+  // for compatibility we can check: $path === realpath($path)
+  // to avoid unpleasant surprises if compilation was done on a windows box :)
   return is_file($path) ? $path : null;
 }
