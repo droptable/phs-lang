@@ -545,6 +545,12 @@ class Analyzer extends Walker
     }
   }
   
+  protected function enter_trait_decl($node)
+  {
+    print "implement traits!\n";
+    assert(0);
+  }
+  
   protected function enter_iface_decl($node)
   {
     $flags = SYM_FLAG_CONST;
