@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class LabelDecl extends Node
+class LabelDecl extends Decl
 {
   public $id;
   public $comp;

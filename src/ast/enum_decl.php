@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class EnumDecl extends Node
+class EnumDecl extends Decl
 {
   public $mods;
   public $members;

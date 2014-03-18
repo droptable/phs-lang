@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class PhpStmt extends Node
+class PhpStmt extends Stmt
 {
   public $usage;
   public $code;

@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class LetDecl extends Node
+class LetDecl extends Decl
 {
   public $mods;
   public $vars;

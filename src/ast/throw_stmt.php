@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class ThrowStmt extends Node
+class ThrowStmt extends Stmt
 {
   public $expr;
   

@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class Block extends Node
+class Block extends Stmt
 {
   public $body;
   

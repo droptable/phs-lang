@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class AssertStmt extends Node
+class AssertStmt extends Stmt
 {
   public $expr;
   public $message;

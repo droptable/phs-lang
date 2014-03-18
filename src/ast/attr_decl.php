@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class AttrDecl extends Node
+class AttrDecl extends Decl
 {
   public $attr;
   

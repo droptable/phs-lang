@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class ClassDecl extends Node
+class ClassDecl extends Decl
 {
   public $mods;
   public $id;

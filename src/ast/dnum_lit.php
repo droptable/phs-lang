@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class DNumLit extends Node
+class DNumLit extends Expr
 {
   public $value;
   

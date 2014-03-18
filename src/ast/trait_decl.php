@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class TraitDecl extends Node
+class TraitDecl extends Decl
 {
   public $id;
   public $members;

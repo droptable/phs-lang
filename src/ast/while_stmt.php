@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class WhileStmt extends Node
+class WhileStmt extends Stmt
 {
   public $test;
   public $stmt;

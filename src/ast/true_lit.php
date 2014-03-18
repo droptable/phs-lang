@@ -2,6 +2,6 @@
 
 namespace phs\ast;
 
-class TrueLit extends Node
+class TrueLit extends Expr
 {
 }

@@ -2,6 +2,6 @@
 
 namespace phs\ast;
 
-class FalseLit extends Node
+class FalseLit extends Expr
 {
 }

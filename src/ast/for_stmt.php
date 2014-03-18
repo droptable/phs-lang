@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class ForStmt extends Node
+class ForStmt extends Stmt
 {
   public $init;
   public $test;

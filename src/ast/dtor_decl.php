@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class DtorDecl extends Node
+class DtorDecl extends Decl
 {
   public $mods;
   public $params;

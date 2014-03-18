@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class TryStmt extends Node
+class TryStmt extends Stmt
 {
   public $stmt;
   public $catches;

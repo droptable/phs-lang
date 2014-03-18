@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class TypeId extends Node
+class TypeId extends Expr
 {
   public $type;
   

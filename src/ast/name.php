@@ -8,6 +8,9 @@ class Name extends Node
   public $root;
   public $parts;
   
+  // symbol lookup cache
+  public $symbol;
+  
   public function __construct($base, $root)
   {
     $this->base = $base;

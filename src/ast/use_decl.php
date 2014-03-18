@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class UseDecl extends Node
+class UseDecl extends Decl
 {
   public $item;
   

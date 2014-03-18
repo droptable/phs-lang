@@ -2,6 +2,6 @@
 
 namespace phs\ast;
 
-class NullLit extends Node
+class NullLit extends Expr
 {
 }

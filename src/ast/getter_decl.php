@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class GetterDecl extends Node
+class GetterDecl extends Decl
 {
   public $id;
   public $params;

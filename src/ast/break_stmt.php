@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class BreakStmt extends Node
+class BreakStmt extends Stmt
 {
   public $id;
   

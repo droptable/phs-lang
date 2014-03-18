@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class SwitchStmt extends Node
+class SwitchStmt extends Stmt
 {
   public $test;
   public $cases;

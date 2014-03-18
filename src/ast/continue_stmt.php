@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class ContinueStmt extends Node
+class ContinueStmt extends Stmt
 {
   public $id;
   

@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class DoStmt extends Node
+class DoStmt extends Stmt
 {
   public $stmt;
   public $expr;

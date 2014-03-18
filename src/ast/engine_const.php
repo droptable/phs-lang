@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class EngineConst extends Node
+class EngineConst extends Expr
 {
   public $type;
   

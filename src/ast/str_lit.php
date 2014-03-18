@@ -2,14 +2,14 @@
 
 namespace phs\ast;
 
-class StrLit extends Node
+class StrLit extends Expr
 {
-  public $value;
+  public $data;
   public $flag;
   
-  public function __construct($value, $flag)
+  public function __construct($data, $flag)
   {
-    $this->value = (string)$value;
+    $this->data = (string)$data;
     $this->flag = $flag;
   }
 }

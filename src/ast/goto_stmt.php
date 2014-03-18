@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class GotoStmt extends Node
+class GotoStmt extends Stmt
 {
   public $id;
   

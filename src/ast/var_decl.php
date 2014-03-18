@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class VarDecl extends Node
+class VarDecl extends Decl
 {
   public $mods;
   public $vars;

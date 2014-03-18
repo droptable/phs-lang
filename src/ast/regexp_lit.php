@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class RegexpLit extends Node
+class RegexpLit extends Expr
 {
   public $value;
   

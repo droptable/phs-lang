@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class SNumLit extends Node
+class SNumLit extends Expr
 {
   public $value;
   public $suffix;

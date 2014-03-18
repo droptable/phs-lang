@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class IfaceDecl extends Node
+class IfaceDecl extends Decl
 {
   public $id;
   public $exts;

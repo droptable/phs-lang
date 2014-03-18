@@ -458,6 +458,8 @@ class Analyzer extends Walker
       array_push($this->sstack, $this->scope);
       $this->scope = $curr->scope;
     }
+    
+    $node->scope = $this->scope;
   }
   
   protected function leave_module($node) 
@@ -570,6 +572,7 @@ class Analyzer extends Walker
     
     array_push($this->sstack, $this->scope);
     $node->scope = new ClassScope($sym, $this->scope);
+    $node->symbol = $sym;
     $this->scope = $node->scope;
     
     $this->collect_inherit($sym);
@@ -706,6 +709,7 @@ class Analyzer extends Walker
     
     array_push($this->sstack, $this->scope);
     $node->scope = new FnScope($sym, $this->scope);
+    $node->symbol = $sym;
     $this->scope = $node->scope;
         
     // backup flags
@@ -772,6 +776,7 @@ class Analyzer extends Walker
     
     array_push($this->sstack, $this->scope);
     $node->scope = new FnScope($sym, $this->scope);
+    $node->symbol = $sym;
     $this->scope = $node->scope;
         
     // backup flags
@@ -872,6 +877,8 @@ class Analyzer extends Walker
     $this->pass = 0;
     
     $this->enter_fn($sym, $node);
+    $node->symbol = $sym;
+    
     // just for debugging
     $sym->fn_scope = $this->scope;
     
@@ -2102,6 +2109,7 @@ class Analyzer extends Walker
     
     $sym = new FnSym($fid, SYM_FLAG_NONE, $node->loc);  
     $this->enter_fn($sym, $node);
+    $node->symbol = $sym;
     
     // the symbol gets added after a new scope was entered
     if (!$this->add_symbol($fid, $sym)) {
@@ -3212,6 +3220,9 @@ class Analyzer extends Walker
       $sym = $sym->symbol;
     }
     
+    // cache
+    $name->symbol = $sym;
+    
     /* allow NULL here */
     if ($this->access === self::ACC_READ && $sym->kind === SYM_KIND_VAR && 
         $sym->value->kind === VAL_KIND_EMPTY && $sym->value->guarded !== true)
@@ -3242,7 +3253,6 @@ class Analyzer extends Walker
     
     unk:
     $this->value = new Value(VAL_KIND_UNKNOWN);
-    $this->value->symbol = $sym;
     
     out:
   }
@@ -3264,6 +3274,9 @@ class Analyzer extends Walker
       goto unk;
     }
     
+    // cache
+    $node->symbol = $sym;
+    
     /* allow NULL here */
     if ($this->access === self::ACC_READ && $sym->kind === SYM_KIND_VAR && 
         $sym->value->kind === VAL_KIND_EMPTY && $sym->value->guarded !== true)
@@ -3278,7 +3291,6 @@ class Analyzer extends Walker
     
     unk:
     $this->value = new Value(VAL_KIND_UNKNOWN);
-    $this->value->symbol = $sym;
     
     out:
   }
@@ -3318,7 +3330,7 @@ class Analyzer extends Walker
   
   protected function visit_str_lit($node) 
   {
-    $this->value = new Value(VAL_KIND_STR, $node->value);
+    $this->value = new Value(VAL_KIND_STR, $node->data);
   }
   
   protected function visit_type_id($node)

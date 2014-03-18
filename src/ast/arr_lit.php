@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class ArrLit extends Node
+class ArrLit extends Expr
 {
   public $items;
   
