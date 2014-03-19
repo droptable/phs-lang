@@ -47,7 +47,7 @@ class Generator extends Walker
   
   protected function temp()
   {
-    return '$T' . ($this->temp_uid++);
+    return '$_T' . ($this->temp_uid++);
   }
   
   /* ------------------------------------ */
@@ -127,7 +127,6 @@ class Generator extends Walker
       $T0 = $this->temp();
       $T1 = $this->temp();
       
-      $this->emitln('/* rest-parameter boilerplate */');
       $this->emitln('$', $rest, '=[];');
       $this->emit('for (');
       $this->emit($T0, '=', $argc - 1, ',');
@@ -163,6 +162,10 @@ class Generator extends Walker
   {
     $sym = $node->symbol;
     
+    if ($sym->flags & SYM_FLAG_EXTERN)
+      return $this->drop();
+    
+    $this->emitln('#line ', $node->loc->pos->line);
     $this->emit('function ', $sym->name);
     $this->emit_params($node->params);
     $this->enter_scope($node->scope); 
@@ -185,12 +188,22 @@ class Generator extends Walker
   {
     $this->walk_some($node->callee);
     $this->emit('(');
-    $this->walk_some($node->args);
+    
+    $first = true;
+    foreach ($node->args as $arg) {
+      if (!$first) $this->emit(',');
+      $this->walk_some($arg);
+      $first = false;
+    }
+    
     $this->emit(')');
   }
   
   protected function visit_name($node)
   {
+    if ($node->symbol->kind !== SYM_KIND_FN)
+      $this->emit('$');
+    
     $this->emit(name_to_str($node));
   }
   
