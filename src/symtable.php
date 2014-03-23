@@ -20,6 +20,16 @@ class SymTable implements IteratorAggregate
   }
   
   /**
+   * checks if at least one symbol is available
+   * 
+   * @return boolean
+   */
+  public function avail()
+  {
+    return !empty ($this->syms);
+  }
+  
+  /**
    * add a symbol
    * 
    * @param string $name

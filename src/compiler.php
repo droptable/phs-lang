@@ -98,6 +98,8 @@ class Compiler
     if (!$this->ctx->valid)
       return;
     
+    #return;
+    
     /*
     // 2. optimize
     foreach ($this->units as $unit)

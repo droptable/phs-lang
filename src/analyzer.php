@@ -86,7 +86,8 @@ class Analyzer extends Walker
   // access flags
   const
     ACC_READ = 1,
-    ACC_WRITE = 2
+    ACC_WRITE = 2,
+    ACC_CALL = 3
   ;
   
   // access flag for assignments
@@ -230,7 +231,7 @@ class Analyzer extends Walker
         array_push($path, $part);
         
         if (!$base) {
-          $this->error_at($name->loc, ERR_ERROR, 'import from undefined module `%s`', implode('::', $path));
+          $this->error_at($name->loc, ERR_ERROR, 'import from undefined module `%s` (`%s`)', implode('::', $path), name_to_str($name));
           return false;
         }  
         
@@ -2854,7 +2855,7 @@ class Analyzer extends Walker
   protected function visit_call_expr($node) 
   {
     array_push($this->astack, [ $this->access, $this->accloc ]);
-    $this->access = self::ACC_READ;
+    $this->access = self::ACC_CALL;
     $this->accloc = $node->loc;
     
     $lhs = $this->handle_expr($node->callee);
@@ -3223,6 +3224,11 @@ class Analyzer extends Walker
     // cache
     $name->symbol = $sym;
     
+    // TODO: functions must be usable as value in read/write access!
+    // for now this is a bit compilcated, because PHP does not allow this...
+    if ($sym->kind !== SYM_KIND_VAR && !($this->access === self::ACC_CALL && $sym->kind === SYM_KIND_FN))
+      goto nop;
+    
     /* allow NULL here */
     if ($this->access === self::ACC_READ && $sym->kind === SYM_KIND_VAR && 
         $sym->value->kind === VAL_KIND_EMPTY && $sym->value->guarded !== true)
@@ -3246,6 +3252,11 @@ class Analyzer extends Walker
     } else
       $this->error_at($name->loc, ERR_ERROR, 'module `%s` used as value', $path);  
 
+    goto unk;
+    
+    nop:
+    $this->error_at($name->loc, ERR_ERROR, 'can not use symbol `%s` as value (for now!)', name_to_str($name));
+    $this->error_at($sym->loc, ERR_INFO, 'declaration was here');
     goto unk;
     
     err:    

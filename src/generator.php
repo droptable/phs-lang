@@ -96,7 +96,7 @@ class Generator extends Walker
   
   /* ------------------------------------ */
   
-  protected function emit_params($params)
+  protected function emit_params($params, $captures = ' ')
   {
     $this->emit('(');
     $rest = null;
@@ -120,7 +120,7 @@ class Generator extends Walker
         $argc++;
       }
       
-    $this->emit(') {');
+    $this->emit(')', $captures, '{');
     $this->emit_indent();
     
     if ($rest !== null) {
@@ -166,15 +166,31 @@ class Generator extends Walker
       return $this->drop();
     
     $this->emitln('#line ', $node->loc->pos->line);
-    $this->emit('function ', $sym->name);
-    $this->emit_params($node->params);
+    
+    $capt = $node->scope->get_captures();
+    
+    if ($capt->avail())
+      $this->emit('$', $sym->name, '=function');
+    else
+      $this->emit('function ', $sym->name);
+    
+    $fuse = [];
+    foreach ($capt as $sym)
+      $fuse[] = '&$' . $sym->name;
+    
+    $fuse = ' use(' . implode(',', $fuse) . ') ';
+    
+    $this->emit_params($node->params, $fuse);
     $this->enter_scope($node->scope); 
   }
   
   protected function leave_fn_decl($node)
   {
     $this->emit_dedent();
-    $this->emitln('}');
+    $this->emit('}');
+    if ($node->scope->has_captures())
+      $this->emit(';');
+    $this->emitln('');
     $this->leave_scope();
   }
   
@@ -189,11 +205,13 @@ class Generator extends Walker
     $this->walk_some($node->callee);
     $this->emit('(');
     
-    $first = true;
-    foreach ($node->args as $arg) {
-      if (!$first) $this->emit(',');
-      $this->walk_some($arg);
-      $first = false;
+    if ($node->args !== null) {
+      $first = true;
+      foreach ($node->args as $arg) {
+        if (!$first) $this->emit(',');
+        $this->walk_some($arg);
+        $first = false;
+      }
     }
     
     $this->emit(')');
@@ -201,10 +219,21 @@ class Generator extends Walker
   
   protected function visit_name($node)
   {
-    if ($node->symbol->kind !== SYM_KIND_FN)
-      $this->emit('$');
+    $sym = $node->symbol;
     
-    $this->emit(name_to_str($node));
+    if ($sym->kind === SYM_KIND_FN) {
+      if ($node->root === true)
+        $this->emit('\\Z\\');
+      
+      $this->emit(ident_to_str($node->base));
+      
+      if ($node->parts !== null)
+        foreach ($node->parts as $part)
+          $this->emit('\\', ident_to_str($part));
+    } else {
+      // symbol is a variable (due to restrictions [see analyzer])
+      $this->emit('$', ident_to_str($node->base));
+    }
   }
   
   protected function visit_lnum_lit($node)

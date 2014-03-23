@@ -98,6 +98,13 @@ class FileSource implements Source
       $nam = basename($this->path, '.phs');
       $dir = realpath(__DIR__ . '/../out');
       
+      $this->dest = "$dir/$nam.php";
+      
+      #if (is_file($this->dest))
+        #unlink($this->dest);
+      
+      return $this->dest;
+      
       do {
         if ($try > 1000) {
           if ($stt === 1)

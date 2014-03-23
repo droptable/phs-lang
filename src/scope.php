@@ -16,6 +16,9 @@ class Scope extends SymTable
   // unreachable (dropped) symbols
   private $drop;
   
+  // captured symbols (derived from parent scope)
+  private $capt;
+  
   /**
    * constructor
    * 
@@ -28,6 +31,7 @@ class Scope extends SymTable
     $this->prev = $prev;
     $this->uref = [];
     $this->drop = [];
+    $this->capt = new SymTable;
   }
   
   /**
@@ -44,9 +48,15 @@ class Scope extends SymTable
   {    
     $res = parent::get($id, $track);
     
-    if (!$res) {
-      if ($this->prev && $walk)
-        return $this->prev->get($id, $track, $loc, $walk);
+    if (!$res && $walk) {
+      if ($this->prev) {
+        $res = $this->prev->get($id, $track, $loc, $walk);
+        
+        if ($res !== null)
+          $this->capt->add($id, $res);
+        
+        goto out;
+      }
       
       // the symbol was not found and we do not have a parent scope!
       // add it as "unresolved-reference"
@@ -54,6 +64,7 @@ class Scope extends SymTable
         $this->uref[$id] = $loc;
     }
     
+    out:
     return $res;
   }
   
@@ -124,11 +135,29 @@ class Scope extends SymTable
     return $this->drop;
   }
   
+  /**
+   * returns all captured variables
+   * 
+   * @return SymTable
+   */
+  public function get_captures()
+  {
+    return $this->capt;
+  }
+  
+  public function has_captures()
+  {
+    return $this->capt->avail();
+  }
+  
   /* ------------------------------------ */
   
   public function debug($dp = '', $pf = '@ ')
   {
     parent::debug($dp, $pf);
+    
+    if ($this->capt->avail())
+      $this->capt->debug($dp, '& ');
   }
 }
 
@@ -307,6 +336,8 @@ class FnScope extends Scope
 {
   // the function symbol
   public $symbol;
+  
+  // captured variables
   
   public function __construct(FnSym $fnsym, Scope $prev = null)
   {
