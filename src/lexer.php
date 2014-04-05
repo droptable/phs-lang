@@ -555,6 +555,7 @@ class Lexer
     static $re_dnum = '/^(\.\d+|\d+\.\d*)/';
     static $re_lnum = '/^(\d+)([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)?/';
     static $re_base = '/^(?:0[xX][0-9A-Fa-f]+|0[0-7]+|0[bB][01]+)$/';
+    static $re_aref = '/^=\s*&/';
     
     static $eq_err = "found '%s', used '%s' instead";
     
@@ -568,9 +569,13 @@ class Lexer
       $tid = !empty($m[2]) ? T_SNUM : T_LNUM; 
       $tok = $this->token($tid, $m[1]);
       $tok->suffix = $tid === T_SNUM ? $m[2] : null;
-    } else if (preg_match($re_base, $sub)) {
+    } elseif (preg_match($re_base, $sub)) {
       $tok = $this->token(T_LNUM, $sub);
       $tok->suffix = null;
+    } elseif (preg_match($re_aref, $sub)) {
+      // LALR generator would be able to handle <left '=' '&' right> in the grammar.
+      // this little "hack" reduces the parser-table sizes a bit
+      $tok = $this->token(T_AREF, $sub);
     } else {
       // warn about '===' and '!=='
       if ($sub === '===' || $sub === '!==')

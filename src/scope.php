@@ -76,6 +76,7 @@ class Scope extends SymTable
   public function add($id, Symbol $sym)
   {
     $sym->scope = $this;    
+    $sym->binding = SYM_BIND_NONE;
     return parent::add($id, $sym);
   }
   
@@ -87,6 +88,7 @@ class Scope extends SymTable
   public function set($id, Symbol $sym)
   {
     $sym->scope = $this;
+    $sym->binding = SYM_BIND_NONE;
     return parent::set($id, $sym);
   }
   
@@ -154,10 +156,10 @@ class Scope extends SymTable
   
   public function debug($dp = '', $pf = '@ ')
   {
-    parent::debug($dp, $pf);
-    
     if ($this->capt->avail())
       $this->capt->debug($dp, '& ');
+    
+    parent::debug($dp, $pf);
   }
 }
 
@@ -275,6 +277,7 @@ class ClassScope extends Scope
   {
     # print "adding member '$id' to class-symtable\n";
     $sym->scope = $this;
+    $sym->binding = SYM_BIND_THIS;
     return $this->symbol->members->add($id, $sym);
   }
   
@@ -287,6 +290,7 @@ class ClassScope extends Scope
   public function set($id, Symbol $sym)
   {
     $sym->scope = $this;
+    $sym->binding = SYM_BIND_THIS;
     return $this->symbol->members->set($id, $sym);
   }
   

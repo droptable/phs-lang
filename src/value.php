@@ -147,6 +147,23 @@ class Value
     return $nval;    
   }
   
+  public static function is_scalar($val)
+  {
+    switch ($val->kind) {
+      case VAL_KIND_LNUM:
+      case VAL_KIND_DNUM:
+      case VAL_KIND_STR:
+        return true;
+      case VAL_KIND_ARR:
+        foreach ($val->value as $item)
+          if (!Value::is_scalar($item))
+            return false;
+        return true;
+      default:
+        return false;
+    }
+  }
+  
   /* ------------------------------------ */
   
   public function __clone()

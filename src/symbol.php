@@ -46,6 +46,12 @@ const
   REF_KIND_FN = 13
 ;
 
+// bindings
+const
+  SYM_BIND_THIS = 1,
+  SYM_BIND_NONE = 2
+;
+
 abstract class Symbol 
 {
   // location of the symbol
@@ -69,6 +75,9 @@ abstract class Symbol
   // the scope where this symbol is defined
   public $scope;
   
+  // binding
+  public $binding;
+  
   public function __construct($kind, $name, $flags, Location $loc = null)
   {
     $this->name = $name;
@@ -77,7 +86,6 @@ abstract class Symbol
     $this->reads = 0;
     $this->writes = 0;
     $this->kind = $kind;
-    $this->exported = false;
   }
   
   public function is_ref()
@@ -217,6 +225,15 @@ class FnSym extends Symbol
   // calls
   public $calls = 0;
   
+  // whenever this function is inside a other function
+  public $nested = false;
+  
+  // strategies 
+  const
+    GEN_FUNCTION = 0,
+    GEN_CLOSURE = 1
+  ;
+  
   public function __construct($name, $flags, Location $loc = null)
   {
     parent::__construct(SYM_KIND_FN, $name, $flags, $loc);
@@ -240,6 +257,9 @@ class ParamSym extends VarSym
 {
   // hint
   public $hint;
+  
+  // initializer
+  public $init;
   
   // rest-param?
   public $rest;

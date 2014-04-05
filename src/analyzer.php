@@ -435,11 +435,13 @@ class Analyzer extends Walker
   {
     $name = $node->name;
     $rmod = null;
+    $cmod = null;
     
     if ($name === null) {
       // switch to global scope
       array_push($this->sstack, $this->scope);
-      $this->scope = $this->ctx->get_root();
+      $cmod = $this->ctx->get_root();
+      $this->scope = $cmod;
     } else {
       if ($name->root)
         // use root module
@@ -449,18 +451,19 @@ class Analyzer extends Walker
         $rmod = $this->scope->super;
       }
        
-      $curr = $rmod->fetch(name_to_stra($name), true, SYM_FLAG_NONE, $node->loc);
+      $cmod = $rmod->fetch(name_to_stra($name), true, SYM_FLAG_NONE, $node->loc);
       
-      if ($curr === null) {
+      if ($cmod === null) {
         $this->reveal_module_collision($rmod, $name);        
         return $this->drop();
       }
        
       array_push($this->sstack, $this->scope);
-      $this->scope = $curr->scope;
+      $this->scope = $cmod->scope;
     }
     
     $node->scope = $this->scope;
+    $node->module = $cmod;
   }
   
   protected function leave_module($node) 
@@ -566,6 +569,10 @@ class Analyzer extends Walker
         return $this->drop();
     
     $iid = ident_to_str($node->id);
+    
+    if (!$this->check_ident($iid))
+      return $this->drop();
+    
     $sym = new IfaceSym($iid, $flags, $node->loc);
     
     if (!$this->add_symbol($iid, $sym))
@@ -598,6 +605,10 @@ class Analyzer extends Walker
     }
     
     $cid = ident_to_str($node->id);
+    
+    if (!$this->check_ident($cid))
+      return $this->drop();
+    
     $flags |= $this->fetch_additional_flags($cid, SYM_KIND_CLASS);
     
     if ($node->members === null)
@@ -837,6 +848,10 @@ class Analyzer extends Walker
     }
     
     $fid = ident_to_str($node->id);
+    
+    if (!$this->check_ident($fid))
+      return $this->drop();
+    
     $flags |= $this->fetch_additional_flags($fid, SYM_KIND_FN);
     
     if ($flags & SYM_FLAG_EXTERN && $node->body !== null) {
@@ -853,9 +868,9 @@ class Analyzer extends Walker
     }
     
     // if (not in class) and (has modifier static) and (has modifier extern)
-    if (!$klass && $flags & SYM_FLAG_STATIC && $flags & SYM_FLAG_EXTERN) {
+    if (!$klass && $flags & SYM_FLAG_PRIVATE && $flags & SYM_FLAG_EXTERN) {
       if ($this->pass === 0 || $this->pass === 2)
-        $this->error_at($node->loc, ERR_ERROR, 'static function can not be extern');
+        $this->error_at($node->loc, ERR_ERROR, 'private function can not be extern');
       return $this->drop();
     }
     
@@ -867,6 +882,7 @@ class Analyzer extends Walker
         return $this->drop();
     
     $sym = new FnSym($fid, $flags, $node->loc);
+    $sym->nested = $this->infn > 0;
     
     if (!$this->add_symbol($fid, $sym))
       return $this->drop();
@@ -1067,9 +1083,12 @@ class Analyzer extends Walker
     } else
       $this->walk_some($node->stmt);
       
-    if ($lexical === true)
+    if ($lexical === true) {
+      $node->lexical = true;
+      $node->scope = $this->scope;
       $this->scope = array_pop($this->sstack);
-      
+    }
+    
     $this->leave_loop();
   }
   
@@ -1125,8 +1144,11 @@ class Analyzer extends Walker
     } else
       $this->walk_some($node->stmt);
       
-    if ($lexical === true)
+    if ($lexical === true) {
+      $node->lexical = true;
+      $node->scope = $this->scope;
       $this->scope = array_pop($this->sstack);
+    }
       
     $this->leave_loop();
   }
@@ -1246,7 +1268,7 @@ class Analyzer extends Walker
   
   protected function visit_throw_stmt($node) 
   {
-    $this->handle_expr($node->block);
+    $this->handle_expr($node->expr);
   }
   
   protected function visit_while_stmt($node) 
@@ -1325,6 +1347,9 @@ class Analyzer extends Walker
         $pid = ident_to_str($param->id);
         $sym = new ParamSym($pid, new Value(VAL_KIND_UNKNOWN), $flags, $param->loc);
         $sym->rest = $kind === 'rest_param';
+        
+        if (!$sym->rest && $param->init !== null)
+          $sym->init = $this->handle_expr($param->init);
         
         if ($param->hint !== null) {
           $hint = $this->handle_param_hint($param->hint);
@@ -1470,6 +1495,11 @@ class Analyzer extends Walker
     return !$seen_error;
   }
   
+  protected function check_ident($id)
+  {
+    return true; 
+  }
+  
   /**
    * handles a variable declaration
    * 
@@ -1484,6 +1514,9 @@ class Analyzer extends Walker
     switch ($var->kind()) {
       case 'ident':
         $vid = ident_to_str($var);
+        
+        if (!$this->check_ident($vid))
+          return $this->drop();
         
         if ($this->pass > 0 && $this->pass !== 3)
           // do not handle expressions
@@ -2102,10 +2135,12 @@ class Analyzer extends Walker
     if ($node->params !== null)
       if (!$this->check_params($node->params, false))
         return $this->drop();
-        
-    if ($node->id !== null)
+    
+    $cpt = false;
+    if ($node->id !== null) {
       $fid = ident_to_str($node->id);
-    else
+      $cpt = true;
+    } else
       $fid = '#anonymus~' . (self::$anon_uid++);
     
     $sym = new FnSym($fid, SYM_FLAG_NONE, $node->loc);  
@@ -2122,7 +2157,7 @@ class Analyzer extends Walker
     $sym->fn_scope = $this->scope;
            
     if ($node->params !== null)
-      $this->handle_params($node->params);
+      $this->handle_params($sym, $node->params);
     
     $this->walk_some($node->body);
     $this->leave_fn();
@@ -2595,7 +2630,7 @@ class Analyzer extends Walker
     
     $lhs = $this->handle_expr($node->left);
     $rhs = $this->handle_expr($node->right);
-    
+        
     if (!$fail && $lhs->kind !== VAL_KIND_UNKNOWN) {
       if ($lhs->symbol !== null) {
         $sym = $lhs->symbol;
@@ -2646,6 +2681,7 @@ class Analyzer extends Walker
       $lhs->symbol->value = $this->value = $rhs;
       $rhs->symbol = $lhs->symbol;
       $lhs->symbol->writes++;
+      $lhs->symbol->assigned = true;
       goto out;
     }
     
@@ -3226,21 +3262,27 @@ class Analyzer extends Walker
     
     // TODO: functions must be usable as value in read/write access!
     // for now this is a bit compilcated, because PHP does not allow this...
-    if ($sym->kind !== SYM_KIND_VAR && !($this->access === self::ACC_CALL && $sym->kind === SYM_KIND_FN))
-      goto nop;
+    #if ($sym->kind !== SYM_KIND_VAR && !($this->access === self::ACC_CALL && $sym->kind === SYM_KIND_FN))
+      #goto nop;
     
     /* allow NULL here */
     if ($this->access === self::ACC_READ && $sym->kind === SYM_KIND_VAR && 
         $sym->value->kind === VAL_KIND_EMPTY && $sym->value->guarded !== true)
       $this->error_at($name->loc, ERR_WARN, 'access to (maybe) uninitialized symbol `%s`', name_to_str($name));
     
-    $sym->reads++;
     if ($sym->flags & SYM_FLAG_CONST) {      
       // do not use values from non-const symbols
       $this->value = Value::from($sym);
       goto out;
     }
     
+    if ($this->access === self::ACC_WRITE)
+      $sym->writes++;
+    elseif ($this->access === self::ACC_READ)
+      $sym->reads++;
+    elseif ($sym->kind === SYM_KIND_FN)
+      $sym->calls++;
+      
     goto unk;
     
     mod:
@@ -3254,10 +3296,10 @@ class Analyzer extends Walker
 
     goto unk;
     
-    nop:
-    $this->error_at($name->loc, ERR_ERROR, 'can not use symbol `%s` as value (for now!)', name_to_str($name));
-    $this->error_at($sym->loc, ERR_INFO, 'declaration was here');
-    goto unk;
+    #nop:
+    #$this->error_at($name->loc, ERR_ERROR, 'can not use symbol `%s` as value (for now!)', name_to_str($name));
+    #$this->error_at($sym->loc, ERR_INFO, 'declaration was here');
+    #goto unk;
     
     err:    
     $this->error_at($name->loc, ERR_ERROR, 'access to undefined symbol `%s`', name_to_str($name));

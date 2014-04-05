@@ -12,6 +12,7 @@
 %expect 3
 
 %left ','
+%right T_ARR
 %right T_PRINT 
 %right T_YIELD
 %right T_APLUS T_AMINUS T_AMUL T_ADIV T_AMOD T_APOW
@@ -19,7 +20,7 @@
        T_ABIT_OR T_ABIT_AND T_ABIT_XOR
        T_ABOOL_OR T_ABOOL_AND T_ABOOL_XOR
        T_ASHIFT_L T_ASHIFT_R 
-       '='
+       T_AREF '='
 %left T_RANGE
 %right '?' ':'
 %left T_BOOL_OR
@@ -41,7 +42,7 @@
 %right '!' 
 %right T_NEW
 %left '.' '[' ']'
-%nonassoc '(' ')' T_ARR
+%nonassoc '(' ')'
 %nonassoc T_DDDOT
 
 %token T_FN
@@ -319,8 +320,8 @@ enum_decl
   ;
 
 enum_vars
-  : /* empty */    { $$ = null; }
-  | vars comma_opt { $$ = $1; }
+  : /* empty */          { $$ = null; }
+  | vars_noref comma_opt { $$ = $1; }
   ;
   
 vars
@@ -329,8 +330,9 @@ vars
   ;
   
 var
-  : destr_item          { $$ = @VarItem($1, null); }
-  | destr_item '=' rxpr { $$ = @VarItem($1, $3); }
+  : destr_item             { $$ = @VarItem($1, null, false); }
+  | destr_item '=' rxpr    { $$ = @VarItem($1, $3, false); }
+  | destr_item T_AREF nxpr { $$ = @VarItem($1, $3, true); }
   ;
 
 vars_noin
@@ -339,8 +341,19 @@ vars_noin
   ;
   
 var_noin
-  : destr_item               { $$ = @VarItem($1, null); }
-  | destr_item '=' rxpr_noin { $$ = @VarItem($1, $3); }
+  : destr_item               { $$ = @VarItem($1, null, false); }
+  | destr_item '=' rxpr_noin { $$ = @VarItem($1, $3, false); }
+  | destr_item T_AREF nxpr   { $$ = @VarItem($1, $3, true); }
+  ;
+
+vars_noref
+  : var_noref                { $$ = [ $1 ]; }
+  | vars_noref ',' var_noref { $1[] = $3; $$ = $1; }
+  ;
+  
+var_noref
+  : destr_item          { $$ = @VarItem($1, null, false); }
+  | destr_item '=' rxpr { $$ = @VarItem($1, $3, false); }
   ;
   
 destr
@@ -844,6 +857,7 @@ lxpr
   | lxpr T_INC %prec '.'    { $$ = @UpdateExpr(false, $1, $2); }
   | lxpr T_DEC %prec '.'    { $$ = @UpdateExpr(false, $1, $2); }
   | lxpr '=' rxpr           { $$ = @AssignExpr($1, $2, $3); }
+  | lxpr T_AREF nxpr        { $$ = @AssignExpr($1, $2, $3); }
   | lxpr T_APLUS rxpr       { $$ = @AssignExpr($1, $2, $3); }
   | lxpr T_AMINUS rxpr      { $$ = @AssignExpr($1, $2, $3); }
   | lxpr T_AMUL rxpr        { $$ = @AssignExpr($1, $2, $3); }
@@ -866,7 +880,8 @@ lxpr
   | lxpr '?' rxpr ':' rxpr  { $$ = @CondExpr($1, $3, $5); } 
   | lxpr '?' ':' rxpr       { $$ = @CondExpr($1, null, $4); }
   | lxpr pargs              { $$ = @CallExpr($1, $2); }
-  | T_YIELD rxpr            { $$ = @YieldExpr($2); }
+  | T_YIELD rxpr            { $$ = @YieldExpr(null, $2); }
+  | T_YIELD rxpr ':' rxpr   { $$ = @YieldExpr($2, $4); }
   | '-' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
   | '+' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
   | '~' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
@@ -916,6 +931,7 @@ rxpr
   | rxpr T_INC %prec '.'    { $$ = @UpdateExpr(false, $1, $2); }
   | rxpr T_DEC %prec '.'    { $$ = @UpdateExpr(false, $1, $2); }
   | rxpr '=' rxpr           { $$ = @AssignExpr($1, $2, $3); }
+  | rxpr T_AREF nxpr        { $$ = @AssignExpr($1, $2, $3); }
   | rxpr T_APLUS rxpr       { $$ = @AssignExpr($1, $2, $3); }
   | rxpr T_AMINUS rxpr      { $$ = @AssignExpr($1, $2, $3); }
   | rxpr T_AMUL rxpr        { $$ = @AssignExpr($1, $2, $3); }
@@ -938,7 +954,8 @@ rxpr
   | rxpr '?' rxpr ':' rxpr  { $$ = @CondExpr($1, $3, $5); } 
   | rxpr '?' ':' rxpr       { $$ = @CondExpr($1, null, $4); }
   | rxpr pargs              { $$ = @CallExpr($1, $2); }
-  | T_YIELD rxpr            { $$ = @YieldExpr($2); }
+  | T_YIELD rxpr            { $$ = @YieldExpr(null, $2); }
+  | T_YIELD rxpr ':' rxpr   { $$ = @YieldExpr($2, $4); }
   | '-' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
   | '+' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
   | '~' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
@@ -989,6 +1006,7 @@ rxpr_noin
   | rxpr_noin T_INC %prec '.'         { $$ = @UpdateExpr(false, $1, $2); }
   | rxpr_noin T_DEC %prec '.'         { $$ = @UpdateExpr(false, $1, $2); }
   | rxpr_noin '=' rxpr_noin           { $$ = @AssignExpr($1, $2, $3); }
+  | rxpr_noin T_AREF nxpr             { $$ = @AssignExpr($1, $2, $3); }
   | rxpr_noin T_APLUS rxpr_noin       { $$ = @AssignExpr($1, $2, $3); }
   | rxpr_noin T_AMINUS rxpr_noin      { $$ = @AssignExpr($1, $2, $3); }
   | rxpr_noin T_AMUL rxpr_noin        { $$ = @AssignExpr($1, $2, $3); }
@@ -1011,7 +1029,8 @@ rxpr_noin
   | rxpr_noin '?' rxpr ':' rxpr_noin  { $$ = @CondExpr($1, $3, $5); } 
   | rxpr_noin '?' ':' rxpr_noin       { $$ = @CondExpr($1, null, $4); }
   | rxpr_noin pargs                   { $$ = @CallExpr($1, $2); }
-  | T_YIELD rxpr_noin                 { $$ = @YieldExpr($2); }
+  | T_YIELD rxpr                      { $$ = @YieldExpr(null, $2); }
+  | T_YIELD rxpr ':' rxpr             { $$ = @YieldExpr($2, $4); }
   | '-' rxpr_noin %prec '!'           { $$ = @UnaryExpr($1, $2); }
   | '+' rxpr_noin %prec '!'           { $$ = @UnaryExpr($1, $2); }
   | '~' rxpr_noin %prec '!'           { $$ = @UnaryExpr($1, $2); }
@@ -1053,7 +1072,7 @@ nxpr
   | nxpr '[' error ']'    { $$ = null; }
   | atom                  { $$ = $1; }
   ;
- 
+  
 pxpr
   : '(' rxpr ')'  { $$ = $2; }
   | '(' error ')' { $$ = null; }

@@ -10,6 +10,9 @@ class Module extends Node
   // scope
   public $scope;
   
+  // module
+  public $module;
+  
   public function __construct($name, $body)
   {
     assert($body === null || is_array($body) ||

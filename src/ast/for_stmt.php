@@ -9,6 +9,9 @@ class ForStmt extends Stmt
   public $each;
   public $stmt;
   
+  public $lexical = false;
+  public $scope;
+  
   public function __construct($init, $test, $each, $stmt)
   {
     $this->init = $init;

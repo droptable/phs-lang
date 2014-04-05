@@ -35,7 +35,7 @@ class Module extends Scope
    * @param boolean $join
    * @return string|array
    */
-  public function path($join = true)
+  public function path($join = true, $sep = '::')
   {
     $path = [];
     $prev = $this->get_prev();
@@ -51,7 +51,7 @@ class Module extends Scope
     $path = array_reverse($path);
     $path[] = $this->name;
     
-    if ($join) return implode('::', $path);
+    if ($join) return implode($sep, $path);
     return $path;
   }
   
