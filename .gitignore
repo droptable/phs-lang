@@ -5,7 +5,10 @@ bin/test.bat
 bin/test.log
 bin/test.phs
 bin/test.php
+src_/
 src/old/
+src/front/yacc/kmyacc.exe
+src/front/yacc/y.output
 test/
 lib/
 out/

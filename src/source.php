@@ -26,57 +26,23 @@ interface Source
   public function get_dest();
 }
 
-/** text source */
-class TextSource implements Source
-{
-  // the text
-  private $text;
-  
-  // the name
-  private $name;
-  
-  // the destination
-  private $dest;
-  
-  public function __construct($text, $name = '<unknown source>', $dest = null)
-  {
-    $this->text = $text;
-    $this->name = $name;  
-    $this->dest = $dest;
-  }
-  
-  public function get_name() 
-  {
-    return $this->name;
-  }
-  
-  public function get_text()
-  {
-    return $this->text;
-  }
-  
-  public function get_dest()
-  {
-    if (!$this->dest)
-      $this->dest = tempnam(realpath(__DIR__ . '/../out'), 'out');
-    
-    return $this->dest;
-  }
-}
-
 /** file source */
 class FileSource implements Source
 {
+  // the file is a php-file
+  public $php;
+  
   // the path
   private $path;
   
   // the destination
   private $dest;
   
-  public function __construct($path, $dest = null)
+  public function __construct($path, $dest = null, $php = false)
   {
     $this->path = realpath($path) ?: $path;
     $this->dest = $dest;
+    $this->php = $php;
   }
   
   public function get_name()
@@ -96,7 +62,7 @@ class FileSource implements Source
       $try = 0;
       $stt = 0;
       $nam = basename($this->path, '.phs');
-      $dir = realpath(__DIR__ . '/../out');
+      $dir = dirname($nam);
       
       $this->dest = "$dir/$nam.php";
       
