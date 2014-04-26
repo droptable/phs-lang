@@ -5,6 +5,10 @@ namespace phs\front;
 use phs\front\ast\Name;
 use phs\front\ast\Ident;
 
+require_once __DIR__ . '/../util/map.php';
+require_once __DIR__ . '/../util/set.php';
+require_once __DIR__ . '/../util/table.php';
+
 function ident_to_str(Ident $id) {
   return $id->value;
 }

@@ -2,16 +2,14 @@
 
 namespace phs\front\ast;
 
-class VarItem extends Node
+class EnumVar extends Node
 {
   public $id;
   public $init;
-  public $ref;
   
-  public function __construct($id, $init, $ref)
+  public function __construct($id, $init)
   {
     $this->id = $id;
     $this->init = $init;
-    $this->ref = $ref;
   }
 }

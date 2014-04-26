@@ -240,8 +240,17 @@ topex_attr
   ;
   
 attr_def
-  : ident                  { $$ = @AttrDef($1); }
-  | ident '(' attr_val ')' { $$ = @AttrDef($1, $3); }
+  : attr_items comma_opt { $$ = @AttrDef($1); }
+  ;
+  
+attr_items
+  : attr_item                { $$ = [ $1 ]; }
+  | attr_items ',' attr_item { $1[] = $3; $$ = $1; }
+  ;
+  
+attr_item
+  : ident                  { $$ = @AttrItem($1, null); }
+  | ident '(' attr_val ')' { $$ = @AttrItem($1, $3); }
   ;
   
 attr_val
@@ -312,7 +321,7 @@ mod
   ;
 
 enum_decl
-  : mods_opt T_ENUM '{' enum_vars '}' 
+  : mods_opt T_ENUM '{' enum_vars comma_opt '}' 
     { 
       $$ = @EnumDecl($1, $4); 
       $this->eat_semis(); 
@@ -320,57 +329,15 @@ enum_decl
   ;
 
 enum_vars
-  : /* empty */          { $$ = null; }
-  | vars_noref comma_opt { $$ = $1; }
+  : enum_var               { $$ = [ $1 ]; }
+  | enum_vars ',' enum_var { $1[] = $3; $$ = $1; }
   ;
   
-vars
-  : var          { $$ = [ $1 ]; }
-  | vars ',' var { $1[] = $3; $$ = $1; }
+enum_var
+  : ident          { $$ = @EnumVar($1, null); }
+  | ident '=' rxpr { $$ = @EnumVar($1, $3); }
   ;
-  
-var
-  : destr_item             { $$ = @VarItem($1, null, false); }
-  | destr_item '=' rxpr    { $$ = @VarItem($1, $3, false); }
-  | destr_item T_AREF nxpr { $$ = @VarItem($1, $3, true); }
-  ;
-
-vars_noin
-  : var_noin               { $$ = [ $1 ]; }
-  | vars_noin ',' var_noin { $1[] = $3; $$ = $1; }
-  ;
-  
-var_noin
-  : destr_item               { $$ = @VarItem($1, null, false); }
-  | destr_item '=' rxpr_noin { $$ = @VarItem($1, $3, false); }
-  | destr_item T_AREF nxpr   { $$ = @VarItem($1, $3, true); }
-  ;
-
-vars_noref
-  : var_noref                { $$ = [ $1 ]; }
-  | vars_noref ',' var_noref { $1[] = $3; $$ = $1; }
-  ;
-  
-var_noref
-  : destr_item          { $$ = @VarItem($1, null, false); }
-  | destr_item '=' rxpr { $$ = @VarItem($1, $3, false); }
-  ;
-  
-destr
-  : '[' destr_items ']' { $$ = @ArrDestr($2); }
-  | '{' destr_items '}' { $$ = @ObjDestr($2); }
-  ;
-
-destr_items
-  : destr_item                 { $$ = [ $1 ]; }
-  | destr_items ',' destr_item { $1[] = $3; $$ = $1; }
-  ;
-  
-destr_item
-  : ident  { $$ = $1; }
-  | destr  { $$ = $1; }
-  ;
-
+   
 class_decl
   : mods_opt T_CLASS ident ext_opt impl_opt '{' members_opt '}'
     { 
@@ -434,6 +401,7 @@ member
   | var_decl                           { $$ = $1; }
   | enum_decl                          { $$ = $1; }
   | trait_usage                        { $$ = $1; }
+  | member_attr                        { $$ = $1; }
   | mods_opt T_NEW pparams ';'         
     { 
       $$ = @CtorDecl($1, $3, null); 
@@ -459,6 +427,12 @@ member
       $this->eat_semis(); 
     }
   | mods '{' members_opt '}'           { $$ = @NestedMods($1, $3); }
+  ;
+
+member_attr
+  : '@' attr_def T_NL fn_decl  { $$ = @MemberAttr($1, $3); }
+  | '@' attr_def T_NL let_decl { $$ = @MemberAttr($1, $3); }
+  | '@' attr_def T_NL var_decl { $$ = @MemberAttr($1, $3); }
   ;
   
 trait_usage
@@ -494,29 +468,51 @@ trait_usage_item
   ;
   
 trait_decl
-  : T_TRAIT ident '{' members_opt '}' 
+  : mods_opt T_TRAIT ident '{' members_opt '}' 
     { 
-      $$ = @TraitDecl($2, $4); 
+      $$ = @TraitDecl($1, $3, $5); 
       $this->eat_semis(); 
     }
-  | T_TRAIT ident ';'  /* allowed? */
+  | mods_opt T_TRAIT ident ';'  /* allowed? */
     { 
-      $$ = @TraitDecl($2, null); 
+      $$ = @TraitDecl($1, $3, null); 
       $this->eat_semis(); 
     }
   ;
 
 iface_decl
-  : T_IFACE ident exts_opt '{' members_opt '}' 
+  : mods_opt T_IFACE ident exts_opt '{' members_opt '}' 
     { 
-      $$ = @IfaceDecl($2, $3, $5); 
+      $$ = @IfaceDecl($1, $3, $4, $6); 
       $this->eat_semis(); 
     }
-  | T_IFACE ident exts_opt ';' /* allowed? */                
+  | mods_opt T_IFACE ident exts_opt ';' /* allowed? */                
     { 
-      $$ = @IfaceDecl($2, $3, null); 
+      $$ = @IfaceDecl($1, $3, $4, null); 
       $this->eat_semis(); 
     } 
+  ;
+
+vars
+  : var          { $$ = [ $1 ]; }
+  | vars ',' var { $1[] = $3; $$ = $1; }
+  ;
+  
+var
+  : ident             { $$ = @VarItem($1, null, false); }
+  | ident '=' rxpr    { $$ = @VarItem($1, $3, false); }
+  | ident T_AREF nxpr { $$ = @VarItem($1, $3, true); }
+  ;
+
+vars_noin
+  : var_noin               { $$ = [ $1 ]; }
+  | vars_noin ',' var_noin { $1[] = $3; $$ = $1; }
+  ;
+  
+var_noin
+  : ident               { $$ = @VarItem($1, null, false); }
+  | ident '=' rxpr_noin { $$ = @VarItem($1, $3, false); }
+  | ident T_AREF nxpr   { $$ = @VarItem($1, $3, true); }
   ;
 
 inner

@@ -119,14 +119,10 @@ class Lexer
    * 
    * @return void
    */
-  public function error()
+  public function loc()
   {
-    $args = func_get_args();
-    $lvl = array_shift($args);
-    $msg = array_shift($args);
-    $loc = new Location($this->file, new Position($this->line, $this->coln));
-    
-    Logger::vlog_at($loc, $lvl, $msg, $args);
+    return new Location($this->file, 
+      new Position($this->line, $this->coln));
   }
     
   /**
@@ -324,7 +320,7 @@ class Lexer
         // in this state we can not produce tokens (anymore)
         $this->eof = true;
         $this->adjust_line_coln_beg($this->data, 0);
-        $this->error(ERR_ABORT, 'invalid input near: ' . substr($this->data, 0, 10) . '...');
+        Logger::error_at($this->loc(), 'invalid input near: ' . substr($this->data, 0, 10) . '...');
         goto eof;
       }
       
@@ -495,8 +491,7 @@ class Lexer
     
     // do not handle it as regex
     if (!$end) {
-      $this->error(ERR_WARN, 
-        'a regular expression was expected but could not be scanned');
+      Logger::warn_at($this->loc(), 'a regular expression was expected but could not be scanned');
       
       // push a T_INVL token
       $this->push($this->token(T_INVL, '<invalid>', true));
@@ -578,7 +573,7 @@ class Lexer
     } else {
       // warn about '===' and '!=='
       if ($sub === '===' || $sub === '!==')
-        $this->error(ERR_WARN, sprintf($eq_err, $sub, substr($sub, 0, -1)));
+        Logger::warn_at($this->loc(), $eq_err, $sub, substr($sub, 0, -1));
       
       if (isset(self::$table[$sub]))         
         // lookup token-table and check if the token is separator/operator  

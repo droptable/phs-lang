@@ -20,6 +20,7 @@ class Logger
   private static $level = LOG_LEVEL_ALL;
   private static $prev = '';
   private static $dest = null; // -> stderr
+  private static $cont = false;
   
   private static $hooks = [
     LOG_LEVEL_DEBUG => [],
@@ -110,12 +111,12 @@ class Logger
       $lvl = LOG_LEVEL_DEBUG;
     
     $text = trim($msg);
-    $line = substr($text, -1) !== '\\';
+    $cont = substr($text, -1, 1) === '\\';
     
-    if (!$line)
+    if ($cont)
       $text = substr($text, 0, -1);
     
-    $text = vsprintf($msg, $fmt);
+    $text = vsprintf($text, $fmt);
     
     foreach (self::$hooks[$lvl] as $cb)
       $cb($loc, $lvl, $text);
@@ -125,23 +126,27 @@ class Logger
     
     $out = '';
     
-    switch ($lvl) {
-      case LOG_LEVEL_DEBUG:
-        $out .= '[dbg]   ';
-        break;
-      case LOG_LEVEL_INFO:
-        $out .= '[info]  ';
-        break;
-      case LOG_LEVEL_WARNING:
-        $out .= '[warn]  ';
-        break;
-      case LOG_LEVEL_ERROR:
-        $out .= '[error] ';
-        break;
+    if (!self::$cont) {
+      switch ($lvl) {
+        case LOG_LEVEL_DEBUG:
+          $out .= '[dbg]   ';
+          break;
+        case LOG_LEVEL_INFO:
+          $out .= '[info]  ';
+          break;
+        case LOG_LEVEL_WARNING:
+          $out .= '[warn]  ';
+          break;
+        case LOG_LEVEL_ERROR:
+          $out .= '[error] ';
+          break;
+      }
+      
+      if ($loc !== null)
+        $out .= "{$loc->file}:{$loc->pos->line}:{$loc->pos->coln}: ";
     }
     
-    if ($loc !== null)
-      $out .= "{$loc->file}:{$loc->pos->line}:{$loc->pos->coln}: ";
+    self::$cont = $cont;
     
     $text = wordwrap($text, 80);
     $loop = false;
@@ -155,8 +160,9 @@ class Logger
       fwrite($dest, "$out$chnk ...\n");
     }
     
+    if ($wrap) $last = "... $last";
     fwrite($dest, "$out$last");
-    if ($line) fwrite($dest, "\n");
+    if (!$cont) fwrite($dest, "\n");
   }
   
   /* ------------------------------------ */
@@ -227,7 +233,7 @@ class Logger
     for ($i = 1, $l = func_num_args(); $i < $l; ++$i)
       array_push($fmt, func_get_arg($i));
     
-    self::vlog_at(null, LOG_LEVEL_WARN, $msg, $fmt);
+    self::vlog_at(null, LOG_LEVEL_WARNING, $msg, $fmt);
   }
   
   public static function warn_at(Location $loc, $msg)
@@ -236,7 +242,7 @@ class Logger
     for ($i = 2, $l = func_num_args(); $i < $l; ++$i)
       array_push($fmt, func_get_arg($i));
     
-    self::vlog_at($loc, LOG_LEVEL_WARN, $msg, $fmt);
+    self::vlog_at($loc, LOG_LEVEL_WARNING, $msg, $fmt);
   }
   
   /* ------------------------------------ */

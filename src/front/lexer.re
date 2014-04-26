@@ -81,7 +81,10 @@
     )
   |
     # the "is" and "is not" operator
-    (?:(?:!?is(?:no?t)?)(?=\s|$))
+    (?:(?:!?is(?:no?t|\s+not)?)(?=\s|$))
+  |
+    # in and not-in
+    (?:(?:!?(?:not\s+)?in)(?=\s|$))
   |
     # words (identifiers)
     [a-zA-Z_\x7f-\xff\$][a-zA-Z0-9_\x7f-\xff\$]*

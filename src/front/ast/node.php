@@ -6,9 +6,6 @@ abstract class Node
 {
   public $loc;
   
-  // meta informations
-  public $meta;
-  
   // string-represetation of this node-name
   private $kind = null;  
   

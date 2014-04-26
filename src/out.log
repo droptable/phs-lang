@@ -1,0 +1,3055 @@
+[dbg]   % Parse D:\Coding\Projects\phs-lang\src\test\test.phs
+[dbg]   % State 0, Lookahead --none--
+[dbg]   % Reading T_CLASS
+[dbg]   % Reduce by (51) mods_opt : /* empty */
+[dbg]   % State 477, Lookahead T_CLASS
+[dbg]   % Shift T_CLASS
+[dbg]   % State 516, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 611, Lookahead --none--
+[dbg]   % Reading '<'
+[dbg]   % Shift '<'
+[dbg]   % State 465, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 666, Lookahead --none--
+[dbg]   % Reading '{'
+[dbg]   % Reduce by (96) ext : name
+[dbg]   % Reduce by (91) ext_opt : '<' ext
+[dbg]   % State 618, Lookahead '{'
+[dbg]   % Reduce by (97) impl_opt : /* empty */
+[dbg]   % State 586, Lookahead '{'
+[dbg]   % Shift '{'
+[dbg]   % State 402, Lookahead --none--
+[dbg]   % Reading T_PRIVATE
+[dbg]   % Shift T_PRIVATE
+[dbg]   % Reduce by (60) mod : T_PRIVATE
+[dbg]   % Reduce by (53) mods : mod
+[dbg]   % State 399, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (86) destr_item : ident
+[dbg]   % State 566, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (70) var : destr_item
+[dbg]   % Reduce by (68) vars : var
+[dbg]   % State 565, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (143) var_decl : mods vars ';'
+[dbg]   % Reduce by (109) member : var_decl
+[dbg]   % Reduce by (105) members : member
+[dbg]   % State 403, Lookahead --none--
+[dbg]   % Reading T_PRIVATE
+[dbg]   % Shift T_PRIVATE
+[dbg]   % Reduce by (60) mod : T_PRIVATE
+[dbg]   % Reduce by (53) mods : mod
+[dbg]   % State 399, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (86) destr_item : ident
+[dbg]   % State 566, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (70) var : destr_item
+[dbg]   % Reduce by (68) vars : var
+[dbg]   % State 565, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (143) var_decl : mods vars ';'
+[dbg]   % Reduce by (109) member : var_decl
+[dbg]   % Reduce by (106) members : members member
+[dbg]   % State 403, Lookahead --none--
+[dbg]   % Reading T_PRIVATE
+[dbg]   % Shift T_PRIVATE
+[dbg]   % Reduce by (60) mod : T_PRIVATE
+[dbg]   % Reduce by (53) mods : mod
+[dbg]   % State 399, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (86) destr_item : ident
+[dbg]   % State 566, Lookahead --none--
+[dbg]   % Reading '='
+[dbg]   % Shift '='
+[dbg]   % State 260, Lookahead --none--
+[dbg]   % Reading T_NULL
+[dbg]   % Shift T_NULL
+[dbg]   % Reduce by (572) kwc : T_NULL
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 100, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (71) var : destr_item '=' rxpr
+[dbg]   % Reduce by (68) vars : var
+[dbg]   % State 565, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (143) var_decl : mods vars ';'
+[dbg]   % Reduce by (109) member : var_decl
+[dbg]   % Reduce by (106) members : members member
+[dbg]   % State 403, Lookahead --none--
+[dbg]   % Reading T_PRIVATE
+[dbg]   % Shift T_PRIVATE
+[dbg]   % Reduce by (60) mod : T_PRIVATE
+[dbg]   % Reduce by (53) mods : mod
+[dbg]   % State 399, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (86) destr_item : ident
+[dbg]   % State 566, Lookahead --none--
+[dbg]   % Reading '='
+[dbg]   % Shift '='
+[dbg]   % State 260, Lookahead --none--
+[dbg]   % Reading '['
+[dbg]   % Shift '['
+[dbg]   % State 135, Lookahead --none--
+[dbg]   % Reading ']'
+[dbg]   % Shift ']'
+[dbg]   % Reduce by (593) arr : '[' ']'
+[dbg]   % Reduce by (491) atom : arr
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 100, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (71) var : destr_item '=' rxpr
+[dbg]   % Reduce by (68) vars : var
+[dbg]   % State 565, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (143) var_decl : mods vars ';'
+[dbg]   % Reduce by (109) member : var_decl
+[dbg]   % Reduce by (106) members : members member
+[dbg]   % State 403, Lookahead --none--
+[dbg]   % Reading T_PUBLIC
+[dbg]   % Shift T_PUBLIC
+[dbg]   % Reduce by (59) mod : T_PUBLIC
+[dbg]   % Reduce by (53) mods : mod
+[dbg]   % State 399, Lookahead --none--
+[dbg]   % Reading T_FN
+[dbg]   % Reduce by (52) mods_opt : mods
+[dbg]   % State 458, Lookahead T_FN
+[dbg]   % Shift T_FN
+[dbg]   % State 515, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 549, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 364, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 478, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 656, Lookahead T_IDENT
+[dbg]   % Reduce by (501) type_name : name
+[dbg]   % Reduce by (185) hint : type_name
+[dbg]   % State 475, Lookahead T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 583, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (167) param : hint ident
+[dbg]   % Reduce by (162) params : param
+[dbg]   % State 577, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 393, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 478, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 656, Lookahead T_IDENT
+[dbg]   % Reduce by (501) type_name : name
+[dbg]   % Reduce by (185) hint : type_name
+[dbg]   % State 475, Lookahead T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 583, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (167) param : hint ident
+[dbg]   % Reduce by (163) params : params ',' param
+[dbg]   % State 577, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (161) pparams : '(' params ')'
+[dbg]   % State 505, Lookahead --none--
+[dbg]   % Reading '{'
+[dbg]   % Shift '{'
+[dbg]   % State 9, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 15, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (313) lxpr : lxpr dot_ident
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '='
+[dbg]   % Shift '='
+[dbg]   % State 186, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 80, Lookahead ';'
+[dbg]   % Reduce by (296) lxpr : lxpr '=' rxpr
+[dbg]   % State 61, Lookahead ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (132) inner : comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 15, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (313) lxpr : lxpr dot_ident
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '='
+[dbg]   % Shift '='
+[dbg]   % State 186, Lookahead --none--
+[dbg]   % Reading T_NEW
+[dbg]   % Shift T_NEW
+[dbg]   % State 347, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (478) nxpr : atom
+[dbg]   % State 496, Lookahead ';'
+[dbg]   % Reduce by (397) rxpr : T_NEW nxpr
+[dbg]   % State 80, Lookahead ';'
+[dbg]   % Reduce by (296) lxpr : lxpr '=' rxpr
+[dbg]   % State 61, Lookahead ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (133) inner : inner comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 15, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (313) lxpr : lxpr dot_ident
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ','
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ','
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 140, Lookahead --none--
+[dbg]   % Reading '{'
+[dbg]   % Shift '{'
+[dbg]   % State 13, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (609) obj_key : ident
+[dbg]   % State 648, Lookahead --none--
+[dbg]   % Reading ':'
+[dbg]   % Shift ':'
+[dbg]   % State 266, Lookahead --none--
+[dbg]   % Reading '['
+[dbg]   % Shift '['
+[dbg]   % State 135, Lookahead --none--
+[dbg]   % Reading T_STRING
+[dbg]   % Shift T_STRING
+[dbg]   % Reduce by (583) str : T_STRING
+[dbg]   % Reduce by (494) atom : str
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 33, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (601) arr_val : rxpr
+[dbg]   % Reduce by (598) arr_vals_cs : arr_val
+[dbg]   % State 599, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 138, Lookahead --none--
+[dbg]   % Reading T_STRING
+[dbg]   % Shift T_STRING
+[dbg]   % Reduce by (583) str : T_STRING
+[dbg]   % Reduce by (494) atom : str
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 98, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (601) arr_val : rxpr
+[dbg]   % Reduce by (599) arr_vals_cs : arr_vals_cs ',' arr_val
+[dbg]   % State 599, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 138, Lookahead --none--
+[dbg]   % Reading T_STRING
+[dbg]   % Shift T_STRING
+[dbg]   % Reduce by (583) str : T_STRING
+[dbg]   % Reduce by (494) atom : str
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 98, Lookahead --none--
+[dbg]   % Reading ']'
+[dbg]   % Reduce by (601) arr_val : rxpr
+[dbg]   % Reduce by (599) arr_vals_cs : arr_vals_cs ',' arr_val
+[dbg]   % State 599, Lookahead ']'
+[dbg]   % Reduce by (669) comma_opt : /* empty */
+[dbg]   % Reduce by (597) arr_vals : arr_vals_cs comma_opt
+[dbg]   % State 633, Lookahead ']'
+[dbg]   % Shift ']'
+[dbg]   % Reduce by (595) arr : '[' arr_vals ']'
+[dbg]   % Reduce by (491) atom : arr
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 103, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (608) obj_pair : obj_key ':' rxpr
+[dbg]   % Reduce by (606) obj_pairs_cs : obj_pair
+[dbg]   % State 604, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 14, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (609) obj_key : ident
+[dbg]   % State 648, Lookahead --none--
+[dbg]   % Reading ':'
+[dbg]   % Shift ':'
+[dbg]   % State 266, Lookahead --none--
+[dbg]   % Reading '['
+[dbg]   % Shift '['
+[dbg]   % State 135, Lookahead --none--
+[dbg]   % Reading T_STRING
+[dbg]   % Shift T_STRING
+[dbg]   % Reduce by (583) str : T_STRING
+[dbg]   % Reduce by (494) atom : str
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 33, Lookahead --none--
+[dbg]   % Reading ']'
+[dbg]   % Reduce by (601) arr_val : rxpr
+[dbg]   % Reduce by (598) arr_vals_cs : arr_val
+[dbg]   % State 599, Lookahead ']'
+[dbg]   % Reduce by (669) comma_opt : /* empty */
+[dbg]   % Reduce by (597) arr_vals : arr_vals_cs comma_opt
+[dbg]   % State 633, Lookahead ']'
+[dbg]   % Shift ']'
+[dbg]   % Reduce by (595) arr : '[' arr_vals ']'
+[dbg]   % Reduce by (491) atom : arr
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 103, Lookahead --none--
+[dbg]   % Reading '}'
+[dbg]   % Reduce by (608) obj_pair : obj_key ':' rxpr
+[dbg]   % Reduce by (607) obj_pairs_cs : obj_pairs_cs ',' obj_pair
+[dbg]   % State 604, Lookahead '}'
+[dbg]   % Reduce by (669) comma_opt : /* empty */
+[dbg]   % Reduce by (605) obj_pairs : obj_pairs_cs comma_opt
+[dbg]   % State 647, Lookahead '}'
+[dbg]   % Shift '}'
+[dbg]   % Reduce by (603) obj : '{' obj_pairs '}'
+[dbg]   % Reduce by (401) rxpr : obj
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (485) args : args ',' arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (319) lxpr : lxpr pargs
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (133) inner : inner comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading T_RETURN
+[dbg]   % Shift T_RETURN
+[dbg]   % State 142, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 37, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 37, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (214) stmt : T_RETURN rxpr ';'
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (133) inner : inner comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading '}'
+[dbg]   % Shift '}'
+[dbg]   % Reduce by (254) block : '{' inner '}'
+[dbg]   % Reduce by (153) fn_decl_body : block
+[dbg]   % Reduce by (146) fn_decl : mods_opt T_FN ident pparams fn_decl_body
+[dbg]   % Reduce by (107) member : fn_decl
+[dbg]   % Reduce by (106) members : members member
+[dbg]   % State 403, Lookahead --none--
+[dbg]   % Reading T_PROTECTED
+[dbg]   % Shift T_PROTECTED
+[dbg]   % Reduce by (61) mod : T_PROTECTED
+[dbg]   % Reduce by (53) mods : mod
+[dbg]   % State 399, Lookahead --none--
+[dbg]   % Reading '{'
+[dbg]   % Shift '{'
+[dbg]   % State 396, Lookahead --none--
+[dbg]   % Reading T_FN
+[dbg]   % Reduce by (51) mods_opt : /* empty */
+[dbg]   % State 458, Lookahead T_FN
+[dbg]   % Shift T_FN
+[dbg]   % State 515, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 549, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 364, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 478, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 656, Lookahead T_IDENT
+[dbg]   % Reduce by (501) type_name : name
+[dbg]   % Reduce by (185) hint : type_name
+[dbg]   % State 475, Lookahead T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 583, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (167) param : hint ident
+[dbg]   % Reduce by (162) params : param
+[dbg]   % State 577, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (161) pparams : '(' params ')'
+[dbg]   % State 505, Lookahead --none--
+[dbg]   % Reading '{'
+[dbg]   % Shift '{'
+[dbg]   % State 9, Lookahead --none--
+[dbg]   % Reading T_IF
+[dbg]   % Shift T_IF
+[dbg]   % State 594, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 143, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 34, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 34, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 34, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ')'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (386) rxpr : rxpr pargs
+[dbg]   % State 34, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (479) pxpr : '(' rxpr ')'
+[dbg]   % State 21, Lookahead --none--
+[dbg]   % Reading '{'
+[dbg]   % Shift '{'
+[dbg]   % State 9, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 630, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '.'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead '.'
+[dbg]   % Shift '.'
+[dbg]   % State 15, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (313) lxpr : lxpr dot_ident
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '.'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 140, Lookahead --none--
+[dbg]   % Reading T_STRING
+[dbg]   % Shift T_STRING
+[dbg]   % Reduce by (583) str : T_STRING
+[dbg]   % Reduce by (494) atom : str
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (485) args : args ',' arg
+[dbg]   % State 576, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 140, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '.'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_STRING
+[dbg]   % Shift T_STRING
+[dbg]   % Reduce by (583) str : T_STRING
+[dbg]   % Reduce by (494) atom : str
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (386) rxpr : rxpr pargs
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (485) args : args ',' arg
+[dbg]   % State 576, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 140, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '.'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (485) args : args ',' arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (319) lxpr : lxpr pargs
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (132) inner : comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading T_IF
+[dbg]   % Shift T_IF
+[dbg]   % State 594, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 143, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 34, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 34, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (479) pxpr : '(' rxpr ')'
+[dbg]   % State 21, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 15, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (313) lxpr : lxpr dot_ident
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 15, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (313) lxpr : lxpr dot_ident
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ')'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (319) lxpr : lxpr pargs
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % State 590, Lookahead --none--
+[dbg]   % Reading T_RETURN
+[dbg]   % Reduce by (222) elsifs_opt : /* empty */
+[dbg]   % State 592, Lookahead T_RETURN
+[dbg]   % Reduce by (227) else_opt : /* empty */
+[dbg]   % Reduce by (188) stmt : T_IF pxpr stmt elsifs_opt else_opt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (133) inner : inner comp
+[dbg]   % State 10, Lookahead T_RETURN
+[dbg]   % Shift T_RETURN
+[dbg]   % State 142, Lookahead --none--
+[dbg]   % Reading T_TRUE
+[dbg]   % Shift T_TRUE
+[dbg]   % Reduce by (573) kwc : T_TRUE
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 37, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (214) stmt : T_RETURN rxpr ';'
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (133) inner : inner comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading '}'
+[dbg]   % Shift '}'
+[dbg]   % Reduce by (254) block : '{' inner '}'
+[dbg]   % Reduce by (186) stmt : block
+[dbg]   % State 590, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Reduce by (222) elsifs_opt : /* empty */
+[dbg]   % State 592, Lookahead T_IDENT
+[dbg]   % Reduce by (227) else_opt : /* empty */
+[dbg]   % Reduce by (188) stmt : T_IF pxpr stmt elsifs_opt else_opt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (132) inner : comp
+[dbg]   % State 10, Lookahead T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 630, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '.'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead '.'
+[dbg]   % Shift '.'
+[dbg]   % State 15, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (313) lxpr : lxpr dot_ident
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '.'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 140, Lookahead --none--
+[dbg]   % Reading T_STRING
+[dbg]   % Shift T_STRING
+[dbg]   % Reduce by (583) str : T_STRING
+[dbg]   % Reduce by (494) atom : str
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (485) args : args ',' arg
+[dbg]   % State 576, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 140, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '.'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (485) args : args ',' arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (319) lxpr : lxpr pargs
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (133) inner : inner comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 630, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '.'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead '.'
+[dbg]   % Shift '.'
+[dbg]   % State 15, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (313) lxpr : lxpr dot_ident
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_GET
+[dbg]   % Shift T_GET
+[dbg]   % Reduce by (509) ident : T_GET
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '.'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (386) rxpr : rxpr pargs
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 140, Lookahead --none--
+[dbg]   % Reading T_STRING
+[dbg]   % Shift T_STRING
+[dbg]   % Reduce by (583) str : T_STRING
+[dbg]   % Reduce by (494) atom : str
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (485) args : args ',' arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (319) lxpr : lxpr pargs
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (133) inner : inner comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading T_RETURN
+[dbg]   % Shift T_RETURN
+[dbg]   % State 142, Lookahead --none--
+[dbg]   % Reading T_FALSE
+[dbg]   % Shift T_FALSE
+[dbg]   % Reduce by (574) kwc : T_FALSE
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 37, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (214) stmt : T_RETURN rxpr ';'
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (133) inner : inner comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading '}'
+[dbg]   % Shift '}'
+[dbg]   % Reduce by (254) block : '{' inner '}'
+[dbg]   % Reduce by (153) fn_decl_body : block
+[dbg]   % Reduce by (146) fn_decl : mods_opt T_FN ident pparams fn_decl_body
+[dbg]   % Reduce by (107) member : fn_decl
+[dbg]   % Reduce by (105) members : member
+[dbg]   % State 403, Lookahead --none--
+[dbg]   % Reading T_FN
+[dbg]   % Reduce by (51) mods_opt : /* empty */
+[dbg]   % State 458, Lookahead T_FN
+[dbg]   % Shift T_FN
+[dbg]   % State 515, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 549, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 364, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 478, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 656, Lookahead T_IDENT
+[dbg]   % Reduce by (501) type_name : name
+[dbg]   % Reduce by (185) hint : type_name
+[dbg]   % State 475, Lookahead T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 583, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (167) param : hint ident
+[dbg]   % Reduce by (162) params : param
+[dbg]   % State 577, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 393, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 478, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 656, Lookahead T_IDENT
+[dbg]   % Reduce by (501) type_name : name
+[dbg]   % Reduce by (185) hint : type_name
+[dbg]   % State 475, Lookahead T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 583, Lookahead --none--
+[dbg]   % Reading '='
+[dbg]   % Shift '='
+[dbg]   % State 327, Lookahead --none--
+[dbg]   % Reading T_NULL
+[dbg]   % Shift T_NULL
+[dbg]   % Reduce by (572) kwc : T_NULL
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 109, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (169) param : hint ident '=' rxpr
+[dbg]   % Reduce by (163) params : params ',' param
+[dbg]   % State 577, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (161) pparams : '(' params ')'
+[dbg]   % State 505, Lookahead --none--
+[dbg]   % Reading '{'
+[dbg]   % Shift '{'
+[dbg]   % State 9, Lookahead --none--
+[dbg]   % Reading T_LET
+[dbg]   % Reduce by (51) mods_opt : /* empty */
+[dbg]   % State 564, Lookahead T_LET
+[dbg]   % Shift T_LET
+[dbg]   % State 445, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (86) destr_item : ident
+[dbg]   % State 566, Lookahead --none--
+[dbg]   % Reading '='
+[dbg]   % Shift '='
+[dbg]   % State 260, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead --none--
+[dbg]   % Reading T_DDDOT
+[dbg]   % Shift T_DDDOT
+[dbg]   % State 514, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (500) name : name T_DDDOT ident
+[dbg]   % State 629, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 100, Lookahead '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '.'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (386) rxpr : rxpr pargs
+[dbg]   % State 100, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (71) var : destr_item '=' rxpr
+[dbg]   % Reduce by (68) vars : var
+[dbg]   % State 573, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (142) let_decl : mods_opt T_LET vars ';'
+[dbg]   % Reduce by (135) comp : let_decl
+[dbg]   % Reduce by (132) inner : comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading T_IF
+[dbg]   % Shift T_IF
+[dbg]   % State 594, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 143, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 34, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 34, Lookahead --none--
+[dbg]   % Reading T_NEQ
+[dbg]   % Shift T_NEQ
+[dbg]   % State 236, Lookahead --none--
+[dbg]   % Reading T_NULL
+[dbg]   % Shift T_NULL
+[dbg]   % Reduce by (572) kwc : T_NULL
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 381, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (356) rxpr : rxpr T_NEQ rxpr
+[dbg]   % State 34, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (479) pxpr : '(' rxpr ')'
+[dbg]   % State 21, Lookahead --none--
+[dbg]   % Reading '{'
+[dbg]   % Shift '{'
+[dbg]   % State 9, Lookahead --none--
+[dbg]   % Reading T_IF
+[dbg]   % Shift T_IF
+[dbg]   % State 594, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 143, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 34, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 34, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 34, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ')'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (386) rxpr : rxpr pargs
+[dbg]   % State 34, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (479) pxpr : '(' rxpr ')'
+[dbg]   % State 21, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead --none--
+[dbg]   % Reading '='
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead '='
+[dbg]   % Shift '='
+[dbg]   % State 186, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_GET
+[dbg]   % Shift T_GET
+[dbg]   % Reduce by (509) ident : T_GET
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ')'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (386) rxpr : rxpr pargs
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (296) lxpr : lxpr '=' rxpr
+[dbg]   % State 61, Lookahead ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % State 590, Lookahead --none--
+[dbg]   % Reading '}'
+[dbg]   % Reduce by (222) elsifs_opt : /* empty */
+[dbg]   % State 592, Lookahead '}'
+[dbg]   % Reduce by (227) else_opt : /* empty */
+[dbg]   % Reduce by (188) stmt : T_IF pxpr stmt elsifs_opt else_opt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (132) inner : comp
+[dbg]   % State 10, Lookahead '}'
+[dbg]   % Shift '}'
+[dbg]   % Reduce by (254) block : '{' inner '}'
+[dbg]   % Reduce by (186) stmt : block
+[dbg]   % State 590, Lookahead --none--
+[dbg]   % Reading T_ELSIF
+[dbg]   % Shift T_ELSIF
+[dbg]   % State 613, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 143, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 34, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 34, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 34, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ')'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (386) rxpr : rxpr pargs
+[dbg]   % State 34, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (479) pxpr : '(' rxpr ')'
+[dbg]   % State 24, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead --none--
+[dbg]   % Reading '='
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead '='
+[dbg]   % Shift '='
+[dbg]   % State 186, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_GET
+[dbg]   % Shift T_GET
+[dbg]   % Reduce by (509) ident : T_GET
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ')'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (386) rxpr : rxpr pargs
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (296) lxpr : lxpr '=' rxpr
+[dbg]   % State 61, Lookahead ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % Reduce by (226) elsif : T_ELSIF pxpr stmt
+[dbg]   % Reduce by (224) elsifs : elsif
+[dbg]   % State 614, Lookahead --none--
+[dbg]   % Reading T_RETURN
+[dbg]   % Reduce by (223) elsifs_opt : elsifs
+[dbg]   % State 592, Lookahead T_RETURN
+[dbg]   % Reduce by (227) else_opt : /* empty */
+[dbg]   % Reduce by (188) stmt : T_IF pxpr stmt elsifs_opt else_opt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (133) inner : inner comp
+[dbg]   % State 10, Lookahead T_RETURN
+[dbg]   % Shift T_RETURN
+[dbg]   % State 142, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 37, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (214) stmt : T_RETURN rxpr ';'
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (133) inner : inner comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading '}'
+[dbg]   % Shift '}'
+[dbg]   % Reduce by (254) block : '{' inner '}'
+[dbg]   % Reduce by (153) fn_decl_body : block
+[dbg]   % Reduce by (146) fn_decl : mods_opt T_FN ident pparams fn_decl_body
+[dbg]   % Reduce by (107) member : fn_decl
+[dbg]   % Reduce by (106) members : members member
+[dbg]   % State 403, Lookahead --none--
+[dbg]   % Reading T_FN
+[dbg]   % Reduce by (51) mods_opt : /* empty */
+[dbg]   % State 458, Lookahead T_FN
+[dbg]   % Shift T_FN
+[dbg]   % State 515, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 549, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 364, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 478, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (164) param : ident
+[dbg]   % Reduce by (162) params : param
+[dbg]   % State 577, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (161) pparams : '(' params ')'
+[dbg]   % State 505, Lookahead --none--
+[dbg]   % Reading '{'
+[dbg]   % Shift '{'
+[dbg]   % State 9, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 15, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (313) lxpr : lxpr dot_ident
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_NULL
+[dbg]   % Shift T_NULL
+[dbg]   % Reduce by (572) kwc : T_NULL
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 140, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '.'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (485) args : args ',' arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (319) lxpr : lxpr pargs
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (132) inner : comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading '}'
+[dbg]   % Shift '}'
+[dbg]   % Reduce by (254) block : '{' inner '}'
+[dbg]   % Reduce by (153) fn_decl_body : block
+[dbg]   % Reduce by (146) fn_decl : mods_opt T_FN ident pparams fn_decl_body
+[dbg]   % Reduce by (107) member : fn_decl
+[dbg]   % Reduce by (106) members : members member
+[dbg]   % State 403, Lookahead --none--
+[dbg]   % Reading T_FN
+[dbg]   % Reduce by (51) mods_opt : /* empty */
+[dbg]   % State 458, Lookahead T_FN
+[dbg]   % Shift T_FN
+[dbg]   % State 515, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 549, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 364, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 478, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (164) param : ident
+[dbg]   % Reduce by (162) params : param
+[dbg]   % State 577, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 393, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 478, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (164) param : ident
+[dbg]   % Reduce by (163) params : params ',' param
+[dbg]   % State 577, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (161) pparams : '(' params ')'
+[dbg]   % State 505, Lookahead --none--
+[dbg]   % Reading '{'
+[dbg]   % Shift '{'
+[dbg]   % State 9, Lookahead --none--
+[dbg]   % Reading T_IF
+[dbg]   % Shift T_IF
+[dbg]   % State 594, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 143, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead --none--
+[dbg]   % Reading T_IS
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 34, Lookahead T_IS
+[dbg]   % Shift T_IS
+[dbg]   % State 426, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 656, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (501) type_name : name
+[dbg]   % Reduce by (358) rxpr : rxpr T_IS type_name
+[dbg]   % State 34, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (479) pxpr : '(' rxpr ')'
+[dbg]   % State 21, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 15, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (313) lxpr : lxpr dot_ident
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ','
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ','
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 140, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ')'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (485) args : args ',' arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (319) lxpr : lxpr pargs
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % State 590, Lookahead --none--
+[dbg]   % Reading T_ELSIF
+[dbg]   % Shift T_ELSIF
+[dbg]   % State 613, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 143, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead --none--
+[dbg]   % Reading T_IS
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 34, Lookahead T_IS
+[dbg]   % Shift T_IS
+[dbg]   % State 426, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 656, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (501) type_name : name
+[dbg]   % Reduce by (358) rxpr : rxpr T_IS type_name
+[dbg]   % State 34, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (479) pxpr : '(' rxpr ')'
+[dbg]   % State 24, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 15, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (313) lxpr : lxpr dot_ident
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ','
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ','
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 140, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ')'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (485) args : args ',' arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (319) lxpr : lxpr pargs
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % Reduce by (226) elsif : T_ELSIF pxpr stmt
+[dbg]   % Reduce by (224) elsifs : elsif
+[dbg]   % State 614, Lookahead --none--
+[dbg]   % Reading T_ELSIF
+[dbg]   % Shift T_ELSIF
+[dbg]   % State 613, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 143, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead --none--
+[dbg]   % Reading T_IS
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 34, Lookahead T_IS
+[dbg]   % Shift T_IS
+[dbg]   % State 426, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 656, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (501) type_name : name
+[dbg]   % Reduce by (358) rxpr : rxpr T_IS type_name
+[dbg]   % State 34, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (479) pxpr : '(' rxpr ')'
+[dbg]   % State 24, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 15, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (313) lxpr : lxpr dot_ident
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ','
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ','
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 140, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ')'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (485) args : args ',' arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (319) lxpr : lxpr pargs
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % Reduce by (226) elsif : T_ELSIF pxpr stmt
+[dbg]   % Reduce by (225) elsifs : elsifs elsif
+[dbg]   % State 614, Lookahead --none--
+[dbg]   % Reading T_ELSE
+[dbg]   % Reduce by (223) elsifs_opt : elsifs
+[dbg]   % State 592, Lookahead T_ELSE
+[dbg]   % Shift T_ELSE
+[dbg]   % State 25, Lookahead --none--
+[dbg]   % Reading T_ASSERT
+[dbg]   % Shift T_ASSERT
+[dbg]   % State 160, Lookahead --none--
+[dbg]   % Reading T_LNUM
+[dbg]   % Shift T_LNUM
+[dbg]   % Reduce by (584) num : T_LNUM
+[dbg]   % Reduce by (489) atom : num
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 31, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (211) stmt : T_ASSERT rxpr ';'
+[dbg]   % Reduce by (229) else : T_ELSE stmt
+[dbg]   % Reduce by (228) else_opt : else
+[dbg]   % Reduce by (188) stmt : T_IF pxpr stmt elsifs_opt else_opt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (132) inner : comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading '}'
+[dbg]   % Shift '}'
+[dbg]   % Reduce by (254) block : '{' inner '}'
+[dbg]   % Reduce by (153) fn_decl_body : block
+[dbg]   % Reduce by (146) fn_decl : mods_opt T_FN ident pparams fn_decl_body
+[dbg]   % Reduce by (107) member : fn_decl
+[dbg]   % Reduce by (106) members : members member
+[dbg]   % State 403, Lookahead --none--
+[dbg]   % Reading T_FN
+[dbg]   % Reduce by (51) mods_opt : /* empty */
+[dbg]   % State 458, Lookahead T_FN
+[dbg]   % Shift T_FN
+[dbg]   % State 515, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 549, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 364, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 478, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (164) param : ident
+[dbg]   % Reduce by (162) params : param
+[dbg]   % State 577, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 393, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 478, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (164) param : ident
+[dbg]   % Reduce by (163) params : params ',' param
+[dbg]   % State 577, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (161) pparams : '(' params ')'
+[dbg]   % State 505, Lookahead --none--
+[dbg]   % Reading '{'
+[dbg]   % Shift '{'
+[dbg]   % State 9, Lookahead --none--
+[dbg]   % Reading T_LET
+[dbg]   % Reduce by (51) mods_opt : /* empty */
+[dbg]   % State 564, Lookahead T_LET
+[dbg]   % Shift T_LET
+[dbg]   % State 445, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (86) destr_item : ident
+[dbg]   % State 566, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (70) var : destr_item
+[dbg]   % Reduce by (68) vars : var
+[dbg]   % State 573, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (142) let_decl : mods_opt T_LET vars ';'
+[dbg]   % Reduce by (135) comp : let_decl
+[dbg]   % Reduce by (132) inner : comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 630, Lookahead --none--
+[dbg]   % Reading '='
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '='
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead '='
+[dbg]   % Shift '='
+[dbg]   % State 186, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ','
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ','
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 140, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ')'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (485) args : args ',' arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (386) rxpr : rxpr pargs
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (296) lxpr : lxpr '=' rxpr
+[dbg]   % State 61, Lookahead ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (133) inner : inner comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 630, Lookahead --none--
+[dbg]   % Reading '='
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '='
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead '='
+[dbg]   % Shift '='
+[dbg]   % State 186, Lookahead --none--
+[dbg]   % Reading T_NEW
+[dbg]   % Shift T_NEW
+[dbg]   % State 347, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (478) nxpr : atom
+[dbg]   % State 496, Lookahead '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ','
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ','
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 140, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ')'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (485) args : args ',' arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (398) rxpr : T_NEW nxpr pargs
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (296) lxpr : lxpr '=' rxpr
+[dbg]   % State 61, Lookahead ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (133) inner : inner comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 15, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (313) lxpr : lxpr dot_ident
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ')'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (319) lxpr : lxpr pargs
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (133) inner : inner comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading '}'
+[dbg]   % Shift '}'
+[dbg]   % Reduce by (254) block : '{' inner '}'
+[dbg]   % Reduce by (153) fn_decl_body : block
+[dbg]   % Reduce by (146) fn_decl : mods_opt T_FN ident pparams fn_decl_body
+[dbg]   % Reduce by (107) member : fn_decl
+[dbg]   % Reduce by (106) members : members member
+[dbg]   % State 403, Lookahead --none--
+[dbg]   % Reading T_FN
+[dbg]   % Reduce by (51) mods_opt : /* empty */
+[dbg]   % State 458, Lookahead T_FN
+[dbg]   % Shift T_FN
+[dbg]   % State 515, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 549, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 364, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 478, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (164) param : ident
+[dbg]   % Reduce by (162) params : param
+[dbg]   % State 577, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 393, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 478, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (164) param : ident
+[dbg]   % Reduce by (163) params : params ',' param
+[dbg]   % State 577, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (161) pparams : '(' params ')'
+[dbg]   % State 505, Lookahead --none--
+[dbg]   % Reading '{'
+[dbg]   % Shift '{'
+[dbg]   % State 9, Lookahead --none--
+[dbg]   % Reading T_LET
+[dbg]   % Reduce by (51) mods_opt : /* empty */
+[dbg]   % State 564, Lookahead T_LET
+[dbg]   % Shift T_LET
+[dbg]   % State 445, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (86) destr_item : ident
+[dbg]   % State 566, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (70) var : destr_item
+[dbg]   % Reduce by (68) vars : var
+[dbg]   % State 573, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (142) let_decl : mods_opt T_LET vars ';'
+[dbg]   % Reduce by (135) comp : let_decl
+[dbg]   % Reduce by (132) inner : comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 630, Lookahead --none--
+[dbg]   % Reading '='
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '='
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead '='
+[dbg]   % Shift '='
+[dbg]   % State 186, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '.'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 140, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ')'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (485) args : args ',' arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (386) rxpr : rxpr pargs
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (296) lxpr : lxpr '=' rxpr
+[dbg]   % State 61, Lookahead ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (133) inner : inner comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 630, Lookahead --none--
+[dbg]   % Reading '='
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '='
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead '='
+[dbg]   % Shift '='
+[dbg]   % State 186, Lookahead --none--
+[dbg]   % Reading T_NEW
+[dbg]   % Shift T_NEW
+[dbg]   % State 347, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (478) nxpr : atom
+[dbg]   % State 496, Lookahead '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '.'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 140, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ','
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ','
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (485) args : args ',' arg
+[dbg]   % State 576, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 140, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '.'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (485) args : args ',' arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (398) rxpr : T_NEW nxpr pargs
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (296) lxpr : lxpr '=' rxpr
+[dbg]   % State 61, Lookahead ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (133) inner : inner comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 15, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (313) lxpr : lxpr dot_ident
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ')'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (319) lxpr : lxpr pargs
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (133) inner : inner comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading '}'
+[dbg]   % Shift '}'
+[dbg]   % Reduce by (254) block : '{' inner '}'
+[dbg]   % Reduce by (153) fn_decl_body : block
+[dbg]   % Reduce by (146) fn_decl : mods_opt T_FN ident pparams fn_decl_body
+[dbg]   % Reduce by (107) member : fn_decl
+[dbg]   % Reduce by (106) members : members member
+[dbg]   % State 403, Lookahead --none--
+[dbg]   % Reading T_FN
+[dbg]   % Reduce by (51) mods_opt : /* empty */
+[dbg]   % State 458, Lookahead T_FN
+[dbg]   % Shift T_FN
+[dbg]   % State 515, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 549, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 364, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 478, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (164) param : ident
+[dbg]   % Reduce by (162) params : param
+[dbg]   % State 577, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 393, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 478, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (164) param : ident
+[dbg]   % Reduce by (163) params : params ',' param
+[dbg]   % State 577, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (161) pparams : '(' params ')'
+[dbg]   % State 505, Lookahead --none--
+[dbg]   % Reading '{'
+[dbg]   % Shift '{'
+[dbg]   % State 9, Lookahead --none--
+[dbg]   % Reading T_IF
+[dbg]   % Shift T_IF
+[dbg]   % State 594, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 143, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 34, Lookahead '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 34, Lookahead --none--
+[dbg]   % Reading T_NEQ
+[dbg]   % Shift T_NEQ
+[dbg]   % State 236, Lookahead --none--
+[dbg]   % Reading T_NULL
+[dbg]   % Shift T_NULL
+[dbg]   % Reduce by (572) kwc : T_NULL
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 381, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (356) rxpr : rxpr T_NEQ rxpr
+[dbg]   % State 34, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (479) pxpr : '(' rxpr ')'
+[dbg]   % State 21, Lookahead --none--
+[dbg]   % Reading '{'
+[dbg]   % Shift '{'
+[dbg]   % State 9, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 630, Lookahead --none--
+[dbg]   % Reading '='
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '='
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead '='
+[dbg]   % Shift '='
+[dbg]   % State 186, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '.'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 140, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ')'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (485) args : args ',' arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (386) rxpr : rxpr pargs
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (296) lxpr : lxpr '=' rxpr
+[dbg]   % State 61, Lookahead ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (132) inner : comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 630, Lookahead --none--
+[dbg]   % Reading '='
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '='
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead '='
+[dbg]   % Shift '='
+[dbg]   % State 186, Lookahead --none--
+[dbg]   % Reading T_NEW
+[dbg]   % Shift T_NEW
+[dbg]   % State 347, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (478) nxpr : atom
+[dbg]   % State 496, Lookahead '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '.'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 140, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ')'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (485) args : args ',' arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (398) rxpr : T_NEW nxpr pargs
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (296) lxpr : lxpr '=' rxpr
+[dbg]   % State 61, Lookahead ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (133) inner : inner comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 630, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '.'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead '.'
+[dbg]   % Shift '.'
+[dbg]   % State 15, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (313) lxpr : lxpr dot_ident
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 15, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (313) lxpr : lxpr dot_ident
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead '.'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (319) lxpr : lxpr pargs
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (133) inner : inner comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading '}'
+[dbg]   % Shift '}'
+[dbg]   % Reduce by (254) block : '{' inner '}'
+[dbg]   % Reduce by (186) stmt : block
+[dbg]   % State 590, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Reduce by (222) elsifs_opt : /* empty */
+[dbg]   % State 592, Lookahead T_THIS
+[dbg]   % Reduce by (227) else_opt : /* empty */
+[dbg]   % Reduce by (188) stmt : T_IF pxpr stmt elsifs_opt else_opt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (132) inner : comp
+[dbg]   % State 10, Lookahead T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 15, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (313) lxpr : lxpr dot_ident
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 15, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (313) lxpr : lxpr dot_ident
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 81, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (319) lxpr : lxpr pargs
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (133) inner : inner comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 15, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (313) lxpr : lxpr dot_ident
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '='
+[dbg]   % Shift '='
+[dbg]   % State 186, Lookahead --none--
+[dbg]   % Reading T_NEW
+[dbg]   % Shift T_NEW
+[dbg]   % State 347, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (478) nxpr : atom
+[dbg]   % State 496, Lookahead ';'
+[dbg]   % Reduce by (397) rxpr : T_NEW nxpr
+[dbg]   % State 80, Lookahead ';'
+[dbg]   % Reduce by (296) lxpr : lxpr '=' rxpr
+[dbg]   % State 61, Lookahead ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (133) inner : inner comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading T_FOR
+[dbg]   % Shift T_FOR
+[dbg]   % State 547, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 112, Lookahead --none--
+[dbg]   % Reading T_LET
+[dbg]   % Reduce by (51) mods_opt : /* empty */
+[dbg]   % State 652, Lookahead T_LET
+[dbg]   % Shift T_LET
+[dbg]   % State 446, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (86) destr_item : ident
+[dbg]   % State 579, Lookahead --none--
+[dbg]   % Reading T_IN
+[dbg]   % Reduce by (75) var_noin : destr_item
+[dbg]   % Reduce by (73) vars_noin : var_noin
+[dbg]   % State 682, Lookahead T_IN
+[dbg]   % Reduce by (144) let_decl_noin_nosemi : mods_opt T_LET vars_noin
+[dbg]   % State 569, Lookahead T_IN
+[dbg]   % Shift T_IN
+[dbg]   % State 309, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 52, Lookahead '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 52, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Shift ')'
+[dbg]   % State 27, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 15, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (313) lxpr : lxpr dot_ident
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ','
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ','
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ','
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (484) args : arg
+[dbg]   % State 576, Lookahead ','
+[dbg]   % Shift ','
+[dbg]   % State 140, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % State 659, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Reduce by (498) name : ident
+[dbg]   % State 629, Lookahead ')'
+[dbg]   % Reduce by (492) atom : name
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 81, Lookahead ')'
+[dbg]   % Reduce by (486) arg : rxpr
+[dbg]   % Reduce by (485) args : args ',' arg
+[dbg]   % State 576, Lookahead ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (483) pargs : '(' args ')'
+[dbg]   % Reduce by (319) lxpr : lxpr pargs
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % Reduce by (189) stmt : T_FOR '(' let_decl_noin_nosemi T_IN rxpr ')' stmt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (133) inner : inner comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (333) lxpr : atom
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 15, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (313) lxpr : lxpr dot_ident
+[dbg]   % State 61, Lookahead --none--
+[dbg]   % Reading '='
+[dbg]   % Shift '='
+[dbg]   % State 186, Lookahead --none--
+[dbg]   % Reading T_THIS
+[dbg]   % Shift T_THIS
+[dbg]   % Reduce by (570) kwc : T_THIS
+[dbg]   % Reduce by (493) atom : kwc
+[dbg]   % Reduce by (400) rxpr : atom
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading '.'
+[dbg]   % Shift '.'
+[dbg]   % State 16, Lookahead --none--
+[dbg]   % Reading T_IDENT
+[dbg]   % Shift T_IDENT
+[dbg]   % Reduce by (508) ident : T_IDENT
+[dbg]   % Reduce by (511) dot_ident : '.' ident
+[dbg]   % Reduce by (380) rxpr : rxpr dot_ident
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading '('
+[dbg]   % Shift '('
+[dbg]   % State 136, Lookahead --none--
+[dbg]   % Reading ')'
+[dbg]   % Shift ')'
+[dbg]   % Reduce by (481) pargs : '(' ')'
+[dbg]   % Reduce by (386) rxpr : rxpr pargs
+[dbg]   % State 80, Lookahead --none--
+[dbg]   % Reading ';'
+[dbg]   % Reduce by (296) lxpr : lxpr '=' rxpr
+[dbg]   % State 61, Lookahead ';'
+[dbg]   % Reduce by (262) lseq : lxpr
+[dbg]   % State 560, Lookahead ';'
+[dbg]   % Shift ';'
+[dbg]   % Reduce by (256) lxpr_stmt : lseq ';'
+[dbg]   % Reduce by (216) stmt : lxpr_stmt
+[dbg]   % Reduce by (139) comp : stmt
+[dbg]   % Reduce by (133) inner : inner comp
+[dbg]   % State 10, Lookahead --none--
+[dbg]   % Reading '}'
+[dbg]   % Shift '}'
+[dbg]   % Reduce by (254) block : '{' inner '}'
+[dbg]   % Reduce by (153) fn_decl_body : block
+[dbg]   % Reduce by (146) fn_decl : mods_opt T_FN ident pparams fn_decl_body
+[dbg]   % Reduce by (107) member : fn_decl
+[dbg]   % Reduce by (106) members : members member
+[dbg]   % State 403, Lookahead --none--
+[dbg]   % Reading '}'
+[dbg]   % Reduce by (104) members_opt : members
+[dbg]   % State 687, Lookahead '}'
+[dbg]   % Shift '}'
+[dbg]   % Reduce by (120) member : mods '{' members_opt '}'
+[dbg]   % Reduce by (106) members : members member
+[dbg]   % State 403, Lookahead --none--
+[dbg]   % Reading '}'
+[dbg]   % Reduce by (104) members_opt : members
+[dbg]   % State 693, Lookahead '}'
+[dbg]   % Shift '}'
+[dbg]   % Reduce by (88) class_decl : mods_opt T_CLASS ident ext_opt impl_opt '{' ...
+[dbg]   ... members_opt '}'
+[dbg]   % Consumed 1 semicolon(s)
+[dbg]   % Reduce by (14) topex : class_decl
+[dbg]   % Reduce by (7) toplvl : topex
+[dbg]   % State 3, Lookahead --none--
+[dbg]   % Reading EOF
+[dbg]   % Reduce by (6) program : toplvl
+[dbg]   % Reduce by (4) unit : program
+[dbg]   % Reduce by (2) start : unit
+[dbg]   % State 628, Lookahead EOF
+[dbg]   % Accepted.

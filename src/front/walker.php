@@ -30,11 +30,8 @@ abstract class Walker
    */
   public function __construct(array $walk = [])
   {
-    $this->walk = $walk + [
-      'skip' => [],    // skip nothing
-      'enter' => true, // enter all
-      'visit' => true  // visit all
-    ];
+    if ($walk)
+      $this->config($walk);
   }
   
   /**
@@ -52,11 +49,29 @@ abstract class Walker
    * 
    * @param  Unit   $unit
    */
-  public function walk(Unit $node)
+  public function walk(Unit $node, array $walk = [])
   {
     $this->stop = false;
     $this->drop = false;
+    
+    if ($walk)
+      $this->config($walk);
+    
     $this->walk_some($node);
+  }
+  
+  /**
+   * sets the walker config
+   * 
+   * @param  array  $walk
+   */
+  public function config(array $walk)
+  {
+    $this->walk = $walk + [
+      'skip' => [],    // skip nothing
+      'enter' => true, // enter all
+      'visit' => true  // visit all
+    ];
   }
   
   /**

@@ -6,3 +6,8 @@ class Scope
 {
   
 }
+
+class UnitScope extends Scope 
+{
+  
+}

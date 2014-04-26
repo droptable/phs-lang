@@ -7,7 +7,7 @@ class Unit extends Node
   public $body;
   public $dest; // gets set later
   
-  // scope
+  // unit-scope
   public $scope;
   
   public function __construct($body)

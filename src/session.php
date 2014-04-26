@@ -2,17 +2,33 @@
 
 namespace phs;
 
+require 'util/set.php';
+require 'front/scope.php';
+
+use phs\util\Set;
+use phs\front\Scope;
+
 class Session
 {
-  public $imports;
+  // @var Config
+  public $conf;
   
-  public function __construct()
+  // abort flag
+  public $abort;
+  
+  // files handled in this session.
+  // includes imports via `use xyz;`
+  public $files;
+  
+  // global scope
+  public $scope;
+  
+  public function __construct(Config $conf)
   {
-    $this->imports = new ImportMap;
+    $this->conf = $conf;
+    $this->abort = false;
+    $this->files = new Set;
+    $this->scope = new Scope;
   }
 }
 
-class ImportMap
-{
-  public function add() {}
-}

@@ -158,7 +158,7 @@ class #(-p)
       } while ($peek->type === T_SEMI);
 
 #if -t
-      Logger::debug('%% Consumed %d semicolon(s)', $n);
+      Logger::debug('%% Consumed %d semicolon(s)', $num);
 #endif
     }
   }
