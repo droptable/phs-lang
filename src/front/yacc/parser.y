@@ -29,7 +29,7 @@
 %left '^'
 %left '&'
 %left T_EQ T_NEQ
-%nonassoc T_IN T_IS T_ISNT T_GTE T_LTE '>' '<'
+%nonassoc T_IN T_NIN T_IS T_NIS T_GTE T_LTE '>' '<'
 %left T_SL T_SR
 %left '+' '-' '~'
 %left '*' '/' '%'
@@ -143,12 +143,12 @@ start
   ;
   
 unit
-  : module  
+  : module
     { 
       $$ = @Unit($1); 
       $this->eat_end(); 
     }
-  | program 
+  | content
     { 
       $$ = @Unit($1); 
       $this->eat_end(); 
@@ -156,11 +156,55 @@ unit
   ;
   
 module
-  : T_MODULE name ';' program { $$ = @Module($2, $4); }
+  : T_MODULE name ';' content { $$ = @Module($2, $4); }
   ;
-    
-program
-  : toplvl { $$ = @Program($1); }
+  
+content
+  : uses toplvl { $$ = @Content($1, $2); }
+  | toplvl      { $$ = @Content(null, $1); }
+  ;
+  
+uses
+  : use      { $$ = [ $1 ]; }
+  | uses use { $1[] = $2; $$ = $1; }
+  ;
+  
+use
+  : T_USE use_name ';'               
+    { 
+      $$ = $2; 
+      $this->eat_semis(); 
+    }
+  | T_USE use_name T_AS ident ';'    
+    { 
+      $$ = @UseAlias($2, $4); 
+      $this->eat_semis(); 
+    }
+  | T_USE use_name '{' use_items comma_opt '}' ';'
+    { 
+      $$ = @UseUnpack($2, $4); 
+      $this->eat_semis(); 
+    }
+  | T_USE '{' use_items comma_opt '}' ';'
+    {
+      $$ = @UseUnpack(null, $3);
+      $this->eat_semis();
+    }
+  ;
+  
+use_items
+  : use_item               { $$ = [ $1 ]; }
+  | use_items ',' use_item { $1[] = $3; $$ = $1; }
+  ;
+  
+use_item
+  : use_name                   { $$ = $1; }
+  | use_name T_AS ident        { $$ = @UseAlias($1, $3); }
+  | use_name '{' use_items '}' { $$ = @UseUnpack($1, $3); }
+  ;
+
+use_name
+  : name { $$ = $1; }
   ;
 
 toplvl
@@ -170,7 +214,6 @@ toplvl
  
 topex
   : module_nst     { $$ = $1; }
-  | use_decl       { $$ = $1; }
   | '@' error T_NL { $$ = null; }
   | attr_decl      { $$ = $1; }
   | enum_decl      { $$ = $1; }
@@ -179,7 +222,6 @@ topex
   | iface_decl     { $$ = $1; }
   | topex_attr     { $$ = $1; }
   | fn_decl        { $$ = $1; }
-  | let_decl       { $$ = $1; }
   | var_decl       { $$ = $1; }
   | require        { $$ = $1; }
   | error T_SYNC   { $$ = null; }
@@ -193,21 +235,26 @@ label_decl
   ;
 
 module_nst
-  : T_MODULE name '{' module_body '}' 
+  : T_MODULE name '{' '}'
+    {
+      $$ = @Module($2, null);
+      $this->eat_semis();
+    }
+  | T_MODULE name '{' content '}' 
     { 
       $$ = @Module($2, $4); 
       $this->eat_semis(); 
     }
-  | T_MODULE '{' module_body '}'      
+  | T_MODULE '{' '}'
+    {
+      $$ = @Module(null, null);
+      $this->eat_semis();
+    }
+  | T_MODULE '{' content '}'      
     { 
       $$ = @Module(null, $3); 
       $this->eat_semis(); 
     }
-  ;
-  
-module_body
-  : /* empty */ { $$ = null; }
-  | toplvl      { $$ = $1; }
   ;
   
 require
@@ -257,44 +304,6 @@ attr_val
   : ident                  { $$ = @AttrVal($1, null); }
   | ident '=' lit          { $$ = @AttrVal($1, $3); }
   | ident '(' attr_val ')' { $$ = @AttrVal($1, $3); }
-  ;
-
-use_decl
-  : T_USE use_name ';'               
-    { 
-      $$ = @UseDecl($2); 
-      $this->eat_semis(); 
-    }
-  | T_USE use_name T_AS ident ';'    
-    { 
-      $$ = @UseDecl(@UseAlias($2, $4)); 
-      $this->eat_semis(); 
-    }
-  | T_USE use_name '{' use_items comma_opt '}' ';'
-    { 
-      $$ = @UseDecl(@UseUnpack($2, $4)); 
-      $this->eat_semis(); 
-    }
-  | T_USE '{' use_items comma_opt '}' ';'
-    {
-      $$ = @UseDecl(@UseUnpack(null, $3));
-      $this->eat_semis();
-    }
-  ;
-  
-use_items
-  : use_item               { $$ = [ $1 ]; }
-  | use_items ',' use_item { $1[] = $3; $$ = $1; }
-  ;
-  
-use_item
-  : use_name                   { $$ = $1; }
-  | use_name T_AS ident        { $$ = @UseAlias($1, $3); }
-  | use_name '{' use_items '}' { $$ = @UseUnpack($1, $3); }
-  ;
-
-use_name
-  : name { $$ = $1; }
   ;
 
 mods_opt
@@ -397,7 +406,6 @@ members
   
 member
   : fn_decl                            { $$ = $1; }
-  | let_decl                           { $$ = $1; }
   | var_decl                           { $$ = $1; }
   | enum_decl                          { $$ = $1; }
   | trait_usage                        { $$ = $1; }
@@ -431,7 +439,6 @@ member
 
 member_attr
   : '@' attr_def T_NL fn_decl  { $$ = @MemberAttr($1, $3); }
-  | '@' attr_def T_NL let_decl { $$ = @MemberAttr($1, $3); }
   | '@' attr_def T_NL var_decl { $$ = @MemberAttr($1, $3); }
   ;
   
@@ -522,7 +529,6 @@ inner
 
 comp
   : fn_decl        { $$ = $1; }
-  | let_decl       { $$ = $1; }
   | var_decl       { $$ = $1; }
   | label_decl     { $$ = $1; }
   | comp_attr      { $$ = $1; }
@@ -531,32 +537,29 @@ comp
   | error T_SYNC   { $$ = null; }
   ;
 
-let_decl
-  : mods_opt T_LET vars ';' 
+var_decl
+  :  T_LET vars ';' 
     { 
-      $$ = @LetDecl($1, $3); 
+      $$ = @VarDecl(null, $2); 
       $this->eat_semis(); 
     }
-  ;
-
-var_decl
-  : mods vars ';' 
+  | mods vars ';' 
     { 
       $$ = @VarDecl($1, $2); 
       $this->eat_semis(); 
     }
   ;
-  
-let_decl_noin_nosemi 
-  : mods_opt T_LET vars_noin { $$ = @LetDecl($1, $3); }
-  ;
-  
+    
 var_decl_noin_nosemi
-  : mods vars_noin { $$ = @VarDecl($1, $2); }
+  : T_LET vars_noin { $$ = @VarDecl(null, $2); }
+  | mods vars_noin  { $$ = @VarDecl($1, $2); }
   ;
 
 fn_decl
-  : mods_opt T_FN ident pparams fn_decl_body { $$ = @FnDecl($1, $3, $4, $5); }
+  : mods_opt T_FN ident pparams fn_decl_body 
+    {
+      $$ = @FnDecl($1, $3, $4, $5); 
+    }
   | mods_opt T_FN ident pparams ';'
     { 
       $$ = @FnDecl($1, $3, $4, null); 
@@ -569,42 +572,33 @@ fn_decl
     }
   ;
   
-fn_expr
-  : T_FN ident pparams fn_expr_body { $$ = @FnExpr($2, $3, $4); }
-  | T_FN pparams fn_expr_body       { $$ = @FnExpr(null, $2, $3); }
-  ;
-  
-fn_expr_noin
-  : T_FN ident pparams fn_expr_body_noin { $$ = @FnExpr($2, $3, $4); }
-  | T_FN pparams fn_expr_body_noin       { $$ = @FnExpr(null, $2, $3); }
-  ;
-  
 fn_decl_body
   : block          { $$ = $1; }
   | T_ARR rxpr ';' 
     { 
-      /* FIXME */
-      $$ = @Block([ @ReturnStmt($2) ]); 
+      $$ = $2;
       $this->eat_semis(); 
     }
   ;
   
+fn_expr
+  : T_FN ident pparams fn_expr_body { $$ = @FnExpr($2, $3, $4); }
+  | T_FN       pparams fn_expr_body { $$ = @FnExpr(null, $2, $3); }
+  ;
+  
+fn_expr_noin
+  : T_FN ident pparams fn_expr_body_noin { $$ = @FnExpr($2, $3, $4); }
+  | T_FN       pparams fn_expr_body_noin { $$ = @FnExpr(null, $2, $3); }
+  ;
+  
 fn_expr_body
   : block      { $$ = $1; }
-  | T_ARR rxpr 
-    { 
-      /* FIXME */
-      $$ = @Block([ @ReturnStmt($2) ]); 
-    }
+  | T_ARR rxpr { $$ = $2; }
   ;
   
 fn_expr_body_noin
   : block           { $$ = $1; }
-  | T_ARR rxpr_noin 
-    { 
-      /* FIXME */
-      $$ = @Block([ @ReturnStmt($2) ]); 
-    }
+  | T_ARR rxpr_noin { $$ = $2; }
   ;
 
 pparams
@@ -653,9 +647,7 @@ stmt
   : block                                             { $$ = $1; }
   | T_DO stmt T_WHILE pxpr ';'                        { $$ = @DoStmt($2, $4); }
   | T_IF pxpr stmt elsifs_opt else_opt                { $$ = @IfStmt($2, $3, $4, $5); }
-  | T_FOR '(' let_decl_noin_nosemi T_IN rxpr ')' stmt { $$ = @ForInStmt($3, $5, $7); }
-  | T_FOR '(' var_decl_noin_nosemi T_IN rxpr ')' stmt { $$ = @ForInStmt($3, $5, $7); }
-  | T_FOR '(' rseq_noin T_IN rxpr ')' stmt            { $$ = @ForInStmt($3, $5, $7); }
+  | T_FOR '(' for_in_pair T_IN rxpr ')' stmt          { $$ = @ForInStmt($3, $5, $7); }
   | T_FOR '(' for_expr_noin for_expr ')' stmt         { $$ = @ForStmt($3, $4, null, $6); }
   | T_FOR '(' for_expr_noin for_expr rseq ')' stmt    { $$ = @ForStmt($3, $4, $5, $7); }
   | T_FOR '(' error ')' stmt                          { $$ = null; }
@@ -684,13 +676,17 @@ stmt
   | error ';'                                         { $$ = null; }
   ;
   
+for_in_pair
+  : ident           { $$ = @ForInPair(null, $1); }
+  | ident ':' ident { $$ = @ForInPair($1, $3); }
+  ;
+  
 for_expr
   : rxpr_stmt { $$ = $1; }                 
   ;
   
 for_expr_noin
   : rxpr_stmt_noin           { $$ = $1; }
-  | let_decl_noin_nosemi ';' { $$ = $1; }
   | var_decl_noin_nosemi ';' { $$ = $1; }
   ;
   
@@ -848,8 +844,9 @@ lxpr
   | lxpr T_EQ rxpr          { $$ = @BinExpr($1, $2, $3); }
   | lxpr T_NEQ rxpr         { $$ = @BinExpr($1, $2, $3); } 
   | lxpr T_IN rxpr          { $$ = @BinExpr($1, $2, $3); }
+  | lxpr T_NIN rxpr         { $$ = @BinExpr($1, $2, $3); }
   | lxpr T_IS type_name     { $$ = @CheckExpr($1, $2, $3); }
-  | lxpr T_ISNT type_name   { $$ = @CheckExpr($1, $2, $3); }
+  | lxpr T_NIS type_name    { $$ = @CheckExpr($1, $2, $3); }
   | lxpr T_AS type_name     { $$ = @CastExpr($1, $3); }
   | lxpr T_INC %prec '.'    { $$ = @UpdateExpr(false, $1, $2); }
   | lxpr T_DEC %prec '.'    { $$ = @UpdateExpr(false, $1, $2); }
@@ -889,7 +886,7 @@ lxpr
   | T_NEW type_id pargs     { $$ = @NewExpr($2, $3); }
   | T_NEW nxpr              { $$ = @NewExpr($2, null); }
   | T_NEW nxpr pargs        { $$ = @NewExpr($2, $3); }
-  | T_DEL ident             { $$ = @DelExpr($2); }
+  | T_DEL nxpr              { $$ = @DelExpr($2); }
   | atom                    { $$ = $1; }
   | legacy_cast             { $$ = $1; }
   ;
@@ -921,8 +918,9 @@ rxpr
   | rxpr T_EQ rxpr          { $$ = @BinExpr($1, $2, $3); }
   | rxpr T_NEQ rxpr         { $$ = @BinExpr($1, $2, $3); } 
   | rxpr T_IN rxpr          { $$ = @BinExpr($1, $2, $3); }
+  | rxpr T_NIN rxpr         { $$ = @BinExpr($1, $2, $3); }
   | rxpr T_IS type_name     { $$ = @CheckExpr($1, $2, $3); }
-  | rxpr T_ISNT type_name   { $$ = @CheckExpr($1, $2, $3); }
+  | rxpr T_NIS type_name    { $$ = @CheckExpr($1, $2, $3); }
   | rxpr T_AS type_name     { $$ = @CastExpr($1, $3); }
   | rxpr T_INC %prec '.'    { $$ = @UpdateExpr(false, $1, $2); }
   | rxpr T_DEC %prec '.'    { $$ = @UpdateExpr(false, $1, $2); }
@@ -962,7 +960,7 @@ rxpr
   | T_NEW type_id pargs     { $$ = @NewExpr($2, $3); }
   | T_NEW nxpr              { $$ = @NewExpr($2, null); }
   | T_NEW nxpr pargs        { $$ = @NewExpr($2, $3); }
-  | T_DEL ident             { $$ = @DelExpr($2); }
+  | T_DEL nxpr              { $$ = @DelExpr($2); }
   | atom                    { $$ = $1; }
   | obj                     { $$ = $1; }
   | fn_expr                 { $$ = $1; }
@@ -996,7 +994,7 @@ rxpr_noin
   | rxpr_noin T_EQ rxpr_noin          { $$ = @BinExpr($1, $2, $3); }
   | rxpr_noin T_NEQ rxpr_noin         { $$ = @BinExpr($1, $2, $3); } 
   | rxpr_noin T_IS type_name          { $$ = @CheckExpr($1, $2, $3); }
-  | rxpr_noin T_ISNT type_name        { $$ = @CheckExpr($1, $2, $3); }
+  | rxpr_noin T_NIS type_name         { $$ = @CheckExpr($1, $2, $3); }
   | rxpr_noin T_AS type_name          { $$ = @CastExpr($1, $3); }
   | rxpr_noin T_INC %prec '.'         { $$ = @UpdateExpr(false, $1, $2); }
   | rxpr_noin T_DEC %prec '.'         { $$ = @UpdateExpr(false, $1, $2); }
@@ -1036,7 +1034,7 @@ rxpr_noin
   | T_NEW type_id pargs               { $$ = @NewExpr($2, $3); }
   | T_NEW nxpr                        { $$ = @NewExpr($2, null); }
   | T_NEW nxpr pargs                  { $$ = @NewExpr($2, $3); }
-  | T_DEL ident                       { $$ = @DelExpr($2); }
+  | T_DEL nxpr                        { $$ = @DelExpr($2); }
   | atom                              { $$ = $1; }
   | obj                               { $$ = $1; }
   | fn_expr_noin                      { $$ = $1; }
@@ -1090,13 +1088,13 @@ arg
   ;
   
 atom
-  : num  { $$ = $1; }
-  | reg  { $$ = $1; }
-  | arr  { $$ = $1; }
-  | name { $$ = $1; }
-  | kwc  { $$ = $1; }
-  | str  { $$ = $1; }
-  | pxpr { $$ = $1; }
+  : num          { $$ = $1; }
+  | reg          { $$ = $1; }
+  | arr          { $$ = $1; }
+  | name         { $$ = $1; }
+  | kwc          { $$ = $1; }
+  | str          { $$ = $1; }
+  | '(' rseq ')' { $$ = $2; }
   ;
  
 reg
@@ -1272,7 +1270,7 @@ obj_pair
 obj_key
   : ident        { $$ = $1; }
   | str          { $$ = $1; }
-  | '{' rxpr '}' { $$ = $2; }
+  | '(' rxpr ')' { $$ = $2; }
   | T_FN         { $$ = @Ident($1->value); }
   | T_LET        { $$ = @Ident($1->value); }
   | T_PHP        { $$ = @Ident($1->value); }    

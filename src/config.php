@@ -3,27 +3,25 @@
 namespace phs;
 
 class Config
-{
-  private $data;
-  
+{  
   public function set($k, $v)
   {
-    $this->data[$k] = $v;
+    $this->$k = $v;
   }
   
   public function get($k)
   {
-    return $this->data[$k];
+    return $this->$k;
   }
   
   public function has($k)
   {
-    return isset ($this->data[$k]);
+    return isset ($this->$k);
   }
   
   public function delete($k)
   {
-    unset ($this->data[$k]);
+    unset ($this->$k);
   }
   
   /* ------------------------------------ */

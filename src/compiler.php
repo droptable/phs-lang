@@ -110,7 +110,7 @@ class Compiler
   }
   
   public function compile()
-  {
+  {    
     // phase 1: parse all sources
     foreach ($this->srcs as $src) {
       $unit = $this->parse($src);
@@ -127,11 +127,13 @@ class Compiler
       return;
     }
     
-    // phase 2: analyze unit
-    foreach ($this->units as $unit)
-      $this->analyze($unit); 
+    // phase 2: analyze unit    
+    foreach ($this->units as $unit) {
+      $umap = $this->analyze($unit); 
+      //$umap->dump();
+    }
     
-    // phase 3: -> backend!
+    // phase 3: codegen modules
     
     if ($this->sess->abort) {
       Logger::debug('abort after phase 2');

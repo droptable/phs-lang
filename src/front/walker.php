@@ -9,39 +9,31 @@ use phs\front\ast\Node;
 use phs\front\ast\Unit;
 
 /** ast walker - texas ranger */
-abstract class Walker
+class Walker
 {
-  // options
-  private $walk;
-  
-  // nesting level
-  private $level = 0;
-  
-  // stop-indicator
-  private $stop;
-  
-  // drop indicator
-  private $drop;
+  // visitors
+  private $vstk;
   
   /**
    * constructor
    * 
-   * @param array $walk
+   * @param Visitor $vst
    */
-  public function __construct(array $walk = [])
+  public function __construct(Visitor $vst = null)
   {
-    if ($walk)
-      $this->config($walk);
+    // visitor stack
+    $this->vstk = [];
+    if ($vst) $this->add($vst);
   }
   
   /**
-   * returns the current nesting level
+   * adds an visitor
    * 
-   * @return int
+   * @param Visitor $vst
    */
-  public function level()
+  public function add(Visitor $vst)
   {
-    return $this->level;
+    $this->vstk[] = $vst;
   }
   
   /** 
@@ -49,88 +41,41 @@ abstract class Walker
    * 
    * @param  Unit   $unit
    */
-  public function walk(Unit $node, array $walk = [])
+  public function walk_unit(Unit $node)
   {
-    $this->stop = false;
-    $this->drop = false;
-    
-    if ($walk)
-      $this->config($walk);
-    
     $this->walk_some($node);
   }
-  
-  /**
-   * sets the walker config
-   * 
-   * @param  array  $walk
-   */
-  public function config(array $walk)
-  {
-    $this->walk = $walk + [
-      'skip' => [],    // skip nothing
-      'enter' => true, // enter all
-      'visit' => true  // visit all
-    ];
-  }
-  
-  /**
-   * tells the walker that the current node was dropped
-   * 
-   */
-  public function drop()
-  {
-    $this->drop = true;
-  }
-  
-  /**
-   * tell the walker to stop as soon as possible
-   * (escaping a recursion is not that easy)
-   *
-   */
-  public function stop()
-  {
-    $this->stop = true;
-  }
-  
-  /**
-   * check if the walker was stopped
-   * 
-   * @return boolean
-   */
-  public function stopped()
-  {
-    return $this->stop;
-  }
-  
+      
   /**
    * walks a node or an array
    * 
    * @param  Node|array $node
    */
-  protected function walk_some($some)
-  {
-    if ($this->stop || $some === null)
-      return;
-    
-    if (is_array($some)) {
+  public function walk_some($some)
+  {    
+    // nothing?
+    if ($some === null)
+      return; // leave early
+          
+    // walk array-of-nodes
+    elseif (is_array($some))
       foreach ($some as $item)
         $this->walk_some($item);
-      return;
-    } 
     
-    if ($some instanceof Node) {
-      $this->walk_node($some);
-      return;
+    // walk node
+    elseif ($some instanceof Node)
+      $this->visit($some);
+    
+    // error
+    else {
+      Logger::error('don\'t know how to traverse item \\');
+      
+      ob_start();
+      var_dump($some);
+      $log = ob_get_clean();
+      
+      Logger::error(substr($log, 0, 500));
     }
-    
-    Logger::error('don\'t know how to traverse item \\');
-    
-    ob_start();
-    var_dump($some);
-    $log = ob_get_clean();
-    
-    Logger::error(substr($log, 0, 500));
   }
   
   /**
@@ -138,180 +83,11 @@ abstract class Walker
    * 
    * @param  Node $node
    */
-  protected function walk_node(Node $node) 
+  protected function visit(Node $node) 
   {
-    if ($this->stop) return;
-    
-    $kind = $node->kind();
-    
-    if (in_array($kind, $this->walk['skip']))
-      return;
-      
-    switch ($kind) {
-      case 'unit':
-      case 'module':
-      case 'program':
-      case 'block':
-      case 'fn_decl':
-      case 'ctor_decl':
-      case 'dtor_decl':
-      case 'getter_decl':
-      case 'setter_decl':
-        $this->enter_node($kind, $node, $node->body);
-        break;
-      case 'class_decl':
-      case 'iface_decl':
-      case 'trait_decl':
-      case 'nested_mods':
-        $this->enter_node($kind, $node, $node->members);
-        break;
-      default:
-        $this->visit_node($kind, $node);
-    }
+    $kind = $node->kind(); 
+       
+    foreach ($this->vstk as $vst)
+      $vst->{'visit_' . $kind}($node);  
   }
-  
-  /* ------------------------------------ */
-  
-  private function enter_node($kind, Node $node, $body)
-  {
-    if (!$this->walk['enter'] || $this->stop ||
-        !in_array($kind, $this->walk['enter']))
-      return;
-    
-    $this->{"enter_$kind"}($node);
-    
-    if (!$this->drop) {
-      ++$this->level;
-      
-      $this->walk_some($body);
-      
-      $this->{"leave_$kind"}($node);
-      --$this->level;
-    }
-    
-    // reset
-    $this->drop = false;
-  }
-  
-  private function visit_node($kind, Node $node)
-  {
-    if (!$this->walk['visit'] || $this->stop ||
-        !in_array($kind, $this->walk['visit']))
-      return;
-    
-    if ($this->stop) return;
-    
-    $this->{"visit_$kind"}($node);
-  }
-  
-  /* ------------------------------------ */
-  /* override what you need */
-  
-  protected function enter_unit($n) {}
-  protected function leave_unit($n) {}
-  
-  protected function enter_module($n) {}
-  protected function leave_module($n) {}
-  
-  protected function enter_program($n) {}
-  protected function leave_program($n) {}
-  
-  // no enter/leave since it can not be nested
-  protected function visit_enum_decl($n) {}
-  
-  protected function enter_class_decl($n) {}
-  protected function leave_class_decl($n) {}
-  
-  protected function enter_nested_mods($n) {}
-  protected function leave_nested_mods($n) {}
-  
-  protected function enter_ctor_decl($n) {}
-  protected function leave_ctor_decl($n) {}
-  
-  protected function enter_dtor_decl($n) {}
-  protected function leave_dtor_decl($n) {}
-  
-  protected function enter_getter_decl($n) {}
-  protected function leave_getter_decl($n) {}
-  
-  protected function enter_setter_decl($n) {}
-  protected function leave_setter_decl($n) {}
-  
-  protected function enter_trait_decl($n) {}
-  protected function leave_trait_decl($n) {}
-  
-  protected function enter_iface_decl($n) {}
-  protected function leave_iface_decl($n) {}
-  
-  protected function enter_fn_decl($n) {}
-  protected function leave_fn_decl($n) {}
-  
-  protected function visit_attr_decl($n) {}
-  protected function visit_topex_attr($n) {}
-  protected function visit_comp_attr($n) {}
-  
-  protected function enter_block($n) {}
-  protected function leave_block($n) {}
-  
-  protected function visit_let_decl($n) {}
-  protected function visit_var_decl($n) {}
-  protected function visit_use_decl($n) {}
-  protected function visit_require_decl($n) {}
-  
-  protected function visit_label_decl($n) {}
-  
-  protected function visit_do_stmt($n) {}
-  protected function visit_if_stmt($n) {}
-  protected function visit_for_stmt($n) {}
-  protected function visit_for_in_stmt($n) {}
-  protected function visit_try_stmt($n) {}
-  protected function visit_php_stmt($n) {}
-  protected function visit_goto_stmt($n) {}
-  protected function visit_test_stmt($n) {}
-  protected function visit_break_stmt($n) {}
-  protected function visit_continue_stmt($n) {}
-  protected function visit_print_stmt($n) {}
-  protected function visit_throw_stmt($n) {}
-  protected function visit_while_stmt($n) {}
-  protected function visit_assert_stmt($n) {}
-  protected function visit_switch_stmt($n) {}
-  protected function visit_return_stmt($n) {}
-  protected function visit_expr_stmt($n) {}
-  
-  protected function visit_fn_expr($n) {}
-  protected function visit_bin_expr($n) {}
-  protected function visit_check_expr($n) {}
-  protected function visit_cast_expr($n) {}
-  protected function visit_update_expr($n) {}
-  protected function visit_assign_expr($n) {}
-  protected function visit_member_expr($n) {}
-  protected function visit_cond_expr($n) {}
-  protected function visit_call_expr($n) {}
-  protected function visit_yield_expr($n) {}
-  protected function visit_unary_expr($n) {}
-  protected function visit_new_expr($n) {}
-  protected function visit_del_expr($n) {}
-  
-  protected function visit_lnum_lit($n) {}
-  protected function visit_dnum_lit($n) {}
-  protected function visit_snum_lit($n) {}
-  
-  protected function visit_regexp_lit($n) {}
-  
-  protected function visit_arr_lit($n) {}
-  protected function visit_obj_lit($n) {}
-  
-  protected function visit_name($n) {}
-  protected function visit_ident($n) {}
-  
-  protected function visit_this_expr($n) {}
-  protected function visit_super_expr($n) {}
-  protected function visit_null_lit($n) {}
-  protected function visit_true_lit($n) {}
-  protected function visit_false_lit($n) {}
-  protected function visit_engine_const($n) {}
-  
-  protected function visit_str_lit($n) {}
-  
-  protected function visit_type_id($n) {}
 }

@@ -25,42 +25,25 @@ use phs\front\Parser;
 use phs\front\ImportCollector;
 use phs\front\ExportCollector;
 
+assert_options(ASSERT_ACTIVE, true);
+assert_options(ASSERT_BAIL, true);
+assert_options(ASSERT_CALLBACK, function($s, $l, $m = null) {
+  $w = $m ? " with message: $m" : '!';
+  print "\nassertion failed$w\n\nfile: $s\nline: $l\n";
+  exit;
+});
+
 function main() {
   $conf = new Config;
-  $conf->set_defaults();
-  
-  Logger::init($conf);
-  
+  $conf->set_defaults();  
   $sess = new Session($conf);
+  
+  Logger::init($sess);
+  Logger::debug('logger initialized');
+  
   $comp = new Compiler($sess);
   $comp->add_source(new FileSource(__DIR__ . '/test/test.phs'));
   $comp->compile();
-}
-
-function phase_1($sess, $src) {
-  $lex = new Lexer($src);
-  $psr = new Parser;
-  
-  return $psr->parse($lex);  
-}
-
-function phase_2($sess, $unit) {
-  $use = new ImportCollector($sess);
-  $unit->meta->imports = $use->collect($unit);
-  
-  
-  
-  $exp = new ExportCollector($sess);
-  $unit->meta->exports = $exp->collect($unit);
-}
-
-function debug_emap($map, $tab = '') {
-  foreach ($map as $itm) {
-    print "$tab{$itm->name}\n";
-    
-    if ($itm instanceof \phs\front\ModuleExport)
-      debug_emap($itm->exmap, "{$tab}-> ");
-  }
 }
 
 main();

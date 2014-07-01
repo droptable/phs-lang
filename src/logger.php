@@ -17,11 +17,19 @@ const
 
 class Logger
 {
+  // @var Session
+  private static $sess;
+  
+  // @var int
   private static $level = LOG_LEVEL_ALL;
-  private static $prev = '';
+  
+  // @var string|stream
   private static $dest = null; // -> stderr
+  
+  // @var bool  continue-flag
   private static $cont = false;
   
+  // log-level hooks
   private static $hooks = [
     LOG_LEVEL_DEBUG => [],
     LOG_LEVEL_VERBOSE => [],
@@ -32,8 +40,13 @@ class Logger
   
   /* ------------------------------------ */
   
-  public static function init(Config $conf)
+  public static function init(Session $sess)
   {
+    self::$sess = $sess;
+    
+    // fetch config
+    $conf = self::$sess->conf;
+    
     if ($conf->has('log_dest'))
       self::set_dest($conf->get('log_dest'));
     
@@ -123,6 +136,9 @@ class Logger
     
     if (self::$level > $lvl)
       return;
+    
+    if ($lvl >= LOG_LEVEL_ERROR)
+      self::$sess->abort = true;
     
     $out = '';
     

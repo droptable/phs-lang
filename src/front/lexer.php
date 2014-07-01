@@ -733,10 +733,9 @@ class Lexer
     'del' => T_DEL,
     'as' => T_AS,
     'is' => T_IS,
-    'isnt' => T_ISNT,
-    '!is' => T_ISNT, // remove?
-    '!isnt' => T_IS, // remove?
+    '!is' => T_NIS,
     'in' => T_IN,
+    '!in' => T_NIN,
     
     'int' => T_TINT,
     'integer' => T_TINT,

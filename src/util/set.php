@@ -6,6 +6,8 @@ use \Countable;
 use \ArrayIterator;
 use \IteratorAggregate;
 
+use \InvalidArgumentException as IAException;
+
 class Set implements IteratorAggregate, Countable
 {
   // memory (array)
@@ -28,6 +30,9 @@ class Set implements IteratorAggregate, Countable
    */
   public function add($val)
   {
+    if (!$this->check($val))
+      throw new IAException('check');
+    
     if (in_array($val, $this->mem, true))
       return false;
     
@@ -62,6 +67,20 @@ class Set implements IteratorAggregate, Countable
       return false;
     
     array_splice($this->mem, $idx, 1);
+    return true;
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * checks if a Entry is valid in this set.
+   * override this method to archive a 'Set<Type>' implementation.
+   * 
+   * @param  mixed $val
+   * @return boolean
+   */
+  protected function check($val)
+  {
     return true;
   }
   

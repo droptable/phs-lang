@@ -80,14 +80,14 @@
       )
     )
   |
-    # the "is" and "is not" operator
-    (?:(?:!?is(?:no?t|\s+not)?)(?=\s|$))
-  |
-    # in and not-in
-    (?:(?:!?(?:not\s+)?in)(?=\s|$))
+    # the "is" and "in" operator
+    (?:(?:!?i[ns])(?=\s|$))
   |
     # words (identifiers)
     [a-zA-Z_\x7f-\xff\$][a-zA-Z0-9_\x7f-\xff\$]*
+    
+    # allow '!' as suffix for macro-calls
+    [!]?
   | 
     # operators and punctuation
     (?:    

@@ -2,10 +2,26 @@
 
 namespace phs\front;
 
+require_once 'utils.php';
+
+use \Countable;
+use \ArrayIterator;
+use \IteratorAggregate;
+
 use phs\util\Set;
 use phs\util\Map;
-use phs\util\Cell;
-use phs\util\Table;
+use phs\util\Entry;
+
+use phs\front\ast\Node;
+use phs\front\ast\Decl;
+use phs\front\ast\Ident;
+
+use phs\front\ast\FnDecl;
+use phs\front\ast\VarDecl;
+use phs\front\ast\VarItem;
+use phs\front\ast\EnumVar;
+use phs\front\ast\CtorDecl;
+use phs\front\ast\DtorDecl;
 
 // kinds
 const
@@ -37,32 +53,45 @@ const SYM_FLAGS_NONE = SYM_FLAG_NONE;
 
 // namespaces
 const
-  SYM_NS0 = 0, // fn, var
-  SYM_NS1 = 1  // class, trait, iface
+  SYM_NS0 = 0, // unused / internal
+  SYM_NS1 = 1, // defn namespace
+  SYM_NS2 = 2  // type namespace
+;
+
+// namespace lookup
+const
+  SYM_FN_NS    = SYM_NS1,
+  SYM_VAR_NS   = SYM_NS1,
+  SYM_CLASS_NS = SYM_NS2,
+  SYM_TRAIT_NS = SYM_NS2,
+  SYM_IFACE_NS = SYM_NS2
 ;
 
 /**
- * returns the namespace-id for a symbol-kind
+ * returns a namespace-id for a symbol-kind
  * 
  * @param  int $kind
  * @return int
  */
 function get_sym_ns($kind) {
-  if ($kind instanceof Symbol)
-    return $kind->row(); // ...
+  static $tbl = [
+    SYM_KIND_FN => SYM_FN_NS,
+    SYM_KIND_VAR => SYM_VAR_NS,
+    SYM_KIND_CLASS => SYM_CLASS_NS,
+    SYM_KIND_TRAIT => SYM_TRAIT_NS,
+    SYM_KIND_IFACE => SYM_IFACE_NS
+  ];
   
-  switch ($kind) {
-    case SYM_KIND_FN:
-    case SYM_KIND_VAR:
-      return SYM_NS0;
-    default:
-      return SYM_NS1;
-  }
+  assert($kind >= 0 && $kind <= SYM_KIND_IFACE);
+  return $tbl[$kind];
 }
 
 /** symbol base */
-abstract class Symbol implements Cell
+abstract class Symbol
 {
+  // @var int
+  public $ns;
+  
   // @var string
   public $id;
   
@@ -75,70 +104,290 @@ abstract class Symbol implements Cell
   // @var int
   public $flags;
   
-  // @var Scope
-  public $scope;
+  // @var Node  the ast-node which defines this symbol
+  public $node = null;
+  
+  // @var Scope  scope where this symbol was defined in
+  public $scope = null;
   
   /**
    * constructor
    * 
-   * @param string   $id
+   * @param Ident|string  $id
+   * @param int $ns
+   * @param Location $loc 
    * @param int   $kind
-   * @param Location $loc  
-   * @param Scope    $scope
    * @param int   $flags
    */
-  public function __construct($id, $kind, Location $loc, Scope $scope, $flags)
+  public function __construct($id, $ns, Location $loc, $kind, $flags)
   {
+    if ($id instanceof Ident)
+      $id = ident_to_str($id);
+    
     $this->id = $id;
-    $this->kind = $kind;
+    $this->ns = $ns;
     $this->loc = $loc;
-    $this->scope = $scope;
+    $this->kind = $kind;
     $this->flags = $flags;
   }
-  
-  /**
-   * returns a key for this symbol
-   * 
-   * @see Cell#key()
-   * @return string
-   */
-  public function key()
-  {
-    return $this->id;
-  }
-  
-  /**
-   * should return the row (namespace) for this symbol
-   * 
-   * @see Cell#row()
-   * @return int
-   */
-  abstract public function row();
 }
 
 /* ------------------------------------ */
 
-/** symbol table */
-class SymbolTable extends Table
+/** symbol map */
+class SymbolMap implements IteratorAggregate, Countable
 {
+  // memory
+  private $mem = [ 
+    [] /* NS0 */, 
+    [] /* NS1 */,
+    [] /* NS2 */ 
+  ];
+  
+  // index
+  private $idx = [];
+  
+  /**
+   * constructor 
+   */
+  public function __construct()
+  {
+    // empty
+  }
+  
+  /**
+   * adds a symbol
+   * 
+   * @param Symbol $sym
+   * @return boolean
+   */
+  public function add(Symbol $sym)
+  {
+    $ns = $sym->ns;
+    $id = $sym->id;
+    
+    assert($ns >= 0);
+    
+    if (isset ($this->mem[$ns][$id]))
+      return false;
+    
+    $this->mem[$ns][$id] = $sym;
+    return true;
+  }
+  
+  /**
+   * add/update a symbol
+   * 
+   * @param Symbol $sym
+   * @return Symbol  the previous symbol
+   */
+  public function put(Symbol $sym)
+  {
+    assert($sym->ns >= 0);
+    $prv = null;
+    
+    if (isset ($this->mem[$sym->ns][$sym->id]))
+      $prv = $this->mem[$sym->ns][$sym->id];
+    
+    $this->mem[$sym->ns][$sym->id] = $sym;
+    return $prv;
+  }
+  
+  /**
+   * fetches a symbol
+   * 
+   * @param  string  $id
+   * @param  integer $ns
+   * @return Symbol
+   */
+  public function get($id, $ns = -1)
+  {
+    if ($ns === -1) {
+      // search in all namespaces
+      foreach ($this->mem as $mem)
+        if (isset ($mem[$id])) 
+          return $mem[$id];
+      
+      // no symbol found
+      return null;
+    }
+    
+    assert($ns >= 0);
+    
+    if (isset ($this->mem[$ns][$id]))
+      return $this->mem[$ns][$id];
+    
+    // no symbol found
+    return null;
+  }
+  
+  /**
+   * check is a symbol exists
+   * 
+   * @param  string  $id
+   * @param  integer $ns
+   * @return boolean
+   */
+  public function has($id, $ns = -1)
+  {
+    if ($ns === -1) {
+      // search in all namespaces
+      foreach ($this->mem as $mem)
+        if (isset ($mem[$id]))
+          return true;
+        
+      // no symbol found
+      return false;
+    }
+    
+    assert($ns >= 0);
+    return isset ($this->mem[$ns][$id]);
+  }
+  
+  /**
+   * deletes a symbol
+   * 
+   * @param  string  $id
+   * @param  integer $ns
+   * @return boolean
+   */
+  public function delete($id, $ns = -1)
+  {
+    if ($ns === -1) {
+      // delete in all namespaces
+      $fd = false;
+      
+      foreach ($this->mem as $mem) 
+        if (isset ($mem[$id])) {
+          $fd = true;
+          unset ($mem[$id]);
+        }
+      
+      return $fd;
+    }
+    
+    assert($ns >= 0);
+    
+    if (isset ($this->mem[$ns][$id])) {
+      unset ($this->mem[$ns][$id]);
+      return true;
+    }
+    
+    return false;
+  }
+  
+  /* ------------------------------------ */
+  /* IteratorAggregate */
+  
+  public function getIterator()
+  {
+    return new ArrayIterator($this->mem);
+  }
+  
+  /* ------------------------------------ */
+  /* Countable */
+  
+  public function count()
+  {
+    $count = 0;
+    
+    foreach ($this->mem as $mem)
+      $count += count($mem);
+    
+    return $count;
+  }
+}
+
+/* ------------------------------------ */
+
+/** symbol-list */
+class SymbolList implements IteratorAggregate, Countable
+{
+  // @var array
+  private $mem;
+  
   /**
    * constructor
    */
   public function __construct()
   {
-    parent::__construct();
+    $this->mem = [];
   }
   
   /**
-   * add a symbol
+   * adds a symbol
    * 
-   * @param string $key
-   * @param Symbol $val
+   * @param Symbol $sym
    */
-  public function add(Cell $itm)
+  public function add(Symbol $sym)
   {
-    assert($itm instanceof Symbol);
-    return parent::add($itm);
+    $this->mem[] = $sym;
+  }
+  
+  /**
+   * returns a symbol at the given index.
+   * you should avoid this method, because there is no associativity.
+   * 
+   * @param  int $idx
+   * @return Symbol|null
+   */
+  public function get($idx)
+  {
+    if (isset ($this->mem[$idx]))
+      return $this->mem[$idx];
+    
+    return null;
+  }
+  
+  /**
+   * checks if a symbol is present in the list.
+   * 
+   * if $key parameter is a int:
+   * this method checks if the list has something at the given index.
+   * 
+   * if $key parameter is a string:
+   * this methods checks if a symbol with the given id exists.
+   * 
+   * if $key parameter is a Symbol:
+   * this method performs a simple 'in-array' lookup.
+   * 
+   * @param  int|string|Symbol  $key
+   * @return boolean
+   */
+  public function has($key)
+  {
+    if (is_int($key))
+      return isset ($this->mem[$key]);
+    
+    if (is_string($key)) {
+      foreach ($this->mem as $sym)
+        if ($sym->id === $key)
+          return true;
+      
+      return false;
+    }
+    
+    if ($key instanceof Symbol)
+      return in_array($ke, $this->mem, true);
+    
+    // invalid key
+    return false;
+  }
+  
+  /* ------------------------------------ */
+  /* IteratorAggregate */
+  
+  public function getIterator()
+  {
+    return new ArrayIterator($this->mem);
+  }
+  
+  /* ------------------------------------ */
+  /* Countable */
+  
+  public function count()
+  {
+    return count($this->mem);
   }
 }
 
@@ -159,8 +408,8 @@ class TraitUsage
   // @var string  dest
   public $dest;
   
-  public function __construct(TraitSymbol $trait, 
-                              Symbol $member, $flags, $dest)
+  public function __construct(TraitSymbol $trait, Symbol $member, 
+                              $flags, $dest)
   {
     $this->trait = $trait;
     $this->member = $member;
@@ -181,27 +430,15 @@ class TraitUsageMap extends Map
   }
   
   /**
-   * add a symbol
+   * typecheck
    * 
-   * @param string $key
-   * @param TraitUsage $val
+   * @see Map#check()
+   * @param  Entry  $ent
+   * @return boolean
    */
-  public function add($key, $val)
+  protected function check(Entry $ent)
   {
-    assert($val instanceof TraitUsage);
-    return parent::add($key, $val);
-  }
-  
-  /**
-   * add/update a symbol
-   * 
-   * @param string $key
-   * @param TraitUsage $val
-   */
-  public function set($key, $val)
-  {
-    assert($val instanceof TraitUsage);
-    parent::set($key, $val);
+    return $ent instanceof TraitUsage;
   }
 }
 
@@ -209,65 +446,91 @@ class TraitUsageMap extends Map
 
 /** function symbol */
 class FnSymbol extends Symbol
-{
-  // whenever the function returns something
-  public $has_return = false;
-  
+{  
   /**
    * constructor
    * 
    * @param string   $id
-   * @param Location $loc  
-   * @param Scope $scope
+   * @param Location $loc
    * @param int   $flags
    */
-  public function __construct($id, Location $loc, Scope $scope, $flags)
+  public function __construct($id, Location $loc, $flags)
   {
     // init symbol
-    parent::__construct($id, SYM_KIND_FN, $loc, $scope, $flags);
+    parent::__construct($id, SYM_FN_NS, $loc, SYM_KIND_FN, $flags);
   }
   
+  /* ------------------------------------ */
+  
   /**
-   * returns the namespace
+   * creates a function-symbol from an FnDecl ast-node
    * 
-   * @return int
+   * @param  FnDecl|CtorDecl|DtorDecl $node
+   * @return FnSymbol
    */
-  public function row()
+  public static function from($node)
   {
-    // definition namespace
-    return SYM_NS0;
+    $id = '<unknown>';
+    
+    if ($node instanceof FnDecl)
+      $id = ident_to_str($node->id);
+    elseif ($node instanceof CtorDecl)
+      $id = '<ctor>';
+    elseif ($node instanceof DtorDecl)
+      $id = '<dtor>';
+    else
+      assert(0);
+    
+    $sym = new FnSymbol($id, $node->loc, mods_to_flags($node->mods));
+    $sym->node = $node;
+    
+    return $sym;
   }
 }
 
 /** var symbol */
 class VarSymbol extends Symbol
-{
-  // whenever a value is assigned
+{  
+  // @var Value  whenever a value could be computed during compilation 
   public $value = null;
   
   /**
    * constructor
    * 
    * @param string   $id
-   * @param Location $loc  
-   * @param Scope $scope
+   * @param Location $loc
    * @param int   $flags
+   * @param boolean $ref
+   * @param Node $init
    */
-  public function __construct($id, Location $loc, Scope $scope, $flags)
+  public function __construct($id, Location $loc, $flags)
   {
     // init symbol
-    parent::__construct($id, SYM_KIND_VAR, $loc, $scope, $flags);
+    parent::__construct($id, SYM_VAR_NS, $loc, SYM_KIND_VAR, $flags);
   }
   
+  /* ------------------------------------ */
+  
   /**
-   * returns the namespace
+   * creates a variable-symbol from an VarItem or EnumVar ast-node.
    * 
-   * @return int
+   * @todo VarItem and EnumVar should implement a shared interface
+   * 
+   * @param  VarItem|EnumVar $var
+   * @param  mixed  $mods
+   * @return VarSymbol
    */
-  public function row()
+  public static function from($var, $mods)
   {
-    // definition namespace
-    return SYM_NS0;
+    assert($var instanceof VarItem ||
+           $var instanceof EnumVar);
+    
+    $id = ident_to_str($var->id);
+    $flags = is_int($flags) ? $flags : mods_to_flags($mods);
+    $sym = new VarSymbol($id, $var->loc, $flags);
+    $sym->node = $var;
+    
+    return $sym;
   }
 }
 
@@ -283,54 +546,41 @@ class ClassSymbol extends Symbol
   // @var TraitUsageMap  traits
   public $traits;
   
-  // @var SymbolMap  fields
-  public $fields;
+  // @var SymbolMap  members
+  public $members;
   
-  // @var SymbolMap  methods
-  public $methods;
+  // @var FnSymbol  constructor
+  public $ctor = null;
+  
+  // @var FnSymbol  destructor
+  public $dtor = null;
   
   /**
    * constructor
    * 
    * @param string   $id
-   * @param Location $loc  
-   * @param Scope $scope
+   * @param Location $loc
    * @param int   $flags
    */
-  public function __construct($id, Location $loc, Scope $scope, $flags)
+  public function __construct($id, Location $loc, $flags)
   {
     // init symbol
-    parent::__construct($id, SYM_KIND_CLASS, $loc, $scope, $flags);
+    parent::__construct($id, SYM_CLASS_NS, SYM_KIND_CLASS, $loc, $flags);
     
-    $this->ifaces = new SymbolTable;
+    $this->ifaces = new SymbolMap;
     $this->traits = new TraitUsageMap;
-    $this->fields = new SymbolTable;
-    $this->methods = new SymbolTable;
-  }
-  
-  /**
-   * returns the namespace
-   * 
-   * @return int
-   */
-  public function row()
-  {
-    // definition namespace
-    return SYM_NS1;
+    $this->members = new SymbolMap;
   }
 }
 
 /** trait symbol */
 class TraitSymbol extends Symbol
-{
+{  
   // @var TraitUsageMap  traits
   public $traits;
   
-  // @var SymbolMap  fields
-  public $fields;
-  
-  // @var SymbolMap  methods
-  public $methods;
+  // @var SymbolMap  members
+  public $members;
   
   /**
    * constructor
@@ -340,25 +590,13 @@ class TraitSymbol extends Symbol
    * @param Scope $scope
    * @param int   $flags
    */
-  public function __construct($id, Location $loc, Scope $scope, $flags)
+  public function __construct($id, Location $loc, $flags)
   {
     // init symbol
-    parent::__construct($id, SYM_KIND_TRAIT, $loc, $scope, $flags);
+    parent::__construct($id, SYM_TRAIT_NS, SYM_KIND_TRAIT, $loc, $flags);
     
     $this->traits = new TraitUsageMap;
-    $this->fields = new SymbolMap;
-    $this->methods = new SymbolMap;
-  }
-  
-  /**
-   * returns the namespace
-   * 
-   * @return int
-   */
-  public function row()
-  {
-    // definition namespace
-    return SYM_NS1;
+    $this->members = new SymbolMap;
   }
 }
 
@@ -368,38 +606,22 @@ class IfaceSymbol extends Symbol
   // @var SymbolMap  interfaces
   public $ifaces;
   
-  // @var SymbolMap  fields
-  public $fields;
-  
-  // @var SymbolMap  methods
-  public $methods;
+  // @var SymbolMap  members
+  public $members;
   
   /**
    * constructor
    * 
    * @param string   $id
    * @param Location $loc  
-   * @param Scope $scope
    * @param int   $flags
    */
-  public function __construct($id, Location $loc, Scope $scope, $flags)
+  public function __construct($id, Location $loc, $flags)
   {
     // init symbol
-    parent::__construct($id, SYM_KIND_IFACE, $loc, $scope, $flags);
+    parent::__construct($id, SYM_IFACE_NS, SYM_KIND_IFACE, $loc, $flags);
     
     $this->ifaces = new SymbolMap;
-    $this->fields = new SymbolMap;
-    $this->methods = new SymbolMap;
-  }
-  
-  /**
-   * returns the namespace
-   * 
-   * @return int
-   */
-  public function row()
-  {
-    // definition namespace
-    return SYM_NS1;
+    $this->members = new SymbolMap;
   }
 }

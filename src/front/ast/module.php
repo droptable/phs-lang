@@ -15,8 +15,8 @@ class Module extends Node
   
   public function __construct($name, $body)
   {
-    assert($body === null || is_array($body) ||
-           $body instanceof Program);
+    assert($body === null ||
+           $body instanceof Content);
     
     $this->name = $name;
     $this->body = $body;

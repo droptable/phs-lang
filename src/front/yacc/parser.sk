@@ -32,11 +32,8 @@ require_once 'lexer.php';
 
 use phs\Logger;
 
+use phs\front\ast;
 use phs\front\ast\Node;
-use phs\front\ast\Decl;
-use phs\front\ast\Stmt;
-use phs\front\ast\Expr;
-/*@@ imports @@*/
 
 class #(-p)
 {

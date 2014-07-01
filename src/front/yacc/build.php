@@ -34,7 +34,7 @@ namespace gen;
  * @return string the aliased class-name
  */
 function alias($name) {
-  return $name;
+  return "ast\\$name";
 }
 
 // ---------------------------
@@ -44,7 +44,7 @@ $O = __DIR__ . '/parser-tmp.y';
 
 class Context { 
   public $buf, $len, $idx, $use;
-  public $req, $imp; 
+  public $req; 
   public $opts;
 }
 
@@ -84,10 +84,6 @@ function deploy($O, $ctx) {
     exit($y);
   }
   
-  $F = file_get_contents($P);
-  $F = preg_replace('/^\/\*@@\s*imports\s*@@\*\//m', $ctx->imp, $F);
-  file_put_contents($P, $F);
-  
   verbose($ctx,
 <<<END_PHS
      ___  __ ______
@@ -101,9 +97,7 @@ END_PHS
   $S = realpath(__DIR__ . '/..');
   rename($P, "$S/parser.php");
   verbose($ctx, "-> $S/parser.php");
-  
-  foreach ([ 'parser-tmp.php', 'parser-tmp.y' ] as $f)
-    if (is_file($f = __DIR__ . "/$f")) unlink($f);
+  unlink($O);
   
   $ast = <<<END_AST
 <?php
@@ -166,7 +160,6 @@ END_USE
 }
 
 function generate($ctx) {
-  $i = '';
   $r = '';
   $t = [];
   
@@ -184,16 +177,13 @@ function generate($ctx) {
     $p = 'ast/' . path($n);
     
     $t[] = $n;
-    $i .= "use phs\\front\\ast\\$n$s;\n";
     $r .= "require_once '$p';\n";
     
     verbose($ctx, 'using "' . $n . "' with alias " 
       . ($s ?: '(none)') . ' at ' . $p);
   }
   
-  $ctx->req = $r;
-  $ctx->imp = $i;
-  
+  $ctx->req = $r;  
   verbose($ctx, '... found ' . count($t) . ' unique ast-nodes');
 }
 
