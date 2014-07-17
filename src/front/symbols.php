@@ -12,6 +12,9 @@ use phs\util\Set;
 use phs\util\Map;
 use phs\util\Entry;
 
+// used in SymbolSet
+use phs\util\LooseSet;
+
 use phs\front\ast\Node;
 use phs\front\ast\Decl;
 use phs\front\ast\Ident;
@@ -135,7 +138,8 @@ abstract class Symbol
 /* ------------------------------------ */
 
 /** symbol map */
-class SymbolMap implements IteratorAggregate, Countable
+class SymbolMap implements
+  IteratorAggregate, Countable
 {
   // memory
   private $mem = [ 
@@ -388,6 +392,47 @@ class SymbolList implements IteratorAggregate, Countable
   public function count()
   {
     return count($this->mem);
+  }
+}
+
+/* ------------------------------------ */
+
+/** symbol-set */
+class SymbolSet extends LooseSet
+{
+  /**
+   * constructor
+   * 
+   */
+  public function __construct()
+  {
+    parent::__construct();
+  }
+    
+  /**
+   * @see Set#check()
+   * @param  mixed $ent
+   * @return boolean
+   */
+  protected function check($ent)
+  {
+    return $ent instanceof Symbol;
+  }
+  
+  /**
+   * @see LooseSet#compare()
+   * @param  mixed $a
+   * @param  mixed $b
+   * @return boolean
+   */
+  protected function compare($a, $b)
+  {
+    // loose compare two symbols.
+    // this will prevent add() to assign symbols with the same name.
+    // 
+    // EntrySet would do this for us too, but a member-lookup 
+    // is cheaper than a method-call :-)
+    return $a === $b || $a->id === $b->id;
   }
 }
 

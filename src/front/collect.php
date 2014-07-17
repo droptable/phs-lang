@@ -7,7 +7,9 @@ require_once 'walker.php';
 require_once 'visitor.php';
 require_once 'symbols.php';
 require_once 'scope.php';
-require_once 'module.php';
+
+use phs\Logger;
+use phs\Session;
 
 use phs\util\Set;
 use phs\util\Map;
@@ -119,7 +121,7 @@ class UsageCollector extends Visitor
   /**
    * collector entry-point
    *
-   * @param array  $some
+   * @param array|Node  $some
    * @return UsageMap
    */
   public function collect($some)
@@ -129,6 +131,46 @@ class UsageCollector extends Visitor
     $this->walker->walk_some($some);
     return $this->uimap;
   }
+
+  // ---------------------------------------
+  // visitor boilerplate
+  
+  /**
+   * walker-method
+   *
+   * @param Node $node
+   */
+  public function visit_unit($node) 
+  { 
+    $this->walker->walk_some($node->body); 
+  }
+  
+  /**
+   * walker-method
+   *
+   * @param Node $node
+   */
+  public function visit_module($node) 
+  {
+    $this->walker->walk_some($node->body); 
+  }
+  
+  /**
+   * walker-method
+   *
+   * @param Node $node
+   */
+  public function visit_content($node) 
+  { 
+    if ($node->uses)
+      foreach ($node->uses as $usage)
+        $this->handle_import(null, $usage);
+      
+    // handle sub-modules too?
+    // $this->walker->walk_some($node->body);
+  }
+  
+  // ---------------------------------------
 
   /**
    * adds a use-import to the map
@@ -178,19 +220,6 @@ class UsageCollector extends Visitor
       $base = $this->uimap->get($root);
     
     return $base;
-  }
-
-  /* ------------------------------------ */
-
-  /**
-   * walker-method
-   *
-   * @see Walker#visit_use_decl
-   * @param Node $node
-   */
-  public function visit_use_decl($node)
-  {
-    $this->handle_import(null, $node->item);
   }
 
   /* ------------------------------------ */

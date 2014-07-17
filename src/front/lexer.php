@@ -78,8 +78,8 @@ class Lexer
   {
     $this->line = 1;
     $this->coln = 1;
-    $this->data = $src->get_text();
-    $this->file = $src->get_name();
+    $this->data = $src->get_data();
+    $this->file = $src->get_path();
     
     // load pattern
     if (!self::$re)
@@ -578,7 +578,7 @@ class Lexer
       if (isset(self::$table[$sub]))         
         // lookup token-table and check if the token is separator/operator  
         $tok = $this->token(self::$table[$sub], $sub);
-      elseif (isset(self::$rids[$sub]))
+      elseif (!$this->tnl && isset(self::$rids[$sub]))
         // check if the token is a keyword (rid -> reserved identifier)
         $tok = $this->token(self::$rids[$sub], $sub); 
       else
@@ -744,7 +744,9 @@ class Lexer
     'float' => T_TFLOAT,
     'double' => T_TFLOAT,
     'string' => T_TSTRING,
-    'regexp' => T_TREGEXP
+    'regexp' => T_TREGEXP,
+    
+    'alias' => T_ALIAS
   ];
   
   // some tokens are ascii-tokens, see comment at the top of this file

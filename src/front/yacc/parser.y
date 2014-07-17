@@ -101,6 +101,8 @@
 %token T_SEALED
 %token T_INLINE
 
+%token T_ALIAS
+
 %token T_PHP
 %token T_TEST
 
@@ -227,11 +229,16 @@ topex
   | error T_SYNC   { $$ = null; }
   | T_END          { $$ = null; }
   | label_decl     { $$ = $1; }
+  | alias_decl     { $$ = $1; }
   | stmt           { $$ = $1; }
   ;
   
 label_decl
   : ident ':' comp { $$ = @LabelDecl($1, $3); }
+  ;
+
+alias_decl
+  : T_ALIAS ident '=' name ';' { $$ = @AliasDecl($2, $4); }
   ;
 
 module_nst
@@ -362,12 +369,12 @@ class_decl
   
 ext_opt
   : /* empty */   { $$ = null; }
-  | '<' ext       { $$ = $2; }
+  | ':' ext       { $$ = $2; }
   ;
   
 exts_opt
   : /* empty */   { $$ = null; }
-  | '<' exts      { $$ = $2; }
+  | ':' exts      { $$ = $2; }
   ;
   
 exts
@@ -408,6 +415,7 @@ member
   : fn_decl                            { $$ = $1; }
   | var_decl                           { $$ = $1; }
   | enum_decl                          { $$ = $1; }
+  | alias_decl                         { $$ = $1; }
   | trait_usage                        { $$ = $1; }
   | member_attr                        { $$ = $1; }
   | mods_opt T_NEW pparams ';'         
@@ -1150,7 +1158,7 @@ dot_ident
   | '.' T_USE       { $$ = @Ident($2->value); }    
   | '.' T_MODULE    { $$ = @Ident($2->value); }       
   | '.' T_EXTERN    { $$ = @Ident($2->value); }       
-  | '.' T_CLASS     { $$ = @Ident($2->value); }      
+  | '.' T_CLASS     { $$ = @Ident($2->value); } 
   | '.' T_TRAIT     { $$ = @Ident($2->value); }      
   | '.' T_IFACE     { $$ = @Ident($2->value); }      
   | '.' T_THIS      { $$ = @Ident($2->value); }     
@@ -1219,12 +1227,13 @@ num
   ;
 
 lit
-  : str { $$ = $1; }
-  | num { $$ = $1; }
-  | reg { $$ = $1; }
-  | arr { $$ = $1; }
-  | obj { $$ = $1; }
-  | kwc { $$ = $1; }
+  : str   { $$ = $1; }
+  | num   { $$ = $1; }
+  | reg   { $$ = $1; }
+  | arr   { $$ = $1; }
+  | obj   { $$ = $1; }
+  | kwc   { $$ = $1; }
+  | ident { $$ = $1; }
   ;
 
 arr

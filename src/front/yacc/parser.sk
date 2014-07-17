@@ -377,15 +377,22 @@ class #(-p)
                 }
               }
 
-              $exps = 'unexpected ' . self::$terminals[$tokid];
+              $exps = 'unexpected ' . strtr(self::$terminals[$tokid], [ '%' => '%%' ]);
               
               if ($expn > 0) {
                 $last = array_pop($expa);
                 $exps .= ', expected ';
                 
-                if ($expn > 1)
-                  $exps .= implode(', ', $expa) . ' or ';
-                
+                if ($expn > 1) {
+                  foreach ($expa as $expi) {
+                    $exps .= strtr($expi, [ '%' => '%%' ]);
+                    $exps .= ', ';
+                  }
+                  
+                  $exps = rtrim($exps, ', ');
+                  $exps .= ' or ';
+                }
+                                
                 $exps .= $last;
                 unset ($expa, $last);
               }

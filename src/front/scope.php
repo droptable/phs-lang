@@ -2,10 +2,15 @@
 
 namespace phs\front;
 
+require_once 'utils.php';
+require_once 'symbols.php';
+
 use phs\Logger;
 use phs\Session;
 
-require_once 'symbols.php';
+use phs\util\Set;
+use phs\util\Map;
+use phs\util\Entry;
 
 /** scope */
 class Scope extends SymbolMap
@@ -18,6 +23,9 @@ class Scope extends SymbolMap
   
   // @var Scope  parent scope
   public $prev;
+  
+  // @var Set  captured symbols from the parent scope
+  public $capt;
   
   // unique id counter
   private static $uidcnt = 0;
@@ -33,7 +41,9 @@ class Scope extends SymbolMap
   public function __construct(Scope $prev = null)
   {
     parent::__construct();
+    
     $this->uid = self::$uidcnt++;
+    $this->capt = new SymbolSet;
     $this->prev = $prev;
     $this->root = $prev === null; // <- no parent scope
   }
@@ -41,15 +51,21 @@ class Scope extends SymbolMap
   /**
    * returns a symbol
    * 
-   * @param  string $key
+   * @param  string  $key
+   * @parsm  int     $ns  namespace
    * @return Symbol
    */
   public function get($key, $ns = -1)
   {
     $sym = parent::get($key, $ns);
     
-    if ($sym === null && $this->prev)
+    if ($sym === null && $this->prev) {
       $sym = $this->prev->get($key, $ns);
+      
+      // if found, mark symbol as captured
+      if ($sym !== null)
+        $this->capt->add($sym);
+    }
     
     return $sym;
   }
@@ -139,15 +155,22 @@ class Scope extends SymbolMap
   }
 }
 
-// class 'Module' requires class 'Scope' to be defined
-require_once 'module.php';
-
-/** unit scope */
-class UnitScope extends Scope
+/** root-scope: common class for scopes with (sub-)modules */
+class RootScope extends Scope
 {
-  // @var ModuleMap  modules
+  // @var ModuleMap (sub-)modules
   public $mmap;
   
+  public function __construct(RootScope $prev = null)
+  {
+    parent::__construct($prev);
+    $this->mmap = new ModuleScopeMap;
+  }
+}
+
+/** unit scope */
+class UnitScope extends RootScope
+{  
   /**
    * constructor
    *    
@@ -155,6 +178,83 @@ class UnitScope extends Scope
   public function __construct()
   {
     parent::__construct(null);
-    $this->mmap = new ModuleMap;
+  }
+}
+
+/** module scope */
+class ModuleScope extends RootScope implements Entry
+{
+  // @var string  module-id
+  public $id;
+  
+  /**
+   * constructor
+   * 
+   * @param string    $id 
+   * @param RootScope $prev
+   */
+  public function __construct($id, RootScope $prev)
+  {
+    // $prev is not optional
+    // a module must be defined in a unit or in a other module
+    parent::__construct($prev);
+    
+    $this->id = $id;
+  }
+  
+  /**
+   * @see Entry#key()
+   * @return string
+   */
+  public function key()
+  {
+    return $this->id;
+  }
+  
+  /**
+   * returns the absolute path of this module
+   * 
+   * @return array
+   */
+  public function path()
+  {
+    $path = [];
+    
+    // walk up to root
+    for ($prev = $this->prev; 
+         $prev instanceof self; 
+         $prev = $prev->prev)
+      $path[] = $prev->id;
+    
+    // reverse for the correct order
+    $path = array_reverse($path);
+    
+    // add own name
+    $path[] = $this->id;
+    
+    // done
+    return $path;
+  }
+}
+
+/** Map<ModuleScope> */
+class ModuleScopeMap extends Map
+{
+  /**
+   * constructor
+   */
+  public function __construct()
+  {
+    parent::__construct();
+  }
+  
+  /**
+   * @see Map#check()
+   * @param  Entry  $ent
+   * @return boolean
+   */
+  protected function check(Entry $ent)
+  {
+    return $ent instanceof ModuleScope;
   }
 }

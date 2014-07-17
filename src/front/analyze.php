@@ -7,7 +7,6 @@ require_once 'walker.php';
 require_once 'visitor.php';
 require_once 'symbols.php';
 require_once 'scope.php';
-require_once 'module.php';
 require_once 'collect.php';
 
 use phs\Config;
@@ -61,12 +60,6 @@ class Analyzer extends Visitor
   
   // @var Walker  walker
   private $walker;
-    
-  // @var TypeCollector
-  private $tcl;
-  
-  // @var UsageCollector
-  private $ucl;
   
   /**
    * constructor
@@ -77,10 +70,6 @@ class Analyzer extends Visitor
   {
     parent::__construct();
     $this->sess = $sess;
-    
-    // collectors
-    $this->tcl = new TypeCollector;
-    $this->ucl = new UsageCollector;
   }
   
   /**
@@ -92,16 +81,29 @@ class Analyzer extends Visitor
   public function analyze(Unit $unit)
   {    
     $anl = new Analysis($unit);
-    $anl->usage = $this->collect_usage($unit);    
-    $anl->types = $this->collect_types($unit);
-    $anl->modules = $this->collect_modules($unit);
     
-    return $anl;   
+    // collect global usage
+    $anl->usage = $this->collect_unit_usage($unit);    
+    
+    // collect global types
+    $anl->types = $this->collect_unit_types($unit);
+    
+    
+    //$anl->modules = $this->collect_modules($unit);
+    
+    return $anl;
   }
   
-  protected function collect_usage(Unit $unit) 
+  protected function collect_unit_usage(Unit $unit) 
   {
-    return $this->ucl->collect($unit);
+    $ucl = new UsageCollector($this->sess);
+    return $ucl->collect_unit($unit);
+  }
+  
+  protected function collect_unit_types(Unit $unit)
+  {
+    $tcl = new TypeCollector($this->sess);
+    return $tcl->collect_unit($unit);
   }
   
   public function visit_unit($node)
@@ -123,15 +125,9 @@ class Analyzer extends Visitor
       $mmap = null;
       $nmod = null; // assume no parent module by default
       
-      if ($base instanceof UnitScope)
-        // global unit-scope
-        $mmap = $base->mmap;
-      else {
-        // must be inside a module
-        assert($base instanceof Module);
-        $mmap = $base->subm; // use submodules
-        $nmod = $base;
-      }
+      // must be inside a unit or a module
+      assert($base instanceof RootScope);
+      $mmap = $base->mmap;
       
       foreach ($name as $mid) {
         if ($mmap->has($mid))
@@ -139,11 +135,11 @@ class Analyzer extends Visitor
           $nmod = $mmap->get($mid);
         else {
           // create and assign a new module
-          $nmod = new Module($mid, $nmod);
+          $nmod = new ModuleScope($mid, $nmod);
           $mmap->add($newm);
         }
         
-        $mmap = $nmod->subm;
+        $mmap = $nmod->mmap;
       }
       
       $this->scope = $nmod;

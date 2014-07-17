@@ -16,6 +16,7 @@ require_once 'ast/content.php';
 require_once 'ast/use_alias.php';
 require_once 'ast/use_unpack.php';
 require_once 'ast/label_decl.php';
+require_once 'ast/alias_decl.php';
 require_once 'ast/require_decl.php';
 require_once 'ast/attr_decl.php';
 require_once 'ast/comp_attr.php';
