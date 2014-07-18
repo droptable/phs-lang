@@ -24,7 +24,7 @@ class Logger
   private static $level = LOG_LEVEL_ALL;
   
   // @var string|stream
-  private static $dest = null; // -> stderr
+  private static $dest = STDERR;
   
   // @var bool  continue-flag
   private static $cont = false;
@@ -128,7 +128,7 @@ class Logger
     
     if ($cont)
       $text = substr($text, 0, -1);
-    
+        
     $text = vsprintf($text, $fmt);
     
     foreach (self::$hooks[$lvl] as $cb)
@@ -168,17 +168,16 @@ class Logger
     $loop = false;
     $wrap = explode("\n", $text);
     $last = array_pop($wrap);
-    $dest = self::$dest ?: STDERR;
     
     foreach ($wrap as $chnk) {
       if ($loop) $chnk .= "... $chnk";
       $loop = true;      
-      fwrite($dest, "$out$chnk ...\n");
+      fwrite(self::$dest, "$out$chnk ...\n");
     }
     
     if ($wrap) $last = "... $last";
-    fwrite($dest, "$out$last");
-    if (!$cont) fwrite($dest, "\n");
+    fwrite(self::$dest, "$out$last");
+    if (!$cont) fwrite(self::$dest, "\n");
   }
   
   /* ------------------------------------ */

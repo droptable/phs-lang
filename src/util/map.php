@@ -7,8 +7,7 @@ use \ArrayIterator;
 use \IteratorAggregate;
 use \Countable;
 
-use \RuntimeException as RTException;
-use \InvalidArgumentException as IAException;
+use \InvalidArgumentException as IAEx;
 
 /** map-entry used in Map#put() */
 interface Entry
@@ -21,16 +20,9 @@ interface Entry
   public function key();
 }
 
-/** 
- * cell: usefull for 'incomplete' or 'placeholder' entries
- * 
- * note: a cell creates a circular reference to the map it is assigned to!
- */
+/** cell: usefull for 'incomplete' or 'placeholder' entries */
 final class Cell implements Entry
-{
-  // @var Map
-  private $map;
-  
+{  
   // @var string
   private $key;
   
@@ -44,21 +36,8 @@ final class Cell implements Entry
    */
   public function __construct(Entry $entry)
   {
-    $this->map = null;
     $this->key = $entry->key();
     $this->entry = $entry;
-  }
-  
-  /**
-   * sets the map of this cell
-   * @param  Map    $map
-   */
-  public function map(Map $map = null) 
-  {
-    if ($this->key === null)
-      throw new RTException('invalid cell');
-    
-    $this->map = $map;
   }
   
   /**
@@ -69,9 +48,7 @@ final class Cell implements Entry
    */
   public function key()
   {
-    if ($this->key === null)
-      throw new RTException('invalid cell');
-    
+    assert($this->key !== null);
     return $this->key;
   }
   
@@ -82,9 +59,7 @@ final class Cell implements Entry
    */
   public function entry()
   {
-    if ($this->key === null)
-      throw new RTException('invalid cell');
-    
+    assert($this->key !== null);
     return $this->entry;
   }
   
@@ -95,55 +70,20 @@ final class Cell implements Entry
    */
   public function swap(Entry $entry)
   {
-    if ($this->key === null)
-      throw new RTException('invalid cell');
-    
-    if (!$this->check($entry))
-      throw new IAException('cell entry check failed');
-    
+    assert($this->key !== null);
     $key = $entry->key();
     
     // the key of the new entry must be the same
     if ($key !== $this->key)
-      throw new IAException('invalid key');
+      throw new IAEx('keys do not match');
     
     $this->entry = $entry;
   }
-  
-  /**
-   * checks if the map accepts an entry
-   * @param  Entry  $entry
-   * @return boolean
-   */
-  private function check(Entry $entry) 
-  {
-    // only check if there is a map
-    return !$this->map || $this->map->check_cell_entry($entry);
-  }
-  
-  /**
-   * replaces the cell with the actual entry.
-   * 
-   * the cell is no longer linked to the map or the entry after this call!
-   */
-  public function flush()
-  {
-    if ($this->key === null)
-      throw new RTException('invalid cell');
-    
-    if (!$this->map) return;
-    
-    $this->map->put($this->entry);
-    
-    $this->map = null;
-    $this->key = null;
-    $this->entry = null;
-  }
-  
 }
 
 /** map */
-class Map implements ArrayAccess, IteratorAggregate, Countable
+class Map implements 
+  ArrayAccess, IteratorAggregate, Countable
 {  
   // memory (array)
   private $mem = [];
@@ -172,7 +112,7 @@ class Map implements ArrayAccess, IteratorAggregate, Countable
       $ent = $val->entry();
     
     if (!$this->check($ent))
-      throw new IAException('check');
+      throw new IAEx('check failed');
     
     if (!isset ($this->mem[$key])) {
       $this->mem[$key] = $val;
@@ -202,18 +142,12 @@ class Map implements ArrayAccess, IteratorAggregate, Countable
       $ent = $val->entry();
     
     if (!$this->check($ent))
-      throw new IAException('check');
+      throw new IAEx('check failed');
     
     if (isset ($this->mem[$key]))
       $prv = $this->mem[$key];
     
     $this->mem[$key] = $val;
-    
-    if ($val instanceof Cell)
-      $val->map($this);
-    
-    if ($prv instanceof Cell)
-      $prv->map(null);
     
     return $prv;
   }
@@ -254,11 +188,6 @@ class Map implements ArrayAccess, IteratorAggregate, Countable
   public function delete($key)
   {
     if (isset ($this->mem[$key])) {
-      $ent = $this->mem[$key];
-      
-      if ($ent instanceof Cell)
-        $ent->map(null);
-      
       unset ($this->mem[$key]);
       return true;
     }
@@ -271,10 +200,6 @@ class Map implements ArrayAccess, IteratorAggregate, Countable
    */
   public function clear() 
   {
-    foreach ($this->mem as $key => $val)
-      if ($val instanceof Cell)
-        $val->map(null);
-      
     $this->mem = [];
   }
   
@@ -292,19 +217,13 @@ class Map implements ArrayAccess, IteratorAggregate, Countable
     return true;
   }
   
-  // this method is for cells, don't use it.
-  public function check_cell_entry(Entry $ent) 
-  {
-    return $this->check($ent);
-  }
-  
   /* ------------------------------------ */
   /* magic */
   
   public function __set($key, $val)
   {
     // override via object-access is not allowed
-    throw new RTException('objset');
+    throw new RTException('using $map->... to store entries is not allowed');
   }
   
   public function __get($key)
@@ -331,7 +250,7 @@ class Map implements ArrayAccess, IteratorAggregate, Countable
   public function offsetSet($key, $val)
   {
     // override via array-access is not allowed
-    throw new RTException('arrset');
+    throw new RTException('using $map[...] to store entries is not allowed');
   }
   
   public function offsetGet($key)

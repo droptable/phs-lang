@@ -429,9 +429,6 @@ class SymbolSet extends LooseSet
   {
     // loose compare two symbols.
     // this will prevent add() to assign symbols with the same name.
-    // 
-    // EntrySet would do this for us too, but a member-lookup 
-    // is cheaper than a method-call :-)
     return $a === $b || $a->id === $b->id;
   }
 }

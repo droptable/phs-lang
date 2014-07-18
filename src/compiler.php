@@ -21,54 +21,6 @@ use phs\front\Analysis;
 use phs\front\ast\Node;
 use phs\front\ast\Unit;
 
-/** source-set */
-class SourceSet extends Set
-{
-  /**
-   * constructor
-   */
-  public function __construct()
-  {
-    parent::__construct();
-  }
-  
-  /**
-   * adds an item
-   * 
-   * @see Set#add()
-   */
-  public function add($val)
-  {
-    assert($val instanceof Source);
-    
-    if ($val instanceof FileSource)
-      foreach ($this as $itm) {
-        if (!($itm instanceof FileSource))
-          continue;
-        
-        if ($itm->get_name() === $val->get_name())
-          return false;
-      }
-    
-    return parent::add($val);
-  }
-}
-
-/** unit-set */
-class UnitSet extends Set
-{
-  public function __construct()
-  {
-    parent::__construct();
-  }
-  
-  public function add($val)
-  {
-    assert($val instanceof Unit);
-    return parent::add($val);
-  }
-}
-
 class Compiler
 {
   // session
@@ -92,8 +44,8 @@ class Compiler
   public function __construct(Session $sess)
   {
     $this->sess = $sess;
-    $this->srcs = new SourceSet;
-    $this->units = new UnitSet;
+    $this->srcs = new Set;
+    $this->units = new Set;
     
     $this->parser = new Parser($this->sess);
     $this->analyzer = new Analyzer($this->sess);
@@ -104,8 +56,11 @@ class Compiler
     $this->units->add($unit);
   }
   
-  public function add_source(Source $src)
+  public function add_source($src)
   {
+    if (!($src instanceof Source))
+      $src = Source::from($src);
+    
     $this->srcs->add($src);
   }
   
@@ -129,8 +84,8 @@ class Compiler
     
     // phase 2: analyze unit    
     foreach ($this->units as $unit) {
-      $umap = $this->analyze($unit); 
-      //$umap->dump();
+      $ares = $this->analyze($unit); 
+      var_dump($ares->usage);
     }
     
     // phase 3: codegen modules
@@ -151,6 +106,7 @@ class Compiler
   
   protected function analyze($unit)
   {
-    return $this->analyzer->analyze($unit);
+    $anl = new Analyzer($this->sess);
+    return $anl->analyze($unit);
   }
 }

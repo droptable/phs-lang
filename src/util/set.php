@@ -2,16 +2,20 @@
 
 namespace phs\util;
 
+// for interface Entry
+require_once 'map.php';
+
 use \Countable;
 use \ArrayIterator;
 use \IteratorAggregate;
 
 use \InvalidArgumentException as IAException;
 
-class Set implements IteratorAggregate, Countable
+class Set implements 
+  IteratorAggregate, Countable
 {
   // memory (array)
-  private $mem = [];
+  protected $mem = [];
   
   /**
    * constructor
@@ -33,7 +37,7 @@ class Set implements IteratorAggregate, Countable
     if (!$this->check($val))
       throw new IAException('check');
     
-    if (in_array($val, $this->mem, true))
+    if ($this->has($val))
       return false;
     
     $this->mem[] = $val;
@@ -98,5 +102,103 @@ class Set implements IteratorAggregate, Countable
   public function count()
   {
     return count($this->mem);
+  }
+}
+
+/** loose set: supports a user-defined compare method */
+class LooseSet extends Set
+{
+  /**
+   * @see Set#has()
+   * @param  mixed  $val
+   * @return boolean
+   */
+  public function has($val)
+  {
+    return $this->find($val) > -1;
+  }
+  
+  /**
+   * @see Set#delete()
+   * @param  mixed $val
+   * @return boolean
+   */
+  public function delete($val)
+  {
+    $idx = $this->find($val);
+    
+    if ($idx === -1)
+      return false;
+    
+    array_splice($this->mem, $idx, 1);
+    return true;
+  }
+  
+  /**
+   * searches for a value using the compare-method
+   * @param  mixed $val
+   * @return int  the index in the memory-array
+   */
+  protected function find($val)
+  {
+    for ($i = 0, $c = count($this->mem); $i < $c; ++$i)
+      if ($this->compare($val, $this->mem[$i]))
+        return $i;
+      
+    return -1;
+  }
+  
+  /**
+   * compare-method.
+   * feel free to override this method in subclasses
+   * 
+   * @param  mixed $a
+   * @param  mixed $b
+   * @return boolean
+   */
+  protected function compare($a, $b)
+  {
+    // loose compare by value (default)
+    return $a == $b;
+  }
+}
+
+/** entry-set: supports Entry as value */
+class EntrySet extends LooseSet
+{
+  /**
+   * @see Set#has()
+   * @param  mixed  $val
+   * @return boolean
+   */
+  public function has($val)
+  {
+    // early abort on failed typecheck
+    return $val instanceof Entry && parent::has($val);  
+  }
+  
+  /**
+   * @see Set#check()
+   * @param  mixed $val
+   * @return boolean
+   */
+  protected function check($val)
+  {
+    // if you override this method, make sure that 
+    // the value also implements the Entry interface. 
+    // otherwise compare() may produce unexpected results.
+    return $val instanceof Entry;
+  }
+  
+  /**
+   * @see LooseSet#compare()
+   * @param  mixed $a
+   * @param  mixed $b
+   * @return boolean
+   */
+  protected function compare($a, $b)
+  {
+    // strict compare by value or by key
+    return $a === $b || $a->key() === $b->key();
   }
 }
