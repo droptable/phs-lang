@@ -121,14 +121,14 @@ class UsageCollector extends Visitor
   /**
    * collector entry-point
    *
-   * @param array|Node  $some
+   * @param Unit      $unit
    * @return UsageMap
    */
-  public function collect($some)
+  public function collect_unit(Unit $unit)
   {
     $this->uimap = new UsageMap;
     $this->walker = new Walker($this);
-    $this->walker->walk_some($some);
+    $this->walker->walk_some($unit);
     return $this->uimap;
   }
 

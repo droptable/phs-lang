@@ -97,6 +97,17 @@ class Map implements
   }
   
   /**
+   * fills the map with entries
+   * @param  array<Entry>  $ents
+   * @return void
+   */
+  public function fill(array $ents)
+  {
+    foreach ($ents as $ent)
+      $this->add($ent);
+  }
+  
+  /**
    * add something to the map.
    * should be overriden for typechecks
    * 

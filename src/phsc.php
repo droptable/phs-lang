@@ -33,16 +33,31 @@ assert_options(ASSERT_CALLBACK, function($s, $l, $m = null) {
   exit;
 });
 
-function main() {
-  $conf = new Config;
-  $conf->set_defaults();  
-  $sess = new Session($conf);
+function init(Session $sess) {
+  $conf = $sess->conf;
   
-  Logger::init($sess);
-  Logger::debug('logger initialized');
+  Logger::init($conf);  
+  Logger::hook(phs\LOG_LEVEL_ERROR, [ $sess, 'abort'] );
+  
+  if ($conf->get('werror') === true)
+    Logger::hook(phs\LOG_LEVEL_WARNING, [ $sess, 'abort' ]);
+  
+  Logger::debug('initialized');
+}
+
+function main() {
+  
+  $path = new FileSource(__DIR__ . '/test/test.phs');
+  $root = dirname($path->get_path());
+  
+  $conf = new Config;
+  $conf->set_defaults();
+  $sess = new Session($conf, $root);
+  
+  init($sess);
   
   $comp = new Compiler($sess);
-  $comp->add_source(new FileSource(__DIR__ . '/test/test.phs'));
+  $comp->add_source($path);
   $comp->compile();
 }
 

@@ -156,7 +156,7 @@ class Scope extends SymbolMap
 }
 
 /** root-scope: common class for scopes with (sub-)modules */
-class RootScope extends Scope
+abstract class RootScope extends Scope
 {
   // @var ModuleMap (sub-)modules
   public $mmap;

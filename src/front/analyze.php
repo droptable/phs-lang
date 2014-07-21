@@ -79,7 +79,7 @@ class Analyzer extends Visitor
    * @return Analysis
    */
   public function analyze(Unit $unit)
-  {    
+  {
     $anl = new Analysis($unit);
     
     // collect global usage
@@ -102,6 +102,7 @@ class Analyzer extends Visitor
   
   protected function collect_unit_types(Unit $unit)
   {
+    return;
     $tcl = new TypeCollector($this->sess);
     return $tcl->collect_unit($unit);
   }

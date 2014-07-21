@@ -2,6 +2,12 @@
 
 namespace phs;
 
+require 'util/set.php';
+
+use phs\util\Set;
+use phs\util\LooseSet;
+
+/** abstract base class */
 abstract class Source
 {
   /**
@@ -57,6 +63,13 @@ class TextSource extends Source
   // the data to compile/inject
   private $data;
   
+  /**
+   * constructor
+   * @param string  $path
+   * @param string  $dest
+   * @param string  $data
+   * @param boolean $php  in case this source is already php-code
+   */
   public function __construct($path, $dest, $data, $php = false)
   {
     $this->php = $php;
@@ -65,28 +78,28 @@ class TextSource extends Source
     $this->data = $data;
   }
   
-  public function get_name()
-  {
-    TRIGGER_ERROR(__CLASS__ . '::get_name(): use get_path() instead', E_USER_DEPRECATED);
-    return $this->path;
-  }
-  
+  /**
+   * @see Source#get_path()
+   * @return string
+   */
   public function get_path() 
   {
     return $this->path;
   }
   
+  /**
+   * @see Source#get_dest()
+   * @return string
+   */
   public function get_dest() 
   {
     return $this->dest;
   }
   
-  public function get_text()
-  {
-    TRIGGER_ERROR(__CLASS__ . '::get_text(): use get_data() instead', E_USER_DEPRECATED);
-    return $this->data;
-  }
-  
+  /**
+   * @see Source#get_data()
+   * @return string
+   */
   public function get_data() 
   {
     return $this->data;
@@ -105,6 +118,12 @@ class FileSource extends Source
   // the destination
   private $dest;
   
+  /**
+   * constructor
+   * @param string  $path
+   * @param string  $dest
+   * @param boolean $php
+   */
   public function __construct($path, $dest = null, $php = false)
   {
     $this->path = realpath($path) ?: $path;
@@ -112,29 +131,29 @@ class FileSource extends Source
     $this->php = $php;
   }
   
-  public function get_name()
-  {
-    TRIGGER_ERROR(__CLASS__ . '::get_name(): use get_path() instead', E_USER_DEPRECATED);
-    return $this->path;
-  }
-  
+  /**
+   * @see Source#get_path()
+   * @return string
+   */
   public function get_path() 
   {
     return $this->path;
   }
   
-  public function get_text()
-  {
-    TRIGGER_ERROR(__CLASS__ . '::get_text(): use get_data() instead', E_USER_DEPRECATED);
-    return $this->get_data();
-  }
-  
+  /**
+   * @see Source#get_data()
+   * @return string
+   */
   public function get_data()
   {
     // no error-checking here!
     return file_get_contents($this->path);
   }
   
+  /**
+   * @see Source#get_dest()
+   * @return string
+   */
   public function get_dest()
   {
     if (!$this->dest) {
@@ -148,7 +167,7 @@ class FileSource extends Source
       #if (is_file($this->dest))
         #unlink($this->dest);
       
-      return $this->dest;
+      goto out;
       
       do {
         if ($try > 1000) {
@@ -170,6 +189,50 @@ class FileSource extends Source
       } while (is_file($this->dest));
     }
     
+    out:
     return $this->dest;
+  }
+}
+
+/* ------------------------------------ */
+
+/** source-set */
+class SourceSet extends LooseSet 
+{
+  /**
+   * constructor
+   */
+  public function __construct()
+  {
+    parent::__construct();
+  }
+  
+  /**
+   * @see Set#check()
+   * @param  mixed $val
+   * @return boolean
+   */
+  protected function check($val)
+  {
+    return $val instanceof Source;
+  }
+  
+  /**
+   * @see LooseSet#compare()
+   * @param  mixed $a
+   * @param  mixed $b
+   * @return boolean
+   */
+  protected function compare($a, $b)
+  {
+    if ($a === $b) return true;
+      
+    // TextSource never match
+    if ($a instanceof TextSource ||
+        $b instanceof TextSource)
+      return false;
+    
+    // compare path
+    return $a->get_path() === $b->get_path();
   }
 }

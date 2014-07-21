@@ -26,6 +26,17 @@ class Set implements
   }
   
   /**
+   * filess the set with entries
+   * @param  array<Entry> $ents
+   * @return void
+   */
+  public function fill($ents)
+  {
+    foreach ($ents as $ent)
+      $this->add($ent);
+  }
+  
+  /**
    * add something to the map.
    * should be overriden for typechecks
    * 

@@ -40,13 +40,13 @@ class Logger
   
   /* ------------------------------------ */
   
-  public static function init(Session $sess)
+  /**
+   * initializes the logger
+   * @param  Config $conf
+   * @return void
+   */
+  public static function init(Config $conf)
   {
-    self::$sess = $sess;
-    
-    // fetch config
-    $conf = self::$sess->conf;
-    
     if ($conf->has('log_dest'))
       self::set_dest($conf->get('log_dest'));
     
@@ -56,6 +56,12 @@ class Logger
   
   /* ------------------------------------ */
   
+  /**
+   * adds a hook for a specific log-level
+   * @param  int   $lvl 
+   * @param  callable $hook
+   * @return void
+   */
   public static function hook($lvl, callable $hook)
   {
     if ($lvl < 0 || $lvl > LOG_LEVEL_ERROR)
@@ -66,6 +72,11 @@ class Logger
   
   /* ------------------------------------ */
   
+  /**
+   * sets the log output destination
+   *
+   * @param string|stream $dest
+   */
   public static function set_dest($dest)
   {
     if (!is_resource($dest)) {
@@ -76,6 +87,11 @@ class Logger
     self::$dest = $dest;
   }
   
+  /**
+   * returns the current log output desitnation
+   *
+   * @return stream
+   */
   public static function get_dest()
   {
     return self::$dest;
@@ -83,6 +99,13 @@ class Logger
   
   /* ------------------------------------ */
   
+  /**
+   * sets the output log-level.
+   * only messages with this level (or higher) will 
+   * generate output / invoke hooks.
+   *
+   * @param int $lvl
+   */
   public static function set_level($lvl)
   {
     if ($lvl < 0 || $lvl > LOG_LEVEL_ERROR)
@@ -91,6 +114,11 @@ class Logger
     self::$level = $lvl;
   }
   
+  /**
+   * returns the current lgo-level
+   *
+   * @return int
+   */
   public static function get_level()
   {
     return self::$level;
@@ -98,6 +126,14 @@ class Logger
   
   /* ------------------------------------ */
   
+  /**
+   * generic log method
+   *
+   * @param  int $lvl log-level
+   * @param  string $msg
+   * @param  mixed ...
+   * @return void
+   */
   public static function log($lvl, $msg)
   {
     $fmt = [];
@@ -107,6 +143,15 @@ class Logger
     self::vlog_at(null, $lvl, $msg, $fmt);
   }
   
+  /**
+   * generic log method with location
+   *
+   * @param  Location $loc
+   * @param  int   $lvl
+   * @param  string   $msg
+   * @param  mixed ...
+   * @return void
+   */
   public static function log_at(Location $loc, $lvl, $msg)
   {
     $fmt = [];
@@ -118,6 +163,15 @@ class Logger
   
   /* ------------------------------------ */
   
+  /**
+   * generic log method with variadic arguments support
+   *
+   * @param  Location $loc
+   * @param  int $lvl
+   * @param  string $msg
+   * @param  array $fmt
+   * @return void
+   */
   public static function vlog_at(Location $loc = null, $lvl, $msg, array $fmt = [])
   {
     if ($lvl < 0 || $lvl > LOG_LEVEL_ERROR)
@@ -136,9 +190,6 @@ class Logger
     
     if (self::$level > $lvl)
       return;
-    
-    if ($lvl >= LOG_LEVEL_ERROR)
-      self::$sess->abort = true;
     
     $out = '';
     
@@ -182,6 +233,7 @@ class Logger
   
   /* ------------------------------------ */
   
+  // @see Logger#vlog_at() --- LOG_LEVEL_DEBUG
   public static function debug($msg)
   {
     $fmt = [];
@@ -191,6 +243,7 @@ class Logger
     self::vlog_at(null, LOG_LEVEL_DEBUG, $msg, $fmt);
   }
   
+  // @see Logger#vlog_at() --- LOG_LEVEL_DEBUG
   public static function debug_at(Location $loc, $msg)
   {
     $fmt = [];
@@ -202,6 +255,7 @@ class Logger
   
   /* ------------------------------------ */
   
+  // @see Logger#vlog_at() --- LOG_LEVEL_VERBOSE
   public static function verbose($msg)
   {
     $fmt = [];
@@ -211,6 +265,7 @@ class Logger
     self::vlog_at(null, LOG_LEVEL_VERBOSE, $msg, $fmt);
   }
   
+  // @see Logger#vlog_at() --- LOG_LEVEL_VERBOSE
   public static function verbose_at(Location $loc, $msg)
   {
     $fmt = [];
@@ -222,6 +277,7 @@ class Logger
   
   /* ------------------------------------ */
   
+  // @see Logger#vlog_at() --- LOG_LEVEL_INFO
   public static function info($msg)
   {
     $fmt = [];
@@ -231,6 +287,7 @@ class Logger
     self::vlog_at(null, LOG_LEVEL_INFO, $msg, $fmt);
   }
   
+  // @see Logger#vlog_at() --- LOG_LEVEL_INFO
   public static function info_at(Location $loc, $msg)
   {
     $fmt = [];
@@ -242,6 +299,7 @@ class Logger
   
   /* ------------------------------------ */
   
+  // @see Logger#vlog_at() --- LOG_LEVEL_WARNING
   public static function warn($msg)
   {
     $fmt = [];
@@ -251,6 +309,7 @@ class Logger
     self::vlog_at(null, LOG_LEVEL_WARNING, $msg, $fmt);
   }
   
+  // @see Logger#vlog_at() --- LOG_LEVEL_WARNING
   public static function warn_at(Location $loc, $msg)
   {
     $fmt = [];
@@ -262,6 +321,7 @@ class Logger
   
   /* ------------------------------------ */
   
+  // @see Logger#vlog_at() --- LOG_LEVEL_ERROR
   public static function error($msg)
   {
     $fmt = [];
@@ -271,6 +331,7 @@ class Logger
     self::vlog_at(null, LOG_LEVEL_ERROR, $msg, $fmt);
   }
   
+  // @see Logger#vlog_at() --- LOG_LEVEL_ERROR
   public static function error_at(Location $loc, $msg)
   {
     $fmt = [];

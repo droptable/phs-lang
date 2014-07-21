@@ -163,6 +163,7 @@ module
   
 content
   : uses toplvl { $$ = @Content($1, $2); }
+  | uses        { $$ = @Content($1, null); }
   | toplvl      { $$ = @Content(null, $1); }
   ;
   

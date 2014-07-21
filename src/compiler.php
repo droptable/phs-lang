@@ -41,70 +41,108 @@ class Compiler
   // analyzer component
   private $analyzer;
   
+  /**
+   * constructor
+   * @param Session $sess
+   */
   public function __construct(Session $sess)
   {
     $this->sess = $sess;
-    $this->srcs = new Set;
+    $this->srcs = new SourceSet;
     $this->units = new Set;
     
     $this->parser = new Parser($this->sess);
     $this->analyzer = new Analyzer($this->sess);
   }
   
+  /**
+   * add a unit (ast)
+   * @param Unit $unit
+   */
   public function add_unit(Unit $unit)
   {
     $this->units->add($unit);
   }
   
-  public function add_source($src)
+  /**
+   * add a source
+   * @param Source $src
+   */
+  public function add_source(Source $src)
   {
-    if (!($src instanceof Source))
-      $src = Source::from($src);
-    
     $this->srcs->add($src);
   }
   
+  /**
+   * compiles all sources/units
+   * @return void
+   */
   public function compile()
   {    
-    // phase 1: parse all sources
-    foreach ($this->srcs as $src) {
-      $unit = $this->parse($src);
-      
-      if ($unit)
-        $this->units->add($unit);
-      
-      // ignore result and continue parsing to 
-      // report as much errors as possible
-    }
+    // phase 1
+    $this->phase('syntax analysis', function() {      
+      // parse all sources
+      foreach ($this->srcs as $src) {
+        $unit = $this->parse($src);
+        
+        if ($unit)
+          $this->units->add($unit);
+        
+        // ignore result and continue parsing to 
+        // report as much errors as possible
+      }
+    });
     
-    if ($this->sess->abort) {
-      Logger::debug('abort after phase 1');
-      return;
-    }
+    if ($this->sess->aborted) return;
     
-    // phase 2: analyze unit    
-    foreach ($this->units as $unit) {
-      $ares = $this->analyze($unit); 
-      var_dump($ares->usage);
-    }
-    
-    // phase 3: codegen modules
-    
-    if ($this->sess->abort) {
-      Logger::debug('abort after phase 2');
-      return;
-    }
+    // phase 2
+    $this->phase('semantic analysis', function() {
+      // analyze all units    
+      foreach ($this->units as $unit)
+        $ares = $this->analyze($unit);
+    });
   }
   
   /* ------------------------------------ */
   
-  protected function parse($src)
+  /**
+   * does a compile-phase callback
+   *
+   * @param  string   $type
+   * @param  callable $func
+   * @return void
+   */
+  protected function phase($type, callable $func)
+  {    
+    $time = microtime(true);
+    $func();
+    $done = microtime(true) - $time;
+    
+    Logger::debug('%s took %fs', $type, $done);
+    
+    if ($this->sess->aborted)
+      Logger::debug('aborted', $type);
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * parses a source and generates an ast
+   * @param  Source $src
+   * @return Unit
+   */
+  protected function parse(Source $src)
   {
     $lex = new Lexer($src);
     return $this->parser->parse($lex);    
   }
   
-  protected function analyze($unit)
+  /**
+   * analyzes a unit
+   * @param  Unit $unit
+   * @return Analysis
+   */
+  protected function analyze(Unit $unit)
   {
     $anl = new Analyzer($this->sess);
     return $anl->analyze($unit);
