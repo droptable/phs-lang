@@ -31,6 +31,7 @@ require_once 'ast.php';
 require_once 'lexer.php';
 
 use phs\Logger;
+use phs\Source;
 
 use phs\front\ast;
 use phs\front\ast\Node;
@@ -180,14 +181,19 @@ class #(-p)
   /**
    * parse function
    * 
-   * @param  Lexer  $lex
+   * @param  mixed  $lex
    * @return Node
    */
-  public function parse(Lexer $lex) 
+  public function parse($lex) 
   {
     $tokid = self::TOKEN_NONE;
     
     // lexer
+    if (!($lex instanceof Lexer)) {
+      assert($lex instanceof Source);
+      $lex = new Lexer($lex);  
+    }
+    
     $this->lex = $lex;
     
     $file = $this->lex->get_info()['file'];

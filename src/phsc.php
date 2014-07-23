@@ -1,10 +1,12 @@
 <?php
 
+define('PHS_DEBUG', true);
+define('PHS_STDLIB', realpath(__DIR__ . '/../lib'));
+
 require_once 'config.php';
 require_once 'logger.php';
 require_once 'source.php';
 require_once 'session.php';
-require_once 'compiler.php';
 
 require_once 'front/lexer.php';
 require_once 'front/parser.php';
@@ -16,27 +18,20 @@ require_once 'front/analyze.php';
 use phs\Config;
 use phs\Logger;
 use phs\Session;
-use phs\Compiler;
 use phs\FileSource;
-
-use phs\front\Lexer;
-use phs\front\Parser;
-
-use phs\front\ImportCollector;
-use phs\front\ExportCollector;
 
 assert_options(ASSERT_ACTIVE, true);
 assert_options(ASSERT_BAIL, true);
-assert_options(ASSERT_CALLBACK, function($s, $l, $m = null) {
-  $w = $m ? " with message: $m" : '!';
-  print "\nassertion failed$w\n\nfile: $s\nline: $l\n";
+assert_options(ASSERT_CALLBACK, function($s, $l, $c, $m = null) {
+  echo "\nassertion failed", $m ? " with message: $m" : '!', "\n";
+  echo "\nfile: $s\nline: $l\n", $c ? "code: $c\n" : ''; 
   exit;
 });
 
 function init(Session $sess) {
   $conf = $sess->conf;
   
-  Logger::init($conf);  
+  Logger::init($conf, $sess->root);  
   Logger::hook(phs\LOG_LEVEL_ERROR, [ $sess, 'abort'] );
   
   if ($conf->get('werror') === true)
@@ -56,9 +51,8 @@ function main() {
   
   init($sess);
   
-  $comp = new Compiler($sess);
-  $comp->add_source($path);
-  $comp->compile();
+  $sess->add_source($path);
+  $sess->compile();
 }
 
 main();

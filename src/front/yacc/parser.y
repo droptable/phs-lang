@@ -356,9 +356,9 @@ enum_var
   ;
    
 class_decl
-  : mods_opt T_CLASS ident ext_opt impl_opt '{' members_opt '}'
+  : mods_opt T_CLASS ident ext_opt impl_opt '{' trait_uses_opt members_opt '}'
     { 
-      $$ = @ClassDecl($1, $3, $4, $5, $7); 
+      $$ = @ClassDecl($1, $3, $4, $5, $7, $8); 
       $this->eat_semis(); 
     }
   | mods_opt T_CLASS ident ext_opt impl_opt ';'               
@@ -402,6 +402,52 @@ impl
   : name { $$ = $1; }
   ;
   
+trait_uses_opt
+  : /* empty */ { $$ = null; }
+  | trait_uses  { $$ = $1; }
+  ;
+
+trait_uses
+  : trait_use            { $$ = [ $1 ]; }
+  | trait_uses trait_use { $1[] = $2; $$ = $1; }
+  ;
+  
+trait_use
+  : T_USE name ';'                       
+    { 
+      $$ = @TraitUse($2, null); 
+      $this->eat_semis(); 
+    }
+  | T_USE name '{' trait_use_items '}' 
+    { 
+      $$ = @TraitUse($2, $4); 
+      $this->eat_semis();
+    }
+  ;
+  
+trait_use_items
+  : trait_use_item                 { $$ = [ $1 ]; }
+  | trait_use_items trait_use_item { $1[] = $2; $$ = $1; }
+  ;
+  
+trait_use_item
+  : ident ';'                     
+    { 
+      $$ = @TraitItem($1, null, null); 
+      $this->eat_semis(); 
+    }
+  | ident T_AS mods ';'
+    {
+      $$ = @TraitItem($1, $3, null);
+      $this->eat_semis();
+    }
+  | ident T_AS mods_opt ident ';' 
+    { 
+      $$ = @TraitItem($1, $3, $4); 
+      $this->eat_semis(); 
+    }
+  ;
+  
 members_opt
   : /* empty */ { $$ = []; }
   | members     { $$ = $1; }
@@ -417,7 +463,6 @@ member
   | var_decl                           { $$ = $1; }
   | enum_decl                          { $$ = $1; }
   | alias_decl                         { $$ = $1; }
-  | trait_usage                        { $$ = $1; }
   | member_attr                        { $$ = $1; }
   | mods_opt T_NEW pparams ';'         
     { 
@@ -451,42 +496,10 @@ member_attr
   | '@' attr_def T_NL var_decl { $$ = @MemberAttr($1, $3); }
   ;
   
-trait_usage
-  : T_USE name ';'                       
-    { 
-      $$ = @TraitUse($2, null, null); 
-      $this->eat_semis(); 
-    }
-  | T_USE name T_AS ident ';'            
-    { 
-      $$ = @TraitUse($2, $4, null); 
-      $this->eat_semis(); 
-    }
-  | T_USE name '{' trait_usage_items '}' { $$ = @TraitUse($2, null, $4); }
-  ;
-  
-trait_usage_items
-  : trait_usage_item                   { $$ = [ $1 ]; }
-  | trait_usage_items trait_usage_item { $1[] = $2; $$ = $1; }
-  ;
-  
-trait_usage_item
-  : mods_opt ident ';'                     
-    { 
-      $$ = @TraitItem($1, $2, null, null); 
-      $this->eat_semis(); 
-    }
-  | mods_opt ident T_AS mods_opt ident ';' 
-    { 
-      $$ = @TraitItem($1, $2, $4, $6); 
-      $this->eat_semis(); 
-    }
-  ;
-  
 trait_decl
-  : mods_opt T_TRAIT ident '{' members_opt '}' 
+  : mods_opt T_TRAIT ident '{' trait_uses_opt members_opt '}' 
     { 
-      $$ = @TraitDecl($1, $3, $5); 
+      $$ = @TraitDecl($1, $3, $5, $6); 
       $this->eat_semis(); 
     }
   | mods_opt T_TRAIT ident ';'  /* allowed? */
@@ -582,7 +595,7 @@ fn_decl
   ;
   
 fn_decl_body
-  : block          { $$ = $1; }
+  : block          { $$ = $1; $$->solitary = false; }
   | T_ARR rxpr ';' 
     { 
       $$ = $2;

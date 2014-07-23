@@ -3,16 +3,24 @@
 namespace phs\util;
 
 use \ArrayAccess;
+use \ArrayIterator;
+use \IteratorAggregate;
 use \InvalidArgumentException as IAEx;
 
+/**
+ * helper function
+ *
+ * @param  Dict   $dict
+ * @return array
+ */
+function get_dict_vars(Dict $dict) {
+  return get_object_vars($dict);
+}
+
 /** dict class: simple key/value store. */
-class Dict implements ArrayAccess
+class Dict implements 
+  ArrayAccess, IteratorAggregate
 {
-  /*
-   * do not define properties here nor in sub-classes,
-   * because foreach() will expose them.
-   */
-  
   /**
    * constructor
    *
@@ -20,6 +28,29 @@ class Dict implements ArrayAccess
   public function __construct()
   {
     // empty
+  }
+  
+  /**
+   * returns all properties of this dict as array
+   * 
+   * @return array 
+   */
+  public function to_array()
+  {
+    // using get_object_vars() directly would expose 
+    // private/protected properties too.
+    return get_dict_vars($this);
+  }
+  
+  /**
+   * IteratorAggregate#getIterator()
+   *
+   * @return ArrayIterator
+   */
+  public function getIterator()
+  {
+    // using to_array() saves us a DictIterator abstraction
+    return new ArrayIterator($this->to_array());
   }
   
   /**

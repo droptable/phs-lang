@@ -21,7 +21,7 @@ interface Entry
 }
 
 /** cell: usefull for 'incomplete' or 'placeholder' entries */
-final class Cell implements Entry
+class Cell implements Entry
 {  
   // @var string
   private $key;
@@ -296,5 +296,18 @@ class Map implements
   public function count()
   {
     return count($this->mem);
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * debug dump
+   *
+   * @return void
+   */
+  public function dump()
+  {
+    assert(PHS_DEBUG);
+    var_dump($this->mem);
   }
 }

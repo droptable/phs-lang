@@ -17,8 +17,14 @@ const
 
 class Logger
 {
-  // @var Session
-  private static $sess;
+  // @var boolean
+  private static $ansi = false;
+  
+  // @var boolean 
+  private static $ostd = true;
+  
+  // @var string root-path (gets stripped from locations)
+  private static $root;
   
   // @var int
   private static $level = LOG_LEVEL_ALL;
@@ -45,8 +51,11 @@ class Logger
    * @param  Config $conf
    * @return void
    */
-  public static function init(Config $conf)
+  public static function init(Config $conf, $root)
   {
+    self::$root = $root;
+    self::$ansi = DIRECTORY_SEPARATOR !== '\\' || !!getenv('ANSICON');
+    
     if ($conf->has('log_dest'))
       self::set_dest($conf->get('log_dest'));
     
@@ -85,6 +94,7 @@ class Logger
     }
     
     self::$dest = $dest;
+    self::$ostd = $dest === STDERR || $dest === STDOUT;
   }
   
   /**
@@ -163,6 +173,12 @@ class Logger
   
   /* ------------------------------------ */
   
+  private static function _wrap($test, $pre, $text, $post)
+  {
+    if ($test) $text = "$pre$text$post";
+    return $text;
+  }
+  
   /**
    * generic log method with variadic arguments support
    *
@@ -192,43 +208,68 @@ class Logger
       return;
     
     $out = '';
+    $std = self::$ostd && self::$ansi;    
     
     if (!self::$cont) {
       switch ($lvl) {
         case LOG_LEVEL_DEBUG:
-          $out .= '[dbg]   ';
+          $out .= self::_wrap($std, "\033[1;32m", "[dbg]   ", "\033[0m");
           break;
         case LOG_LEVEL_INFO:
-          $out .= '[info]  ';
+          $out .= self::_wrap($std, "\033[1;36m", "[info]  ", "\033[0m");
           break;
         case LOG_LEVEL_WARNING:
-          $out .= '[warn]  ';
+          $out .= self::_wrap($std, "\033[1;33m", "[warn]  ", "\033[0m");
           break;
         case LOG_LEVEL_ERROR:
-          $out .= '[error] ';
+          $out .= self::_wrap($std, "\033[1;31m", "[error] ", "\033[0m");
           break;
       }
       
-      if ($loc !== null)
-        $out .= "{$loc->file}:{$loc->pos->line}:{$loc->pos->coln}: ";
+      if ($loc !== null) {
+        $src = $loc->file;
+        
+        if (strpos($src, self::$root) === 0)
+          $src = substr($src, strlen(self::$root) + 1);
+        
+        $out .= self::_wrap($std, "\033[1;37m", 
+          "{$src}:{$loc->pos->line}:{$loc->pos->coln}: ", "\033[0m");
+      }
     }
     
+    $skip = self::$cont;    
     self::$cont = $cont;
     
-    $text = wordwrap($text, 80);
+    $text = wordwrap($text, 72); // 80 - 3 [...] - 3 [...] - 2 [space b/a ...]
     $loop = false;
     $wrap = explode("\n", $text);
     $last = array_pop($wrap);
+    $size = count($wrap);
     
-    foreach ($wrap as $chnk) {
-      if ($loop) $chnk .= "... $chnk";
-      $loop = true;      
-      fwrite(self::$dest, "$out$chnk ...\n");
+    if ($size > 0) {
+      if ($skip) {
+        $loop = true;
+        fwrite(self::$dest, $out);
+        fwrite(self::$dest, array_shift($wrap));
+        
+        if (($size - 1) > 0)
+          fwrite(self::$dest, " ...");
+      }
+      
+      foreach ($wrap as $chnk) {
+        if ($loop) $chnk = "... $chnk";
+        $loop = true;      
+        fwrite(self::$dest, "\n{$out}$chnk ...");
+      }
+      
+      // for the last segment
+      $last = "... $last";
     }
     
-    if ($wrap) $last = "... $last";
+    if (!$skip)
+      fwrite(self::$dest, "\n");
+    
     fwrite(self::$dest, "$out$last");
-    if (!$cont) fwrite(self::$dest, "\n");
   }
   
   /* ------------------------------------ */

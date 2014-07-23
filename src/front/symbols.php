@@ -17,6 +17,7 @@ use phs\util\LooseSet;
 
 use phs\front\ast\Node;
 use phs\front\ast\Decl;
+use phs\front\ast\Name;
 use phs\front\ast\Ident;
 
 use phs\front\ast\FnDecl;
@@ -28,6 +29,7 @@ use phs\front\ast\DtorDecl;
 
 // kinds
 const
+  SYM_KIND_UNDEF  = 0,
   SYM_KIND_FN     = 1,
   SYM_KIND_VAR    = 2,
   SYM_KIND_CLASS  = 3,
@@ -49,7 +51,7 @@ const
   SYM_FLAG_INLINE     = 0x0100, // symbol is inline (for functions)
   SYM_FLAG_EXTERN     = 0x0200, // symbol is extern
   SYM_FLAG_ABSTRACT   = 0x0400, // symbol is abstract (for classes)
-  SYM_FLAG_INCOMPLETE = 0x0800  // symbol is incomplete
+  SYM_FLAG_INCOMPLETE = 0x0800 // symbol is incomplete
 ;
 
 const SYM_FLAGS_NONE = SYM_FLAG_NONE;
@@ -132,6 +134,77 @@ abstract class Symbol
     $this->loc = $loc;
     $this->kind = $kind;
     $this->flags = $flags;
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * debug dump
+   *
+   * @param  string $tab
+   * @return void
+   */
+  public function dump($tab = '') 
+  {
+    echo "\n", $tab, '+ ', $this->id, ' (', 
+         sym_kind_to_str($this->kind), ')';
+    
+    $mods = sym_flags_to_str($this->flags);
+    
+    if ($mods !== 'none')
+      echo ' ~ ', $mods;
+  }
+}
+
+/** symbol ref */
+class SymbolRef
+{
+  // @var Name  the name (path) 
+  public $name;
+  
+  // @var int
+  public $kind;
+  
+  // @var Symbol  the resolved symbol
+  public $symbol = null;
+  
+  // @var boolean  whenever this reference is resolved
+  public $resolved = false;
+  
+  /**
+   * constructor
+   *
+   * @see Symbol#__construct()
+   */
+  public function __construct(Name $name, $kind = SYM_KIND_UNDEF)
+  {
+    $this->name = $name;
+    $this->kind = $kind;
+  }
+}
+
+/** symbol ref set */
+class SymbolRefSet extends Set
+{
+  /**
+   * constructor
+   *
+   */
+  public function __construct()
+  {
+    // super
+    parent::__construct();
+  }
+  
+  /**
+   * typecheck
+   *
+   * @param  mixed $ent
+   * @return boolean
+   */
+  public function check($ent)
+  {
+    return $ent instanceof SymbolRef;
   }
 }
 
@@ -300,6 +373,17 @@ class SymbolMap implements
     
     return $count;
   }
+  
+  /* ------------------------------------ */
+  
+  public function dump($tab = '')
+  {
+    assert(PHS_DEBUG);
+    
+    foreach ($this->mem as $ns => $mem)
+      foreach ($mem as $sym)
+        $sym->dump($tab . '  ');
+  }
 }
 
 /* ------------------------------------ */
@@ -438,30 +522,43 @@ class SymbolSet extends LooseSet
 /** trait usage */
 class TraitUsage
 {
-  // @var TraitSymbol  trait
+  // @var Location
+  public $loc; 
+  
+  // @var SymbolRef  trait
   public $trait;
   
-  // @var Symbol  member
-  public $member;
+  // @var string  original name
+  public $orig;
   
-  // @var int  flags
-  public $flags;
-  
-  // @var string  dest
+  // @var string  destination name (alias)
   public $dest;
   
-  public function __construct(TraitSymbol $trait, Symbol $member, 
-                              $flags, $dest)
+  // @var int
+  public $flags;
+  
+  /**
+   * constructor
+   *
+   * @param SymbolRef $trait
+   * @param Location  $loc
+   * @param string    $orig
+   * @param string    $dest
+   * @param int    $flags
+   */
+  public function __construct(SymbolRef $trait, Location $loc,
+                              $orig, $dest, $flags = SYM_FLAG_NONE)
   {
     $this->trait = $trait;
-    $this->member = $member;
-    $this->flags = $flags;
+    $this->loc = $loc;
+    $this->orig = $orig;
     $this->dest = $dest;
+    $this->flags = $flags;
   }
 }
 
-/** trait usage map */
-class TraitUsageMap extends Map
+/** trait usage set */
+class TraitUsageSet extends Set
 {
   /**
    * constructor
@@ -474,11 +571,11 @@ class TraitUsageMap extends Map
   /**
    * typecheck
    * 
-   * @see Map#check()
-   * @param  Entry  $ent
+   * @see Set#check()
+   * @param  mixed  $ent
    * @return boolean
    */
-  protected function check(Entry $ent)
+  protected function check($ent)
   {
     return $ent instanceof TraitUsage;
   }
@@ -523,7 +620,7 @@ class FnSymbol extends Symbol
     else
       assert(0);
     
-    $sym = new FnSymbol($id, $node->loc, mods_to_flags($node->mods));
+    $sym = new FnSymbol($id, $node->loc, mods_to_sym_flags($node->mods));
     $sym->node = $node;
     
     return $sym;
@@ -568,7 +665,7 @@ class VarSymbol extends Symbol
            $var instanceof EnumVar);
     
     $id = ident_to_str($var->id);
-    $flags = is_int($flags) ? $flags : mods_to_flags($mods);
+    $flags = is_int($mods) ? $mods : mods_to_sym_flags($mods);
     $sym = new VarSymbol($id, $var->loc, $flags);
     $sym->node = $var;
     
@@ -579,16 +676,16 @@ class VarSymbol extends Symbol
 /** class symbol */
 class ClassSymbol extends Symbol
 {
-  // super class
+  // @var SymbolRef  super class
   public $super = null;
   
-  // @var SymbolMap  interfaces
+  // @var SymbolRefSet  interfaces
   public $ifaces;
   
-  // @var TraitUsageMap  traits
+  // @var TraitUsageSet  traits
   public $traits;
   
-  // @var SymbolMap  members
+  // @var ClassScope  members
   public $members;
   
   // @var FnSymbol  constructor
@@ -607,11 +704,68 @@ class ClassSymbol extends Symbol
   public function __construct($id, Location $loc, $flags)
   {
     // init symbol
-    parent::__construct($id, SYM_CLASS_NS, SYM_KIND_CLASS, $loc, $flags);
+    parent::__construct($id, SYM_CLASS_NS, $loc, SYM_KIND_CLASS, $flags);
+  }
+  
+  /* ------------------------------------ */
+  
+  public static function from(Node $node)
+  {
+    $id = ident_to_str($node->id);
+    $sym = new ClassSymbol($id, $node->loc, mods_to_sym_flags($node->mods));
+    $sym->node = $node;
+    return $sym;
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * debug dump
+   *
+   * @param  string $tab
+   * @return void
+   */
+  public function dump($tab = '')
+  {
+    parent::dump($tab);
     
-    $this->ifaces = new SymbolMap;
-    $this->traits = new TraitUsageMap;
-    $this->members = new SymbolMap;
+    // dump super-class
+    if ($this->super)
+      echo "\n", $tab, '  : ', name_to_str($this->super->name);
+        
+    // dump interfaces 
+    if ($this->ifaces)
+      foreach ($this->ifaces as $iface)
+        echo "\n", $tab, '  ~ ', name_to_str($iface->name);
+    
+    // dump traits
+    if ($this->traits)
+      foreach ($this->traits as $trait) {
+        echo "\n", $tab, '  & ', name_to_str($trait->trait->name);
+        
+        if ($trait->orig) {
+          echo ' + ', $trait->orig;
+          
+          if ($trait->dest)
+            echo ' as ', $trait->dest;
+          
+          if ($trait->flags)
+            echo ' ~ ', sym_flags_to_str($trait->flags);
+        } else
+          echo ' * ';
+      }
+    
+    // dump constructor if any
+    if ($this->ctor)
+      $this->ctor->dump($tab . '  ');
+    
+    // dump destructor if any
+    if ($this->dtor)
+      $this->dtor->dump($tab . '  ');
+    
+    // dump members
+    if ($this->members)
+      $this->members->dump($tab);
   }
 }
 
@@ -635,17 +789,58 @@ class TraitSymbol extends Symbol
   public function __construct($id, Location $loc, $flags)
   {
     // init symbol
-    parent::__construct($id, SYM_TRAIT_NS, SYM_KIND_TRAIT, $loc, $flags);
+    parent::__construct($id, SYM_TRAIT_NS, $loc, SYM_KIND_TRAIT, $flags);
+  }
+  
+  /* ------------------------------------ */
+  
+  public static function from(Node $node)
+  {
+    $id = ident_to_str($node->id);
+    $sym = new TraitSymbol($id, $node->loc, mods_to_sym_flags($node->mods));
+    $sym->node = $node;
+    return $sym;
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * debug dump
+   *
+   * @param  string $tab
+   * @return void
+   */
+  public function dump($tab = '')
+  {
+    parent::dump($tab);
     
-    $this->traits = new TraitUsageMap;
-    $this->members = new SymbolMap;
+    // dump traits
+    if ($this->traits)
+      foreach ($this->traits as $trait) {
+        echo "\n", $tab, '  & ', name_to_str($trait->trait->name);
+        
+        if ($trait->orig) {
+          echo ' + ', $trait->orig;
+          
+          if ($trait->dest)
+            echo ' as ', $trait->dest;
+          
+          if ($trait->flags)
+            echo ' ~ ', sym_flags_to_str($trait->flags);
+        } else
+          echo ' * ';
+      }
+        
+    // dump members
+    if ($this->members)
+      $this->members->dump($tab);
   }
 }
 
 /** iface symbol */
 class IfaceSymbol extends Symbol
 {
-  // @var SymbolMap  interfaces
+  // @var SymbolRefSet  interfaces
   public $ifaces;
   
   // @var SymbolMap  members
@@ -661,9 +856,38 @@ class IfaceSymbol extends Symbol
   public function __construct($id, Location $loc, $flags)
   {
     // init symbol
-    parent::__construct($id, SYM_IFACE_NS, SYM_KIND_IFACE, $loc, $flags);
+    parent::__construct($id, SYM_IFACE_NS, $loc, SYM_KIND_IFACE, $flags);
+  }
+  
+  /* ------------------------------------ */
+  
+  public static function from(Node $node)
+  {
+    $id = ident_to_str($node->id);
+    $sym = new IfaceSymbol($id, $node->loc, mods_to_sym_flags($node->mods));
+    $sym->node = $node;
+    return $sym;
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * debug dump
+   *
+   * @param  string $tab
+   * @return void
+   */
+  public function dump($tab = '')
+  {
+    parent::dump($tab);
     
-    $this->ifaces = new SymbolMap;
-    $this->members = new SymbolMap;
+    // dump interfaces 
+    if ($this->ifaces)
+      foreach ($this->ifaces as $iface)
+        echo "\n", $tab, '  ~ ', name_to_str($iface->name);
+        
+    // dump members
+    if ($this->members)
+      $this->members->dump($tab);
   }
 }

@@ -12,6 +12,7 @@ require_once 'collect.php';
 use phs\Config;
 use phs\Logger;
 use phs\Session;
+use phs\FileSource;
 
 use phs\util\Set;
 use phs\util\Map;
@@ -21,45 +22,11 @@ use phs\util\Entry;
 use phs\front\ast\Node;
 use phs\front\ast\Unit;
 
-class Analysis 
-{
-  // @var Unit  the unit in question
-  public $unit;
-  
-  // @var Scope
-  public $types;
-  
-  // @var UsageMap
-  public $usage;
-  
-  // @var ModuleMap
-  public $modules;
-  
-  /**
-   * constructor
-   * 
-   * @param Unit $unit
-   */
-  public function __construct(Unit $unit) 
-  {
-    $this->unit = $unit;
-  }
-}
-
 /** analyzer */
-class Analyzer extends Visitor
+class Analyzer
 {
   // @var Session  session
   private $sess;
-  
-  // @var Scope  scope
-  private $scope;
-  
-  // @var Scope  root scope
-  private $sroot;
-  
-  // @var Walker  walker
-  private $walker;
   
   /**
    * constructor
@@ -68,7 +35,7 @@ class Analyzer extends Visitor
    */
   public function __construct(Session $sess)
   {
-    parent::__construct();
+    //
     $this->sess = $sess;
   }
   
@@ -76,96 +43,101 @@ class Analyzer extends Visitor
    * starts the analyzer
    * 
    * @param  Unit   $unit
-   * @return Analysis
+   * @return UnitScope
    */
   public function analyze(Unit $unit)
   {
-    $anl = new Analysis($unit);
+    // 1. collect classes, interfaces and traits
+    // 2. collect functions
+    // 3. collect usage
+    // 4. collect class, interface and trait-members
+    $scope = $this->collect_unit($unit);
     
-    // collect global usage
-    $anl->usage = $this->collect_unit_usage($unit);    
+    //$this->collect_members($scope);  
     
-    // collect global types
-    $anl->types = $this->collect_unit_types($unit);
-    
-    
-    //$anl->modules = $this->collect_modules($unit);
-    
-    return $anl;
+    return $scope;
   }
   
-  protected function collect_unit_usage(Unit $unit) 
+  /**
+   * collects the unit-scope
+   *
+   * @param  Unit $unit
+   * @return UnitScope
+   */
+  protected function collect_unit(Unit $unit)
   {
-    $ucl = new UsageCollector($this->sess);
-    return $ucl->collect_unit($unit);
+    $ucol = new UnitCollector($this->sess);
+    return $ucol->collect($unit);
   }
   
-  protected function collect_unit_types(Unit $unit)
+  /**
+   * resolves unit and module-usage (use-delcs)
+   *
+   * @param  UnitScope $scope
+   * @return void
+   */
+  protected function resolve_usage(RootScope $scope)
   {
-    return;
-    $tcl = new TypeCollector($this->sess);
-    return $tcl->collect_unit($unit);
-  }
-  
-  public function visit_unit($node)
-  {
-    $this->walker->walk_some($node->body);
-  }
-  
-  public function visit_module($node)
-  {
-    $prev = $this->scope;
+    // absolute import directory
+    $root = $this->sess->root;
     
-    if ($node->name) {
-      $base = $this->scope;
-      $name = name_to_arr($node->name);
+    // resolve own usage
+    foreach ($scope->umap as $use) {
+      $path = implode('::', $use->path);
       
-      if ($node->name->root)
-        $base = $this->sroot; // use unit-scope
-      
-      $mmap = null;
-      $nmod = null; // assume no parent module by default
-      
-      // must be inside a unit or a module
-      assert($base instanceof RootScope);
-      $mmap = $base->mmap;
-      
-      foreach ($name as $mid) {
-        if ($mmap->has($mid))
-          // fetch sub-module
-          $nmod = $mmap->get($mid);
-        else {
-          // create and assign a new module
-          $nmod = new ModuleScope($mid, $nmod);
-          $mmap->add($newm);
-        }
-        
-        $mmap = $nmod->mmap;
+      if ($this->sess->udct->has($path)) {
+        Logger::debug('import is already resolved (`%s`)', $path);
+        Logger::debug('%s', $this->sess->udct->get($path));
+        continue;
       }
+            
+      if (!$this->resolve_import($root, $path, $use) &&
+          !$this->resolve_import(PHS_STDLIB, $path, $use))
+        Logger::error('unable to resolve `%s` to a file', $path);
+    }
+    
+    // resolve usage from sub-modules
+    foreach ($scope->mmap as $sub)
+      $this->resolve_usage($sub);
+  }
+  
+  /**
+   * tries to resolve a import
+   *
+   * @param  string $root
+   * @param  string $hash
+   * @param  Usage  $use 
+   * @return boolean
+   */
+  protected function resolve_import($root, $hash, Usage $use)
+  {    
+    static $ds = DIRECTORY_SEPARATOR;
+    
+    $base = $root . $ds;
+    $path = $use->path;
+    $find = [];
+    
+    // use foo::bar::baz;
+    // 
+    // -> foo/bar/baz.phm
+    // -> foo/bar.phm
+    // -> foo.phm
+    
+    for (; count($path); array_pop($path))
+      $find[] = $base . implode($ds, $path) . '.phm';
+    
+    foreach ($find as $n => $file) {
+      Logger::debug('try using %s [%d]', $file, $n + 1);
       
-      $this->scope = $nmod;
-    } else 
-      // switch to global scope
-      $this->scope = $this->sroot;
+      if (is_file($file)) {
+        $this->sess->add_source(new FileSource($file));
+        $this->sess->udct->set($hash, $file);
+        return true;
+      }
+    }
     
-    $this->walk_some($node->body);
-    $this->scope = $prev;
-  }
-  
-  public function visit_content($node) {
-    // collect types
-    $this->tcl->collect($node->body, $this->scope);
-    // collect usage
-    $this->ucl->collect($node->uses, $this->scope);
-    
-    // continue walking
-    $this->walker->walk_some($node->body);
-  }
-  
-  public function visit_fn_decl($node)
-  {
-    $sym = FnSymbol::from($node);    
-    $this->scope->add($sym); 
+    $this->sess->udct->set($hash, 'not resolved');
+    return false;
   }
 }
 

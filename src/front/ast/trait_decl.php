@@ -8,10 +8,11 @@ class TraitDecl extends Decl
   public $id;
   public $members;
   
-  public function __construct($mods, $id, $members)
+  public function __construct($mods, $id, $traits, $members)
   {
     $this->mods = $mods;
     $this->id = $id;
+    $this->traits = $traits;
     $this->members = $members;
   }
 }

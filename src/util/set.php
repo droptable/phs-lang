@@ -85,6 +85,28 @@ class Set implements
     return true;
   }
   
+  /**
+   * returns the first item in the set.
+   * the item gets removed.
+   *
+   * @return mixed
+   */
+  public function shift()
+  {
+    return array_shift($this->mem);
+  }
+  
+  /**
+   * returns the top-most item in the set.
+   * the item gets removed.
+   *
+   * @return mixed
+   */
+  public function pop()
+  {
+    return array_pop($this->mem);
+  }
+  
   /* ------------------------------------ */
   
   /**

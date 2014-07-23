@@ -12,6 +12,9 @@ use phs\util\Set;
 use phs\util\Map;
 use phs\util\Entry;
 
+use phs\front\ast\Node;
+use phs\front\ast\Unit;
+
 /** scope */
 class Scope extends SymbolMap
 {
@@ -26,6 +29,9 @@ class Scope extends SymbolMap
   
   // @var Set  captured symbols from the parent scope
   public $capt;
+  
+  // @var boolean
+  public $sealed = false;
   
   // unique id counter
   private static $uidcnt = 0;
@@ -59,7 +65,7 @@ class Scope extends SymbolMap
   {
     $sym = parent::get($key, $ns);
     
-    if ($sym === null && $this->prev) {
+    if ($sym === null && $this->prev && !$this->sealed) {
       $sym = $this->prev->get($key, $ns);
       
       // if found, mark symbol as captured
@@ -155,29 +161,67 @@ class Scope extends SymbolMap
   }
 }
 
-/** root-scope: common class for scopes with (sub-)modules */
+/** root-scope: common class for scopes with (sub-)modules and/or usage */
 abstract class RootScope extends Scope
 {
   // @var ModuleMap (sub-)modules
   public $mmap;
   
+  // @var UsageMap  use'ed resources
+  public $umap;
+  
   public function __construct(RootScope $prev = null)
   {
     parent::__construct($prev);
-    $this->mmap = new ModuleScopeMap;
+    $this->mmap = new ModuleMap;
+    $this->umap = new UsageMap;
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * debug dump
+   *
+   * @return void
+   */
+  public function dump($tab = '')
+  {
+    assert(PHS_DEBUG);
+    
+    // usage
+    foreach ($this->umap as $use)
+      echo "\n", $tab, '  & ', implode('::', $use->path), 
+            ' -> `', $use->item, '` (', $use->orig, ')';
+    
+    // modules
+    foreach ($this->mmap as $mod) 
+      $mod->dump($tab . '  ');
+    
+    // symbols
+    parent::dump($tab);
   }
 }
 
 /** unit scope */
 class UnitScope extends RootScope
 {  
+  // @var Unit  the unit
+  public $unit;
+  
   /**
    * constructor
    *    
    */
-  public function __construct()
+  public function __construct(Unit $unit)
   {
     parent::__construct(null);
+    $this->unit = $unit;
+  }
+  
+  public function dump($tab = '')
+  {
+    echo "\n<unit>";
+    parent::dump($tab);
   }
 }
 
@@ -235,6 +279,12 @@ class ModuleScope extends RootScope implements Entry
     // done
     return $path;
   }
+  
+  public function dump($tab = '')
+  {
+    echo "\n", $tab, '# ', $this->id;
+    parent::dump($tab);
+  }
 }
 
 /** Map<ModuleScope> */
@@ -256,5 +306,22 @@ class ModuleScopeMap extends Map
   protected function check(Entry $ent)
   {
     return $ent instanceof ModuleScope;
+  }
+}
+
+class_alias(__NAMESPACE__ . '\\ModuleScopeMap', __NAMESPACE__ . '\\ModuleMap');
+
+/** member scope */
+class MemberScope extends Scope
+{  
+  /**
+   * constructor
+   *
+   * @param Scope $prev
+   */
+  public function __construct(Scope $prev)
+  {
+    parent::__construct($prev);
+    $this->sealed = true;
   }
 }

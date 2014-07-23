@@ -39,7 +39,7 @@ function array_copy_push(array $arr) {
   return $arr;
 }
 
-function mods_to_flags($mods, $base = SYM_FLAG_NONE) {
+function mods_to_sym_flags($mods, $base = SYM_FLAG_NONE) {
   if ($mods) {
     foreach ($mods as $mod) {
       switch ($mod->type) {
@@ -79,7 +79,7 @@ function mods_to_flags($mods, $base = SYM_FLAG_NONE) {
   return $base;
 }
 
-function flags_to_arr($flags) {
+function sym_flags_to_arr($flags) {
   $arr = [];
   
   static $check = [ 
@@ -104,9 +104,9 @@ function flags_to_arr($flags) {
   return $arr;
 }
 
-function flags_to_stra($flags) {
+function sym_flags_to_stra($flags) {
   if ($flags === SYM_FLAG_NONE)
-    return 'none';
+    return [ 'none' ];
   
   $res = [];
   
@@ -125,27 +125,29 @@ function flags_to_stra($flags) {
     SYM_FLAG_INCOMPLETE => 'incomplete'
   ];
   
-  foreach (flags_to_arr($flags) as $flag)
+  foreach (sym_flags_to_arr($flags) as $flag)
     $res[] = $check[$flag];
   
   return $res;
 }
 
-function flags_to_str($flags) {
-  return implode(', ', flags_to_stra($flags));
+function sym_flags_to_str($flags) {
+  return implode(', ', sym_flags_to_stra($flags));
 }
 
-function dump_scope(Scope $scope) {
-  if ($scope instanceof Module)
-    foreach ($scope->subm as $mod) {
-      print "-> {$mod->id}\n";
-      dump_scope($mod);
-    }
-    
-  elseif ($scope->prev)
-    dump_scope($scope->prev);
-  
-  foreach ($scope as $ns)
-    foreach ($ns as $sym)
-      print "{$sym->id}\n";
+function sym_kind_to_str($kind) {
+  switch ($kind) {
+    case SYM_KIND_FN:
+      return 'function';
+    case SYM_KIND_VAR:
+      return 'variable';
+    case SYM_KIND_CLASS:
+      return 'class';
+    case SYM_KIND_TRAIT:
+      return 'trait';
+    case SYM_KIND_IFACE:
+      return 'iface';
+    default:
+      assert(0);
+  }
 }
