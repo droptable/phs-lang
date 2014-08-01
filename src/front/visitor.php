@@ -2,6 +2,9 @@
 
 namespace phs\front;
 
+use phs\Logger;
+use phs\front\ast\Node;
+
 /** generic visitor */
 abstract class Visitor
 {
@@ -13,11 +16,48 @@ abstract class Visitor
     // empty
   }
   
+  /**
+   * visits a node/array-of-nodes
+   *
+   * @param  Node|array $node
+   * @return void
+   */
+  public function visit($node)
+  {
+    // nothing?
+    if ($node === null)
+      return; // leave early
+          
+    // walk array-of-nodes
+    elseif (is_array($node))
+      foreach ($node as $item)
+        $this->visit($item);
+    
+    // walk node
+    elseif ($node instanceof Node) {
+      $kind = $node->kind();
+      $this->{'visit_' . $kind}($node); 
+    }
+    
+    // error
+    else {
+      Logger::error('don\'t know how to traverse item \\');
+      
+      ob_start();
+      var_dump($node);
+      $log = ob_get_clean();
+      
+      Logger::error(substr($log, 0, 500));
+    }
+  }
+  
   // each method is a noop by default, override what you need.
   
-  public function visit_unit($n) {}
-  public function visit_module($n) {}
-  public function visit_content($n) {} 
+  public function visit_unit($n) { $this->visit($n->body); }
+  public function visit_module($n) { $this->visit($n->body); }
+  public function visit_content($n) { $this->visit($n->body); } 
+  public function visit_block($n) { $this->visit($n->body); }
+  
   public function visit_enum_decl($n) {}
   public function visit_class_decl($n) {}
   public function visit_nested_mods($n) {}
@@ -25,18 +65,18 @@ abstract class Visitor
   public function visit_dtor_decl($n) {}
   public function visit_getter_decl($n) {}
   public function visit_setter_decl($n) {}
+  public function visit_member_attr($n) {}
   public function visit_trait_decl($n) {}
   public function visit_iface_decl($n) {}
   public function visit_fn_decl($n) {}
   public function visit_attr_decl($n) {}
   public function visit_topex_attr($n) {}
   public function visit_comp_attr($n) {}
-  public function visit_block($n) {}
-  public function visit_let_decl($n) {}
   public function visit_var_decl($n) {}
   public function visit_use_decl($n) {}
   public function visit_require_decl($n) {}
   public function visit_label_decl($n) {}
+  public function visit_alias_decl($n) {}
   public function visit_do_stmt($n) {}
   public function visit_if_stmt($n) {}
   public function visit_for_stmt($n) {}

@@ -21,7 +21,9 @@ function ident_to_str(Ident $id) {
 }
 
 function name_to_str(Name $name, $sep = '::') {
-  return implode($sep, name_to_arr($name));
+  $res = implode($sep, name_to_arr($name));
+  if ($name->root) $res = "::$res";
+  return $res;
 }
 
 function name_to_arr(Name $name) {
@@ -37,6 +39,10 @@ function array_copy_push(array $arr) {
   for ($i = 1, $l = func_num_args(); $i < $l; ++$i)
     $arr[] = func_get_arg($i);
   return $arr;
+}
+
+function mods_to_arr($mods) {
+  return sym_flags_to_stra(mods_to_sym_flags($mods));
 }
 
 function mods_to_sym_flags($mods, $base = SYM_FLAG_NONE) {
@@ -147,6 +153,8 @@ function sym_kind_to_str($kind) {
       return 'trait';
     case SYM_KIND_IFACE:
       return 'iface';
+    case SYM_KIND_ALIAS:
+      return 'alias';
     default:
       assert(0);
   }

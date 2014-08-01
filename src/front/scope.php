@@ -167,14 +167,10 @@ abstract class RootScope extends Scope
   // @var ModuleMap (sub-)modules
   public $mmap;
   
-  // @var UsageMap  use'ed resources
-  public $umap;
-  
-  public function __construct(RootScope $prev = null)
+  public function __construct(Scope $prev = null)
   {
     parent::__construct($prev);
     $this->mmap = new ModuleMap;
-    $this->umap = new UsageMap;
   }
   
   /* ------------------------------------ */
@@ -187,12 +183,7 @@ abstract class RootScope extends Scope
   public function dump($tab = '')
   {
     assert(PHS_DEBUG);
-    
-    // usage
-    foreach ($this->umap as $use)
-      echo "\n", $tab, '  & ', implode('::', $use->path), 
-            ' -> `', $use->item, '` (', $use->orig, ')';
-    
+        
     // modules
     foreach ($this->mmap as $mod) 
       $mod->dump($tab . '  ');
@@ -208,6 +199,9 @@ class UnitScope extends RootScope
   // @var Unit  the unit
   public $unit;
   
+  // @var string  file-path
+  public $file;
+  
   /**
    * constructor
    *    
@@ -216,12 +210,38 @@ class UnitScope extends RootScope
   {
     parent::__construct(null);
     $this->unit = $unit;
+    $this->file = $unit->loc->file;
   }
   
   public function dump($tab = '')
   {
-    echo "\n<unit>";
+    echo "\n<unit> @ ", $this->file;
     parent::dump($tab);
+  }
+}
+
+/** unit-scope set */
+class UnitScopeSet extends Set
+{
+  /**
+   * constructor
+   * 
+   */
+  public function __construct()
+  {
+    // super
+    parent::__construct();
+  }
+  
+  /**
+   * typecheck
+   *
+   * @param  mixed $ent
+   * @return boolean
+   */
+  protected function check($ent)
+  {
+    return $ent instanceof Unit;
   }
 }
 
@@ -231,19 +251,23 @@ class ModuleScope extends RootScope implements Entry
   // @var string  module-id
   public $id;
   
+  // @var Module  module-node
+  public $mod;
+  
   /**
    * constructor
    * 
    * @param string    $id 
    * @param RootScope $prev
    */
-  public function __construct($id, RootScope $prev)
+  public function __construct($id, Module $mod, RootScope $prev)
   {
     // $prev is not optional
     // a module must be defined in a unit or in a other module
     parent::__construct($prev);
     
     $this->id = $id;
+    $this->mod = $mod;
   }
   
   /**

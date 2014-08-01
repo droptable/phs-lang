@@ -34,7 +34,8 @@ const
   SYM_KIND_VAR    = 2,
   SYM_KIND_CLASS  = 3,
   SYM_KIND_TRAIT  = 4,
-  SYM_KIND_IFACE  = 5
+  SYM_KIND_IFACE  = 5,
+  SYM_KIND_ALIAS  = 6
 ;
 
 // flags
@@ -58,9 +59,10 @@ const SYM_FLAGS_NONE = SYM_FLAG_NONE;
 
 // namespaces
 const
-  SYM_NS0 = 0, // unused / internal
+  SYM_NS0 = 0, // internal
   SYM_NS1 = 1, // defn namespace
-  SYM_NS2 = 2  // type namespace
+  SYM_NS2 = 2, // type namespace
+  SYM_NS3 = 3  // alias namespace
 ;
 
 // namespace lookup
@@ -69,7 +71,8 @@ const
   SYM_VAR_NS   = SYM_NS1,
   SYM_CLASS_NS = SYM_NS2,
   SYM_TRAIT_NS = SYM_NS2,
-  SYM_IFACE_NS = SYM_NS2
+  SYM_IFACE_NS = SYM_NS2,
+  SYM_ALIAS_NS = SYM_NS3
 ;
 
 /**
@@ -218,7 +221,8 @@ class SymbolMap implements
   private $mem = [ 
     [] /* NS0 */, 
     [] /* NS1 */,
-    [] /* NS2 */ 
+    [] /* NS2 */,
+    [] /* NS3 */
   ];
   
   // index
@@ -639,8 +643,6 @@ class VarSymbol extends Symbol
    * @param string   $id
    * @param Location $loc
    * @param int   $flags
-   * @param boolean $ref
-   * @param Node $init
    */
   public function __construct($id, Location $loc, $flags)
   {
@@ -670,6 +672,56 @@ class VarSymbol extends Symbol
     $sym->node = $var;
     
     return $sym;
+  }
+}
+
+class AliasSymbol extends Symbol
+{
+  // @var Name 
+  public $orig;
+  
+  /**
+   * constructor
+   * 
+   * @param string   $id
+   * @param Location $loc
+   * @param int   $flags
+   */
+  public function __construct($id, Location $loc)
+  {
+    // init symbol
+    parent::__construct($id, SYM_ALIAS_NS, $loc, SYM_KIND_ALIAS, SYM_FLAG_NONE);
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * creates an alias-symbol from a ast-node
+   *
+   * @param  Node   $node
+   * @return AliasSymbol
+   */
+  public static function from(Node $node)
+  {
+    $sym = new AliasSymbol(ident_to_str($node->id), $node->loc);
+    $sym->node = $node;
+    $sym->orig = $node->orig;
+    
+    return $sym;
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * debug dump
+   *
+   * @param  string $tab
+   * @return void
+   */
+  public function dump($tab = '')
+  {
+    parent::dump($tab);
+    echo ' => ', name_to_str($this->orig);
   }
 }
 

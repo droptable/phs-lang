@@ -3,12 +3,12 @@
 namespace phs\front;
 
 require_once 'utils.php';
-require_once 'walker.php';
 require_once 'visitor.php';
 require_once 'symbols.php';
 require_once 'scope.php';
 
 use phs\Logger;
+use phs\Origin;
 use phs\Session;
 
 use phs\util\Set;
@@ -25,257 +25,6 @@ use phs\front\ast\UseAlias;
 use phs\front\ast\UseUnpack;
 
 const DS = DIRECTORY_SEPARATOR;
-
-/** usage symbol */
-class Usage implements Entry
-{  
-  // the location where this import was found
-  // -> the location of the given name (or item) is used here
-  public $loc;
-
-  // the name of the imported symbol
-  public $item;
-
-  // the original name of the imported symbol
-  public $orig;
-
-  // the path of the imported symbol
-  public $path;
-  
-  // the kind of this import (gets resolved later)
-  // 'phm' => must be a module
-  // 'phs' => can be anything
-  public $kind;
-
-  /**
-   * constructor
-   *
-   * @param Name $name
-   * @param Usage $base a other imported symbol for a relative import
-   * @param Ident $item a user-defined name (alias)
-   */
-  public function __construct(Name $name, Usage $base = null, Ident $item = null)
-  {
-    $narr = name_to_arr($name);
-        
-    // replace alias to get the real path
-    if ($base && $base->orig !== $base->item)
-      array_splice($narr, 0, 1, $base->orig);
-        
-    $this->loc = $item ? $item->loc : $name->loc;
-    $this->orig = array_pop($narr);
-    $this->item = $item ? ident_to_str($item) : $this->orig;
-    $this->path = $base ? $base->path : [];
-    
-    // remove symbol-name from base-path
-    if ($base) array_pop($this->path);
-    
-    foreach ($narr as $npth)
-      $this->path[] = $npth;
-    
-    // push symbol-name to get the complete path
-    $this->path[] = $this->orig;
-  }
-  
-  /**
-   * returns the entry-key
-   * 
-   * @return string
-   */
-  public function key()
-  {
-    return $this->item;
-  }
-}
-
-/** usage map */
-class UsageMap extends Map
-{
-  /**
-   * constructor
-   */
-  public function __construct()
-  {
-    parent::__construct();
-  }
-  
-  /**
-   * typecheck
-   * 
-   * @param  Entry  $ent 
-   * @return boolean
-   */
-  protected function check(Entry $ent)
-  {
-    return $ent instanceof Usage;
-  }
-}
-
-/** usage collector */
-class UsageCollector
-{
-  // @var UsageMap  collected improts
-  private $umap;
-  
-  // @var UsageMap  nested imports
-  private $unst;
-  
-  // @var array  nested import stack
-  private $nstk = [];
-  
-  /**
-   * collector entry-point
-   *
-   * @param array $uses
-   * @return UsageMap
-   */
-  public function collect(RootScope $scope, array $uses)
-  {
-    $this->umap = $scope->umap;
-    
-    foreach ($uses as $use)
-      $this->handle_import(null, $use);
-    
-    return $this->umap;
-  }
-  
-  // ---------------------------------------
-
-  /**
-   * adds a use-import to the map
-   *
-   * @param Import $uimp
-   */
-  protected function add_use_import(Usage $uimp)
-  {    
-    $key = $uimp->key();
-    
-    if ($this->umap->add($uimp)) {
-      Logger::debug_at($uimp->loc, 'import %s as `%s`', 
-        implode('::', $uimp->path), $key);
-      
-      // add it to the nested map too
-      if ($this->unst) $this->unst->add($uimp);
-      
-      return true;
-    }
-    
-    Logger::error_at($uimp->loc, 'duplicate import of a symbol named `%s`', $key);
-    Logger::error_at($this->umap->get($key)->loc, 'previous import was here');
-    
-    return false;
-  }
-
-  /* ------------------------------------ */
-
-  /**
-   * fetches the base import for a name
-   *
-   * @param Name $name
-   * @param Usage $base  fallback
-   * @return Usage or null
-   */
-  protected function fetch_use_base(Name $name, Usage $base = null)
-  {
-    $root = ident_to_str($name->base);
-    
-    // check nested imports first
-    if ($this->unst !== null) {
-      if ($this->unst->has($root))
-        $base = $this->unst->get($root);
-    
-    // check global imports
-    } elseif ($this->umap->has($root))
-      $base = $this->umap->get($root);
-    
-    return $base;
-  }
-
-  /* ------------------------------------ */
-
-  /**
-   * handles a import
-   *
-   * @param UseImport $base (optional)
-   * @param Name|UseAlias|UseUnpack $item
-   */
-  protected function handle_import($base, $item)
-  {
-    if ($item instanceof Name)
-      $this->handle_use_name($base, $item);
-    elseif ($item instanceof UseAlias)
-      $this->handle_use_alias($base, $item);
-    elseif ($item instanceof UseUnpack)
-      $this->handle_use_unpack($base, $item);
-    else
-      assert(0);
-  }
-
-  /* ------------------------------------ */
-
-  /**
-   * handles a simple use-import `use foo::bar;`
-   *
-   * @param UseImport $base (optional)
-   * @param Name $item
-   * @param boolean $sealed do not lookup aliases
-   */
-  protected function handle_use_name($base, $item)
-  {
-    $base = $this->fetch_use_base($item, $base);
-    $uimp = new Usage($item, $base);
-    
-    $this->add_use_import($uimp);
-  }
-
-  /**
-   * handles a simple use-import with alias `use foo::bar as baz;`
-   *
-   * @param UseImport $base (optional)
-   * @param UseAlias $item
-   */
-  protected function handle_use_alias($base, $item)
-  {
-    $base = $this->fetch_use_base($item->name, $base);
-    $uimp = new Usage($item->name, $base, $item->alias);
-    
-    $this->add_use_import($uimp);
-  }
-
-  /**
-   * handles complex use-imports
-   *
-   * @param UseImport $base (optional)
-   * @param UseAlias $item
-   */
-  protected function handle_use_unpack($base, $item)
-  {
-    if ($item->base !== null) {
-      $base = $this->fetch_use_base($item->base, $base);
-      $base = new Usage($item->base, $base);
-      
-      // TODO: this is a workaround...
-      //
-      // push $base->orig again because UseImport()
-      // will pop it off assuming that the base-path was from a actual
-      // imported symbol.
-      //
-      // it would be better to segment UseImport using a 'UsePath',
-      // but it works for now ...
-      $base->path[] = $base->orig;
-    }
-    
-    // push nested imports onto the stack and create a new map
-    array_push($this->nstk, $this->unst);
-    $this->unst = new UsageMap;
-    
-    foreach ($item->items as $nimp)
-      $this->handle_import($base, $nimp);
-    
-    // pop previous nested imports of the stack
-    $this->unst = array_pop($this->nstk);
-  }
-}
 
 /** unit collector */
 class UnitCollector extends Visitor
@@ -310,13 +59,12 @@ class UnitCollector extends Visitor
    * @param  Node|array $some
    * @param  Scope $scope
    */
-  public function collect(Unit $unit)
+  public function collect(UnitScope $scope, Unit $unit)
   {
-    $this->scope = new UnitScope($unit);
+    $this->scope = $scope;
     $this->sroot = $this->scope;
     
-    $this->walker = new Walker($this);
-    $this->walker->walk_some($unit);
+    $this->visit($unit);
     
     return $this->scope;
   }
@@ -331,7 +79,7 @@ class UnitCollector extends Visitor
    */
   public function visit_unit($node)
   {
-    $this->walker->walk_some($node->body);
+    $this->visit($node->body);
   }
   
   /**
@@ -364,7 +112,7 @@ class UnitCollector extends Visitor
           $nmod = $mmap->get($mid);
         else {
           // create and assign a new module
-          $nmod = new ModuleScope($mid, $nmod);
+          $nmod = new ModuleScope($mid, null, $nmod);
           $mmap->add($nmod);
         }
         
@@ -376,8 +124,12 @@ class UnitCollector extends Visitor
       // switch to global scope
       $this->scope = $this->sroot;
     
+    // save scope-information on the ast-node.
+    // TODO: remove scope-ref from ast!
+    $node->scope = $this->scope;
+    
     // walk module-body
-    $this->walker->walk_some($node->body);
+    $this->visit($node->body);
     $this->scope = $prev;
   }
   
@@ -387,15 +139,10 @@ class UnitCollector extends Visitor
    * @param  Node $node
    * @return void
    */
-  public function visit_content($node) {
-    // collect usage if any
-    if ($node->uses) {
-      $usc = new UsageCollector;
-      $usc->collect($this->scope, $node->uses);
-    }
-    
+  public function visit_content($node) 
+  {
     // continue walking
-    $this->walker->walk_some($node->body);
+    $this->visit($node->body);
   }
   
   /**
@@ -505,8 +252,7 @@ abstract class MemberCollector extends Visitor
   {
     $this->scope = new MemberScope($prev);
     
-    $this->walker = new Walker($this);
-    $this->walker->walk_some($decl->members);
+    $this->visit($decl->members);
     
     return $this->scope;
   }
@@ -553,6 +299,18 @@ abstract class MemberCollector extends Visitor
       $sym = VarSymbol::from($var, $flags);
       $this->scope->add($sym);
     }
+  }
+  
+  /**
+   * Visitor#visit_alias_decl()
+   *
+   * @param  Node $node
+   * @return void
+   */
+  public function visit_alias_decl($node)
+  {
+    $sym = AliasSymbol::from($node);
+    $this->scope->add($sym);
   }
 }
 

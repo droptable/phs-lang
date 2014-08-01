@@ -4,13 +4,13 @@ namespace phs\front\ast;
 
 class TryStmt extends Stmt
 {
-  public $stmt;
+  public $body;
   public $catches;
   public $finalizer;
   
-  public function __construct($stmt, $catches, $finalizer)
+  public function __construct($body, $catches, $finalizer)
   {
-    $this->stmt = $stmt;
+    $this->body = $body;
     $this->catches = $catches;
     $this->finalizer = $finalizer;
   }

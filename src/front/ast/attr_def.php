@@ -4,12 +4,10 @@ namespace phs\front\ast;
 
 class AttrDef extends Node
 {
-  public $name;
-  public $value;
+  public $items;
   
-  public function __construct($name, $value = null)
+  public function __construct($items)
   {
-    $this->name = $name;
-    $this->value = $value;
+    $this->items = $items;
   }
 }

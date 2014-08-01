@@ -5,11 +5,11 @@ namespace phs\front\ast;
 class LabelDecl extends Decl
 {
   public $id;
-  public $comp;
+  public $stmt;
   
-  public function __construct($id, $comp)
+  public function __construct($id, $stmt)
   {
     $this->id = $id;
-    $this->comp = $comp;
+    $this->stmt = $stmt;
   }
 }

@@ -4,14 +4,14 @@ namespace phs\front\ast;
 
 class IfStmt extends Stmt
 {
-  public $expr;
+  public $test;
   public $stmt;
   public $elsifs;
   public $els;
   
-  public function __construct($expr, $stmt, $elsifs, $els)
+  public function __construct($test, $stmt, $elsifs, $els)
   {
-    $this->expr = $expr;
+    $this->test = $test;
     $this->stmt = $stmt;
     $this->elsifs = $elsifs;
     $this->els = $els;

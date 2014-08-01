@@ -7,9 +7,15 @@ require 'util/set.php';
 use phs\util\Set;
 use phs\util\LooseSet;
 
+interface Origin
+{}
+
 /** abstract base class */
 abstract class Source
 {
+  // @var Origin
+  public $origin = null;
+  
   /**
    * should return the name/path of this source
    * 

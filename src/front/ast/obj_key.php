@@ -2,9 +2,9 @@
 
 namespace phs\front\ast;
 
-class DelExpr extends Expr
+class ObjKey extends Node
 {
-  public $id;
+  public $expr;
   
   public function __construct($expr)
   {

@@ -4,12 +4,12 @@ namespace phs\front\ast;
 
 class TopexAttr extends Node
 {
-  public $def;
+  public $attr;
   public $topex;
   
-  public function __construct($def, $topex)
+  public function __construct($attr, $topex)
   {
-    $this->def = $def;
+    $this->attr = $attr;
     $this->topex = $topex;
   }
 }

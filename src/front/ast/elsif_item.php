@@ -4,12 +4,12 @@ namespace phs\front\ast;
 
 class ElsifItem extends Node
 {
-  public $expr;
+  public $test;
   public $stmt;
   
-  public function __construct($expr, $stmt)
+  public function __construct($test, $stmt)
   {
-    $this->expr = $expr;
+    $this->test = $test;
     $this->stmt = $stmt;
   }
 }

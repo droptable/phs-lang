@@ -4,12 +4,12 @@ namespace phs\front\ast;
 
 class CompAttr extends Node
 {
-  public $def;
+  public $attr;
   public $comp;
   
-  public function __construct($def, $comp)
+  public function __construct($attr, $comp)
   {
-    $this->def = $def;
+    $this->attr = $attr;
     $this->comp = $comp;
   }
 }

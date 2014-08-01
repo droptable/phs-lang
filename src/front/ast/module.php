@@ -7,11 +7,9 @@ class Module extends Node
   public $name;
   public $body;
   
-  // scope
+  // @var phs\front\ModuleScope
+  // this is a workaround 
   public $scope;
-  
-  // module
-  public $module;
   
   public function __construct($name, $body)
   {

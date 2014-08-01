@@ -4,10 +4,12 @@ namespace phs\front\ast;
 
 class YieldExpr extends Expr
 {
-  public $expr;
+  public $key;
+  public $value;
   
-  public function __construct($expr)
+  public function __construct($key, $value)
   {
-    $this->expr = $expr;
+    $this->key = $key;
+    $this->value = $value;
   }
 }

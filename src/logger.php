@@ -51,10 +51,10 @@ class Logger
    * @param  Config $conf
    * @return void
    */
-  public static function init(Config $conf, $root)
+  public static function init(Config $conf, $root, $ansi)
   {
     self::$root = $root;
-    self::$ansi = DIRECTORY_SEPARATOR !== '\\' || !!getenv('ANSICON');
+    self::$ansi = $ansi && (DIRECTORY_SEPARATOR !== '\\' || !!getenv('ANSICON'));
     
     if ($conf->has('log_dest'))
       self::set_dest($conf->get('log_dest'));

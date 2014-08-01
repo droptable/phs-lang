@@ -354,7 +354,7 @@ class Lexer
       
       // if we scanned a string-literal: concat following strings
       // "foo" "bar" -> "foobar"
-      if ($sub[0] === '"' || substr($sub, 1, 1) === '"') {
+      if ($sub[0] === '"' || ($sub[0] !== "'" && substr($sub, 1, 1) === '"')) {
         $flg = $sub[0] !== '"' ? $sub[0] : null;
         $beg = $flg ? 2 : 1;
         $sub = $this->scan_concat(substr($sub, $beg, -1));

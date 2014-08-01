@@ -5,11 +5,11 @@ namespace phs\front\ast;
 class DoStmt extends Stmt
 {
   public $stmt;
-  public $expr;
+  public $test;
   
-  public function __construct($stmt, $expr)
+  public function __construct($stmt, $test)
   {
     $this->stmt = $stmt;
-    $this->expr = $expr;
+    $this->test = $test;
   }
 }

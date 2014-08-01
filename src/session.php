@@ -19,11 +19,14 @@ require_once 'front/lexer.php';
 require_once 'front/parser.php';
 require_once 'front/analyze.php';
 require_once 'front/scope.php';
+#require_once 'front/resolve.php';
+require_once 'front/format.php';
 
 use phs\front\Parser;
 use phs\front\Analyzer;
-use phs\front\Analysis;
+use phs\front\Resolver;
 use phs\front\Location;
+use phs\front\AstFormatter;
 
 use phs\front\ast\Node;
 use phs\front\ast\Unit;
@@ -83,27 +86,15 @@ class Session
   }
   
   /**
-   * add a unit (ast)
-   * @param Unit $unit
-   */
-  public function add_unit(Unit $unit)
-  {
-    assert(0);
-  }
-  
-  /**
    * add a source
+   * 
    * @param Source $src
+   * @param Usage $use
    */
   public function add_source(Source $src)
   {
-    if ($this->files->add($src)) {
+    if ($this->files->add($src))
       $this->queue->add($src);
-      
-      // already compiling? -> parse now
-      if ($this->started)
-        $this->parse_queue();
-    }
   }
   
   /**
@@ -124,13 +115,13 @@ class Session
     $this->started = true;
     
     // phase 1
-    if (!$this->measure('syntax analysis', function() {      
+    if (!$this->measure('analysis', function() {      
       $this->parse_queue();
     })) return;
     
     // phase 2
-    if (!$this->measure('semantic analysis', function() {
-      $this->analyze_units();
+    if (!$this->measure('resolving', function() {
+      //$this->resolve_units();
     })) return;
       
     foreach ($this->files as $file) {
@@ -169,32 +160,31 @@ class Session
   protected function parse_queue()
   {
     $psr = new Parser($this);
-    
+    $anl = new Analyzer($this);
+    $fmt = new AstFormatter($this);
+        
     // parse all sources
     while ($src = $this->queue->shift()) {
-      $unit = $psr->parse($src);
+      $tree = $psr->parse($src);
       
-      if ($unit)
-        $this->units->add($unit);
+      if ($tree) {
+        $unit = $anl->analyze($tree);
+        
+        if ($unit) {
+          $this->units->add($unit);
+          
+          echo "\n";
+          $unit->dump('');
+          echo "\n";
+          
+          echo "\n";
+          echo $fmt->format($tree);
+          echo "\n";
+        }
+      }
       
       // ignore result and continue parsing to 
       // report as much errors as possible
-    }
-  }
-  
-  /**
-   * analyzes all units
-   *
-   * @return void
-   */
-  protected function analyze_units()
-  {
-    $anl = new Analyzer($this);
-    
-    // analyze all units 
-    while ($unit = $this->units->shift()) {
-      $ares = $anl->analyze($unit);
-      $ares->dump();
     }
   }
 }

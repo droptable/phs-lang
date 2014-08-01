@@ -31,7 +31,7 @@ assert_options(ASSERT_CALLBACK, function($s, $l, $c, $m = null) {
 function init(Session $sess) {
   $conf = $sess->conf;
   
-  Logger::init($conf, $sess->root);  
+  Logger::init($conf, $sess->root, !in_array('--no-colors', $_SERVER['argv']));  
   Logger::hook(phs\LOG_LEVEL_ERROR, [ $sess, 'abort'] );
   
   if ($conf->get('werror') === true)

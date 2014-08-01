@@ -158,40 +158,47 @@ unit
   ;
   
 module
-  : T_MODULE name ';' content { $$ = @Module($2, $4); }
-  ;
-  
-content
-  : uses toplvl { $$ = @Content($1, $2); }
-  | uses        { $$ = @Content($1, null); }
-  | toplvl      { $$ = @Content(null, $1); }
-  ;
-  
-uses
-  : use      { $$ = [ $1 ]; }
-  | uses use { $1[] = $2; $$ = $1; }
-  ;
-  
-use
-  : T_USE use_name ';'               
+  : T_MODULE name ';' content 
     { 
-      $$ = $2; 
-      $this->eat_semis(); 
-    }
-  | T_USE use_name T_AS ident ';'    
-    { 
-      $$ = @UseAlias($2, $4); 
-      $this->eat_semis(); 
-    }
-  | T_USE use_name '{' use_items comma_opt '}' ';'
-    { 
-      $$ = @UseUnpack($2, $4); 
-      $this->eat_semis(); 
-    }
-  | T_USE '{' use_items comma_opt '}' ';'
-    {
-      $$ = @UseUnpack(null, $3);
+      $$ = @Module($2, $4); 
       $this->eat_semis();
+    }
+  ;
+ 
+content
+  : toplvl { $$ = @Content($1); }
+  ;
+  
+toplvl
+  : topex        { $$ = [ $1 ]; }
+  | toplvl topex { $1[] = $2; $$ = $1; }
+  ;
+ 
+topex
+  : module_nst     { $$ = $1; }
+  | '@' error T_NL { $$ = null; }
+  | use_decl       { $$ = $1; }
+  | attr_decl      { $$ = $1; }
+  | enum_decl      { $$ = $1; }
+  | class_decl     { $$ = $1; }
+  | trait_decl     { $$ = $1; }
+  | iface_decl     { $$ = $1; }
+  | topex_attr     { $$ = $1; }
+  | fn_decl        { $$ = $1; }
+  | var_decl       { $$ = $1; }
+  | require_decl   { $$ = $1; }
+  | error T_SYNC   { $$ = null; }
+  | T_END          { $$ = null; }
+  | label_decl     { $$ = $1; }
+  | alias_decl     { $$ = $1; }
+  | stmt           { $$ = $1; }
+  ;
+   
+use_decl
+  : T_USE use_item ';'
+    { 
+      $$ = @UseDecl($2); 
+      $this->eat_semis(); 
     }
   ;
   
@@ -209,30 +216,6 @@ use_item
 use_name
   : name { $$ = $1; }
   ;
-
-toplvl
-  : topex        { $$ = [ $1 ]; }
-  | toplvl topex { $1[] = $2; $$ = $1; }
-  ;
- 
-topex
-  : module_nst     { $$ = $1; }
-  | '@' error T_NL { $$ = null; }
-  | attr_decl      { $$ = $1; }
-  | enum_decl      { $$ = $1; }
-  | class_decl     { $$ = $1; }
-  | trait_decl     { $$ = $1; }
-  | iface_decl     { $$ = $1; }
-  | topex_attr     { $$ = $1; }
-  | fn_decl        { $$ = $1; }
-  | var_decl       { $$ = $1; }
-  | require        { $$ = $1; }
-  | error T_SYNC   { $$ = null; }
-  | T_END          { $$ = null; }
-  | label_decl     { $$ = $1; }
-  | alias_decl     { $$ = $1; }
-  | stmt           { $$ = $1; }
-  ;
   
 label_decl
   : ident ':' comp { $$ = @LabelDecl($1, $3); }
@@ -240,6 +223,19 @@ label_decl
 
 alias_decl
   : T_ALIAS ident '=' name ';' { $$ = @AliasDecl($2, $4); }
+  ;
+
+require_decl
+  : T_REQUIRE rxpr ';'       
+    { 
+      $$ = @RequireDecl(false, $2); 
+      $this->eat_semis(); 
+    }
+  | T_REQUIRE T_PHP rxpr ';' 
+    { 
+      $$ = @RequireDecl(true, $3); 
+      $this->eat_semis(); 
+    }
   ;
 
 module_nst
@@ -261,19 +257,6 @@ module_nst
   | T_MODULE '{' content '}'      
     { 
       $$ = @Module(null, $3); 
-      $this->eat_semis(); 
-    }
-  ;
-  
-require
-  : T_REQUIRE rxpr ';'       
-    { 
-      $$ = @RequireDecl(false, $2); 
-      $this->eat_semis(); 
-    }
-  | T_REQUIRE T_PHP rxpr ';' 
-    { 
-      $$ = @RequireDecl(true, $3); 
       $this->eat_semis(); 
     }
   ;
@@ -363,7 +346,7 @@ class_decl
     }
   | mods_opt T_CLASS ident ext_opt impl_opt ';'               
     { 
-      $$ = @ClassDecl($1, $3, $4, $5, null); 
+      $$ = @ClassDecl($1, $3, $4, $5, null, null); 
       $this->eat_semis(); 
     }
   ;
@@ -406,7 +389,7 @@ trait_uses_opt
   : /* empty */ { $$ = null; }
   | trait_uses  { $$ = $1; }
   ;
-
+  
 trait_uses
   : trait_use            { $$ = [ $1 ]; }
   | trait_uses trait_use { $1[] = $2; $$ = $1; }
@@ -492,8 +475,8 @@ member
   ;
 
 member_attr
-  : '@' attr_def T_NL fn_decl  { $$ = @MemberAttr($1, $3); }
-  | '@' attr_def T_NL var_decl { $$ = @MemberAttr($1, $3); }
+  : '@' attr_def T_NL fn_decl  { $$ = @MemberAttr($2, $4); }
+  | '@' attr_def T_NL var_decl { $$ = @MemberAttr($2, $4); }
   ;
   
 trait_decl
@@ -901,6 +884,7 @@ lxpr
   | '-' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
   | '+' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
   | '~' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
+  | '&' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
   | '!' rxpr                { $$ = @UnaryExpr($1, $2); }
   | T_INC rxpr %prec '!'    { $$ = @UpdateExpr(true, $2, $1); }
   | T_DEC rxpr %prec '!'    { $$ = @UpdateExpr(true, $2, $1); }
@@ -910,7 +894,6 @@ lxpr
   | T_NEW nxpr pargs        { $$ = @NewExpr($2, $3); }
   | T_DEL nxpr              { $$ = @DelExpr($2); }
   | atom                    { $$ = $1; }
-  | legacy_cast             { $$ = $1; }
   ;
 
 /* right expression */
@@ -975,6 +958,7 @@ rxpr
   | '-' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
   | '+' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
   | '~' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
+  | '&' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
   | '!' rxpr                { $$ = @UnaryExpr($1, $2); }
   | T_INC rxpr %prec '!'    { $$ = @UpdateExpr(true, $2, $1); }
   | T_DEC rxpr %prec '!'    { $$ = @UpdateExpr(true, $2, $1); }
@@ -986,7 +970,6 @@ rxpr
   | atom                    { $$ = $1; }
   | obj                     { $$ = $1; }
   | fn_expr                 { $$ = $1; }
-  | legacy_cast             { $$ = $1; }
   ;
   
 /* right-expression without the in-operator */
@@ -1049,6 +1032,7 @@ rxpr_noin
   | '-' rxpr_noin %prec '!'           { $$ = @UnaryExpr($1, $2); }
   | '+' rxpr_noin %prec '!'           { $$ = @UnaryExpr($1, $2); }
   | '~' rxpr_noin %prec '!'           { $$ = @UnaryExpr($1, $2); }
+  | '&' rxpr_noin %prec '!'           { $$ = @UnaryExpr($1, $2); }
   | '!' rxpr_noin                     { $$ = @UnaryExpr($1, $2); }
   | T_INC rxpr_noin %prec '!'         { $$ = @UpdateExpr(true, $2, $1); }
   | T_DEC rxpr_noin %prec '!'         { $$ = @UpdateExpr(true, $2, $1); }
@@ -1060,23 +1044,6 @@ rxpr_noin
   | atom                              { $$ = $1; }
   | obj                               { $$ = $1; }
   | fn_expr_noin                      { $$ = $1; }
-  | legacy_cast_noin                  { $$ = $1; }
-  ;
-  
-legacy_cast
-  : '(' type_id ')' rxpr 
-    { 
-      $$ = @CastExpr($4, $2); 
-      $this->error_at($1->loc, ERR_WARN, 'legacy cast, use `expr as type` instead'); 
-    }
-  ;
-  
-legacy_cast_noin
-  : '(' type_id ')' rxpr_noin 
-    { 
-      $$ = @CastExpr($4, $2); 
-      $this->error_at($1->loc, ERR_WARN, 'legacy cast, use `expr as type` instead'); 
-    }
   ;
  
 nxpr
@@ -1293,7 +1260,7 @@ obj_pair
 obj_key
   : ident        { $$ = $1; }
   | str          { $$ = $1; }
-  | '(' rxpr ')' { $$ = $2; }
+  | '(' rxpr ')' { $$ = @ObjKey($2); }
   | T_FN         { $$ = @Ident($1->value); }
   | T_LET        { $$ = @Ident($1->value); }
   | T_PHP        { $$ = @Ident($1->value); }    

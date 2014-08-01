@@ -13,6 +13,7 @@ require_once 'ast/expr.php';
 require_once 'ast/unit.php';
 require_once 'ast/module.php';
 require_once 'ast/content.php';
+require_once 'ast/use_decl.php';
 require_once 'ast/use_alias.php';
 require_once 'ast/use_unpack.php';
 require_once 'ast/label_decl.php';
@@ -104,4 +105,5 @@ require_once 'ast/arr_gen.php';
 require_once 'ast/spread_expr.php';
 require_once 'ast/obj_lit.php';
 require_once 'ast/obj_pair.php';
+require_once 'ast/obj_key.php';
 
