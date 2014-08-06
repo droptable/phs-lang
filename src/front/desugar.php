@@ -3,9 +3,12 @@
 namespace phs\front;
 
 require_once 'glob.php';
+require_once 'parser.php';
 require_once 'visitor.php';
 
+use phs\Logger;
 use phs\Session;
+use phs\TextSource;
 
 use phs\front\ast\Unit;
 use phs\front\ast\Name;
@@ -24,11 +27,16 @@ use phs\front\ast\ReturnStmt;
 use phs\front\ast\ObjKey;
 use phs\front\ast\NamedArg;
 use phs\front\ast\RestArg;
+use phs\front\ast\NestedMods;
+use phs\front\ast\StrLit;
 
 class UnitDesugarer extends Visitor
 {
   // @var Session
   private $sess;
+  
+  // @var array 
+  private $nmods = [];
   
   /**
    * constructor
@@ -50,6 +58,7 @@ class UnitDesugarer extends Visitor
   public function desugar(Unit $unit)
   {
     $this->visit($unit);
+    gc_collect_cycles();
   }
   
   /**
@@ -130,6 +139,78 @@ class UnitDesugarer extends Visitor
   }
   
   /**
+   * handles members and merges modifiers from nested-mods
+   * and removes nested-mods nodes
+   * 
+   * @param  array $members
+   * @return void
+   */
+  private function handle_members(&$members)
+  {
+    $stack = [];
+    
+    foreach ($members as $idx => &$member) {
+      if ($member instanceof NestedMods) {
+        if ($member->members) {
+          array_push($this->nmods, $member->mods);
+          $this->handle_members($member->members);
+          array_pop($this->nmods);
+        }
+        
+        array_splice($members, $idx, 1);
+        
+        if ($member->members)
+          foreach ($member->members as $child)
+            // pushing directly to $members results in undefined behavior
+            $stack[] = $child;
+          
+        // remove modifier-references from node
+        // to make it a bit easier for the gc:
+        // 1.) to collect the nested-mods node after desugaring
+        // 2.) to collect the modifier-nodes if they get removed in a later pass
+        if ($member->mods) 
+          foreach ($member->mods as $idx => $_)
+            unset ($member->mods[$idx]);
+          
+        unset ($member->mods);
+        
+      } else {
+        $this->merge_mods($member);
+        $this->visit($member);
+      }
+    }
+    
+    // push array of elements without abusing call_user_func_array()
+    array_splice($members, count($members), 0, $stack);
+  }
+  
+  /**
+   * merges modifiers from nested-mods
+   *
+   * @param  Node $member
+   * @return void
+   */
+  private function merge_mods($member)
+  {
+    if (!$this->nmods) return;
+    
+    if (!$member->mods)
+      $member->mods = [];
+    
+    $mods = &$member->mods;
+    
+    // adding from top to bottom for proper error-reporting
+    for ($i = count($this->nmods) - 1; $i >= 0; --$i) {
+      $nm = &$this->nmods[$i];
+      
+      for ($o = count($nm) - 1; $o >= 0; --$o)
+        array_unshift($mods, $nm[$o]);
+    }
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
    * Visitor#visit_enum_decl()
    *
    * @param  Node  $node
@@ -149,8 +230,7 @@ class UnitDesugarer extends Visitor
   public function visit_class_decl($node) 
   {
     if ($node->members)
-      foreach ($node->members as $member)
-        $this->visit($member);
+      $this->handle_members($node->members);
   }
   
   /**
@@ -161,9 +241,8 @@ class UnitDesugarer extends Visitor
    */
   public function visit_nested_mods($node) 
   {
-    if ($node->members)
-      foreach ($node->members as $member)
-        $this->visit($member);
+    // "nested-mods" nodes should be completely removed from the tree.
+    assert(0);
   }
   
   /**
@@ -198,11 +277,12 @@ class UnitDesugarer extends Visitor
       while (null !== $id = array_pop($thid)) {
         // fetch original param
         $param = array_pop($thps);
-        $tmpid = new Ident('__' . $param->id->value);
+        $tmpid = new Ident('__this__' . $param->id->value);
         
         // replace param
         $params[$id] = new Param(
-          false, null, 
+          $param->ref, 
+          null, 
           $param->hint,
           $tmpid, 
           $param->init, 
@@ -211,16 +291,14 @@ class UnitDesugarer extends Visitor
         
         // inject boilerplate
         // `this.XYZ = &XYZ;`
-        array_unshift($body, new ExprStmt([ 
-          new AssignExpr(
-            new MemberExpr(true, false, new ThisExpr, $param->id),
-            new Token(ord('='), '='), 
-            new UnaryExpr(
-              new Token(ord('&'), '&'),
-              new Name($tmpid, false)
-            )
-          ) 
-        ]));
+        array_unshift($body, new ExprStmt([ new AssignExpr(
+          new MemberExpr(true, false, new ThisExpr, $param->id),
+          new Token(ord('='), '='), 
+          new UnaryExpr(
+            new Token(ord('&'), '&'),
+            new Name($tmpid, false)
+          )
+        ) ]));
       }
     }
     
@@ -286,8 +364,7 @@ class UnitDesugarer extends Visitor
   public function visit_trait_decl($node) 
   {
     if ($node->members)
-      foreach ($node->members as $member)
-        $this->visit($member);
+      $this->handle_members($node->members);
   }
   
   /**
@@ -299,8 +376,7 @@ class UnitDesugarer extends Visitor
   public function visit_iface_decl($node) 
   {
     if ($node->members)
-      foreach ($node->members as $member)
-        $this->visit($member);
+      $this->handle_members($node->members);
   }
   
   /**
@@ -554,7 +630,20 @@ class UnitDesugarer extends Visitor
    */
   public function visit_throw_stmt($node) 
   {
-    $this->visit($node->expr);
+    $expr = &$node->expr;
+    
+    // rewrite uncommon expressions to ::phs::ex(expr)
+    // phs::ex is a small wrapper-function for exceptions at runtime
+    if (!($expr instanceof Name ||
+          $expr instanceof Ident ||
+          $expr instanceof NewExpr ||
+          $expr instanceof CallExpr)) {
+      $name = new Name(new Ident('phs'), true);
+      $name->add(new Ident('ex'));
+      $expr = new CallExpr($name, [ ($expr) ]);
+    }
+    
+    $this->visit($expr);
   }
   
   /**
@@ -622,6 +711,17 @@ class UnitDesugarer extends Visitor
    * @return void
    */
   public function visit_expr_stmt($node) 
+  {
+    $this->visit($node->expr);
+  }
+  
+  /**
+   * Visitor#visit_paren_expr()
+   *
+   * @param  Node $node
+   * @return void
+   */
+  public function visit_paren_expr($node)
   {
     $this->visit($node->expr);
   }
@@ -962,7 +1062,12 @@ class UnitDesugarer extends Visitor
    */
   public function visit_str_lit($node) 
   {
-    // noop
+    // raw string or no interpolation
+    if ($node->flag === 'r' || empty ($node->parts))
+      return;
+    
+    foreach ($node->parts as $part)
+      $this->visit($part);
   }
   
   /**

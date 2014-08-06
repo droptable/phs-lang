@@ -204,6 +204,9 @@ class #(-p)
     Logger::debug('%% Parse %s', $file);
 #endif
     
+    // location
+    $this->yyloc = $this->lex->loc();
+    
     // stacks
     $this->yysstk = [ 0 ]; 
     $this->yyastk = [];

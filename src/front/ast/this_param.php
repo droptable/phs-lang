@@ -8,10 +8,11 @@ class ThisParam extends Node
   public $id;
   public $init;
   
-  public function __construct($hint, $id, $init)
+  public function __construct($hint, $id, $init, $ref)
   {
     $this->hint = $hint;
     $this->id = $id;
     $this->init = $init;
+    $this->ref = $ref;
   }
 }

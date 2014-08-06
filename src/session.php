@@ -78,7 +78,6 @@ class Session
     $this->abort = false;
     
     $this->scope = new Scope; // global scope
-    
     $this->udct = new Dict; // use-lookup-cache
     $this->queue = new SourceSet; // to-be parsed files
     $this->files = new SourceSet; // already parsed files
@@ -110,6 +109,23 @@ class Session
     $this->aborted = true;
   }
   
+  /**
+   * parses a source
+   *
+   * @param  Source $src
+   * @return Unit
+   */
+  public function parse($src)
+  {
+    $psr = new Parser($this);
+    return $psr->parse($src);
+  }
+  
+  /**
+   * starts compiling
+   *
+   * @return void
+   */
   public function compile()
   {
     $this->started = true;
@@ -159,13 +175,12 @@ class Session
    */
   protected function parse_queue()
   {
-    $psr = new Parser($this);
     $anl = new Analyzer($this);
     $fmt = new AstFormatter($this);
         
     // parse all sources
     while ($src = $this->queue->shift()) {
-      $tree = $psr->parse($src);
+      $tree = $this->parse($src);
       
       if ($tree) {
         $unit = $anl->analyze($tree);
@@ -175,11 +190,8 @@ class Session
           
           echo "\n";
           $unit->dump('');
-          echo "\n";
-          
-          echo "\n";
+          echo "\n\n";
           echo $fmt->format($tree);
-          echo "\n";
         }
       }
       

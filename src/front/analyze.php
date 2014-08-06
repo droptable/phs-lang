@@ -65,29 +65,32 @@ class Analyzer
     // 4. collect class, interface and trait-members
     $this->collect_unit($unit);
     
-    // 5. reduce constant expressions
-    #$this->reduce_unit($unit);
+    if ($this->sess->aborted)
+      goto err;
     
-    // 6 validate
-    $this->validate_unit($unit);
+    // 5. reduce constant expressions
+    // 6. resolve usage and imports
+    #$this->resolve_unit($unit);
     
     if ($this->sess->aborted)
       goto err;
     
-    // 7. resolve usage and imports
-    #$this->resolve_unit($unit);
-    
-    if ($this->sess->aborted) {
-      err:
-      // resolver/validator found some errors
-      unset ($this->scope);
-      return null;
-    }
+    // 7. validate
+    $this->validate_unit($unit);
     
     // 8. collect variables / branches
     // TODO:
     
+    if ($this->sess->aborted)
+      goto err;
+    
+    out:
     return $this->scope;
+    
+    err:
+    unset ($this->scope);
+    gc_collect_cycles();
+    return null;
   }
   
   protected function validate_unit(Unit $unit)
@@ -118,18 +121,6 @@ class Analyzer
   {
     $ucol = new UnitCollector($this->sess);
     $ucol->collect($this->scope, $unit);
-  }
-  
-  /**
-   * reduces the unit
-   *
-   * @param  Unit   $unit
-   * @return void
-   */
-  protected function reduce_unit(Unit $unit)
-  {
-    $ured = new UnitReducer($this->sess);
-    $ured->reduce($this->scope, $unit);
   }
   
   /**

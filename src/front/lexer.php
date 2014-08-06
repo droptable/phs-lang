@@ -7,6 +7,8 @@ require_once 'glob.php';
 use phs\Source;
 use phs\Logger;
 
+use phs\front\ast\StrLit;
+
 /** ascii tokens */
 const 
   T_ASSIGN = 61,   // '='
@@ -41,6 +43,8 @@ const
 /**
  * lexer class
  * produces tokens from a given input-string
+ * 
+ * TODO: fix string-interpolation lexing/parsing
  */
 class Lexer
 {
@@ -58,6 +62,15 @@ class Lexer
   
   // token queue used as cache for regexps
   private $queue = [];
+  
+  // substitution flag
+  private $subst = 0;
+  
+  // substitution end-quotation ( " or ' )
+  private $subqt;
+  
+  // substitution l-brace count
+  private $subbc = 0;
   
   // track new-lines "\n"
   private $tnl = false;
@@ -85,8 +98,8 @@ class Lexer
     if (!self::$re)
       self::$re = file_get_contents(__DIR__ . '/lexer.re');
     
-    /*
-    for (;;) {
+    /*       
+    for ($i = 0; $i < 100; ++$i) {
       $tok = $this->next();
       
       print "\n";
@@ -154,6 +167,7 @@ class Lexer
       $this->sync = false;
     }
     
+    #echo "\nnext=", $tok->type, "\n";
     return $tok;
   }
   
@@ -168,7 +182,9 @@ class Lexer
       return $this->queue[0];
     
     $tok = $this->scan();
-    $this->push($tok);
+    
+    if ($tok->type !== T_EOF)
+      $this->push($tok);
     
     return $tok;
   }
@@ -180,6 +196,12 @@ class Lexer
    */
   public function push(Token $t)
   {
+    if (!isset ($this->queue)) {
+      Logger::debug_at($t->loc, '[bug] Lexer#push(): pushing token onto freed queue');
+      Logger::debug_at($t->loc, '[bug] token %d `%s`', $t->type, $t->value);
+      return;
+    }
+    
     array_push($this->queue, $t);
   }
   
@@ -189,7 +211,7 @@ class Lexer
    */
   public function skip()
   {
-    if (!empty($this->queue))
+    if (!empty ($this->queue))
       array_shift($this->queue);
     else
       $this->scan();
@@ -280,26 +302,69 @@ class Lexer
       return $this->end;
     }
     
-    if ($this->eof === true || $this->ends()) {
-      eof:
-      
-      // if EOF was not set before
-      if ($this->eof !== true) {
-        // produce one more TOK_SEMI
-        $this->eof = true;
+    if ($this->eof === true || $this->ends())
+      return $this->scan_eof();
+    
+    // in substitution
+    switch ($this->subst) {
+      case 1: // start
+      case 3: // after ${...}
+        $this->subst += 1;
+        return $this->token(T_SUBST, '${...}', true);
         
-        $tok = $this->token(T_SEMI, ';', true);
-        $tok->implicit = true;
+      case 2: // during ${ -> ... <- }
+        $tok = $this->scan_token();
+        
+        // if a '}' gets scanned and no open '{' are left:
+        // -> switch to state 3
+        if ($tok->type === T_RBRACE && --$this->subbc === 0)
+          $this->subst = 3;
+        
         return $tok;
-      }
-     
-      // generate EOF token to save memory if ->scan() gets called again
-      if (!$this->eof_token)
-        $this->eof_token = $this->token(T_EOF, '<end of file>', true);
       
-      return $this->eof_token;
+      case 4: // repeat or end interpolation
+        return $this->cont_subst();
+        
+      default: // no state
+        return $this->scan_token();
+    }
+  }
+  
+  /**
+   * scans the eof-token
+   *
+   * @return Token
+   */
+  protected function scan_eof()
+  {
+    // free remaining data
+    unset ($this->data);
+    unset ($this->queue);
+    
+    // if EOF was not set before
+    if ($this->eof !== true) {
+      // produce one more TOK_SEMI
+      $this->eof = true;
+      
+      $tok = $this->token(T_SEMI, ';', true);
+      $tok->implicit = true;
+      return $tok;
     }
     
+    // generate EOF token to save memory if ->scan() gets called again
+    if (!$this->eof_token)
+      $this->eof_token = $this->token(T_EOF, '<end of file>', true);
+    
+    return $this->eof_token;
+  }
+  
+  /**
+   * scans a common token
+   *
+   * @return Token
+   */
+  protected function scan_token()
+  {
     $tok = null;
     
     // loop used to avoid recursion if tokens get skipped (comments)
@@ -320,11 +385,14 @@ class Lexer
         // in this state we can not produce tokens (anymore)
         $this->eof = true;
         $this->adjust_line_coln_beg($this->data, 0);
-        Logger::error_at($this->loc(), 'invalid input near: ' . substr($this->data, 0, 10) . '...');
-        goto eof;
+        
+        Logger::error_at($this->loc(), 'invalid input near: %s [...]',
+          strtr(substr($this->data, 0, 10), [ "\n" => '\\n' ]));
+        
+        return $this->scan_eof();
       }
       
-      // start analizing
+      // start scan
       prd:
       
       // "raw" and "sub" matched data
@@ -342,33 +410,42 @@ class Lexer
       // save start line/coln
       $pos = new Position($this->line, $this->coln);
       
-      // update end line/coln
-      $this->adjust_line_coln_end($sub, 0);
-      
       // comments
-      if ($sub[0] === '#' || in_array(substr($sub, 0, 2), [ '/*', '//' ])) {
+      if (preg_match('/^(?:[#]|\/[*\/])/', $sub)) {
+        // update end line/coln
+        $this->adjust_line_coln_end($sub, 0);
+        
         // handle <eof> if the comment was at the end of our input
-        if ($this->ends()) goto eof;
+        if ($this->ends()) 
+          return $this->scan_eof();
+        
         continue; // continue otherwise
       }
       
-      // if we scanned a string-literal: concat following strings
-      // "foo" "bar" -> "foobar"
-      if ($sub[0] === '"' || ($sub[0] !== "'" && substr($sub, 1, 1) === '"')) {
-        $flg = $sub[0] !== '"' ? $sub[0] : null;
-        $beg = $flg ? 2 : 1;
-        $sub = $this->scan_concat(substr($sub, $beg, -1));
-        $tok = $this->token(T_STRING, $sub);
-        $tok->flag = $flg;
-      } elseif ($sub[0] === "'" || substr($sub, 1, 1) === "'") {
-        // strings can be in single-quotes too.
-        // note: concat only applies to double-quoted strings
-        $flg = $sub[0] !== "'" ? $sub[0] : null;
-        $beg = $flg ? 2 : 1;
-        $sub = substr($sub, $beg, -1);
-        $tok = $this->token(T_STRING, $sub);
-        $tok->flag = $flg;
+      $str = null;
+      if (preg_match('/^([cr])?(["\'])/', $sub, $str)) {
+        $flg = $str[1];
+        $beg = $str[2];
+        $off = $flg ? 2 : 1;
+        $sub = substr($sub, $off, -1);
+        
+        if ($beg === '"')
+          $sub = $this->scan_concat($sub);
+        
+        if ($flg !== 'r')
+          $tok = $this->scan_subst($sub, $beg);
+        else {
+          $tok = $this->token(T_STRING, $sub, false);
+          $tok->flag = $flg;
+          $tok->delim = $beg;
+          
+          // update end line/coln
+          $this->adjust_line_coln_end($sub, 0);
+        }
       } else {
+        // update end line/coln
+        $this->adjust_line_coln_end($sub, 0);
+        
         // analyze match
         $tok = $this->analyze($sub);
         assert($tok !== null);
@@ -398,9 +475,156 @@ class Lexer
     }
     
     assert($tok !== null);
+    
     $tok->raw = $raw;
     $tok->loc = new Location($this->file, $pos);
+    return $tok;
+  }
+  
+  /**
+   * start the substitution scanner (string interpolation)
+   *
+   * @param  string $str
+   * @return Token
+   */
+  protected function scan_subst($str, $beg)
+  {
+    $len = strlen($str);
+    $esc = false;
+    $dol = false;
+    $end = -1;
     
+    $line = $this->line;
+    $coln = $this->coln;
+    
+    for ($idx = 0; $idx < $len && $end === -1; ++$idx) {
+      $cur = $str[$idx];
+      
+      if ($cur === '\\')
+        $esc = !$esc;
+      else {
+        if ($cur === '$' && !$esc)
+          $dol = true;
+        else {
+          if ($cur === '{' && $dol)
+            $end = $idx;
+          
+          $dol = false;
+          $esc = false;
+        }
+      }
+      
+      if ($cur === "\n") {
+        $line += 1;
+        $coln = 1;
+      } else
+        $coln += 1;
+    }
+    
+    if ($end === -1) {
+      // update end line/coln
+      $this->adjust_line_coln_end($str . $beg, 0);
+      
+      // no substitutions
+      $tok = $this->token(T_STRING, $str);
+      $tok->delim = $beg;
+      return $tok;
+    }
+    
+    // update line/coln
+    $this->line = $line;
+    $this->coln = $coln;
+    
+    // set substitution flag
+    $this->subst = 1;
+    $this->subbc = 1;
+    $this->subqt = $beg;
+        
+    // move substitution expression back to our data
+    $this->data = substr($str, $end) . $beg . $this->data;
+    
+    // first slice is our token
+    $tok = $this->token(T_STRING, substr($str, 0, $end - 1), true);
+    $tok->delim = $beg;
+    return $tok;
+  }
+  
+  /**
+   * continues string-substitution
+   *
+   * @return Token
+   */
+  protected function cont_subst()
+  {
+    $len = strlen($this->data);
+    $qot = $this->subqt;
+    $esc = false;
+    $dol = false;
+    $end = -1;
+    $eos = -1;
+    
+    $line = $this->line;
+    $coln = $this->coln;
+    
+    for ($idx = 0; $idx < $len && ($end & $eos) === -1; ++$idx) {
+      $cur = $this->data[$idx];
+      
+      if ($cur === $qot && !$esc)
+        $eos = $idx;
+      elseif ($cur === '\\')
+        $esc = !$esc;
+      else {
+        if ($cur === '$' && !$esc)
+          $dol = true;
+        else {
+          if ($cur === '{' && $dol)
+            $end = $idx;
+          
+          $dol = false;
+          $esc = false;
+        }
+      }
+      
+      if ($cur === "\n") {
+        $line += 1;
+        $coln = 1;
+      } else
+        $coln += 1;
+    }
+    
+    if ($end === -1) {
+      // reached end of string
+      assert($eos > -1);
+      
+      // extract string
+      $str = substr($this->data, 0, $eos);
+      $this->data = substr($this->data, $eos + 1);
+      
+      // no more substitutions
+      $this->subst = 0;
+      $tok = $this->token(T_STRING, $str, true);
+      $tok->delim = $this->subqt;
+      
+      // update end line/coln
+      $this->adjust_line_coln_end($str . $qot, 0);
+      
+      return $tok;
+    }
+    
+    // update line/coln
+    $this->line = $line;
+    $this->coln = $coln;
+    
+    // set substitution flag
+    $this->subst = 1;
+    $this->subbc = 1;
+    
+    // extract string 
+    $str = substr($this->data, 0, $end - 1);
+    $this->data = substr($this->data, $end);
+    
+    $tok = $this->token(T_STRING, $str, true);
+    $tok->delim = $this->subqt;
     return $tok;
   }
   
@@ -616,6 +840,9 @@ class Lexer
   {
     static $re_all = '/^[\h\v]*$/';
     static $re_nnl = '/^[\h]*$/';
+    
+    if ($this->data === null)
+      return true;
     
     // if $tnl (track new lines) is true: use \h, else: use \h\v
     return preg_match($this->tnl ? $re_nnl : $re_all, $this->data);

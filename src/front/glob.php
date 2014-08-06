@@ -8,6 +8,7 @@ class Token
   public $uid;
   public $loc;
   public $raw;
+  public $flag;
   public $type;
   public $value;
   

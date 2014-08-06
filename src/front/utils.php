@@ -124,8 +124,8 @@ function sym_flags_to_stra($flags) {
     SYM_FLAG_PUBLIC => 'public',
     SYM_FLAG_PRIVATE => 'private',
     SYM_FLAG_PROTECTED => 'protected',
-    SYM_FLAG_SEALED => 'sealed',
-    SYM_FLAG_INLINE => 'inline',
+    SYM_FLAG_SEALED => '__sealed__',
+    SYM_FLAG_INLINE => '__inline__',
     SYM_FLAG_EXTERN => 'extern',
     SYM_FLAG_ABSTRACT => 'abstract',
     SYM_FLAG_INCOMPLETE => 'incomplete'

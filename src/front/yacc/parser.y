@@ -119,6 +119,9 @@
 /* gets produced from the lexer if a '@' was scanned before */
 %token T_NL
 
+/* gets produced from the lexer if string-interpolation was found */
+%token T_SUBST
+
 /* this typenames are reserved to avoid ambiguity with 
    user-defined symbols */
 %token T_TINT     /* int integer */
@@ -630,13 +633,15 @@ param
   | mods hint ident                    { $$ = @Param(false, $1, $2, $3, null, false); }
   | mods hint ident '?'                { $$ = @Param(false, $1, $2, $3, null, true); }
   | mods hint ident '=' rxpr           { $$ = @Param(false, $1, $2, $3, $5, false); }
-  | hint_opt T_THIS dot_ident          { $$ = @ThisParam($1, $3, null); }
-  | hint_opt T_THIS dot_ident '=' rxpr { $$ = @ThisParam($1, $3, $5); }
+  | hint_opt T_THIS dot_ident          { $$ = @ThisParam($1, $3, null, false); }
+  | hint_opt T_THIS dot_ident '=' rxpr { $$ = @ThisParam($1, $3, $5, false); }
   | hint_opt T_REST ident              { $$ = @RestParam($1, $3); }
   | '&' ident                          { $$ = @Param(true, null, null, $2, null, false); }
   | hint '&' ident                     { $$ = @Param(true, null, $1, $3, null, false); }
   | mods '&' ident                     { $$ = @Param(true, $1, null, $3, null, false); }
   | mods hint '&' ident                { $$ = @Param(true, $1, $2, $4, null, false); }
+  |      '&' T_THIS dot_ident          { $$ = @ThisParam(null, $3, null, true); }
+  | hint '&' T_THIS dot_ident          { $$ = @ThisParam($1, $4, null, true); }
   ;
   
 hint_opt
@@ -1083,7 +1088,7 @@ atom
   | name         { $$ = $1; }
   | kwc          { $$ = $1; }
   | str          { $$ = $1; }
-  | '(' rseq ')' { $$ = $2; }
+  | '(' rseq ')' { $$ = @ParenExpr($2); }
   ;
  
 reg
@@ -1196,9 +1201,11 @@ kwc
   | T_CMETHOD { $$ = @EngineConst($1->type); }
   | T_CMODULE { $$ = @EngineConst($1->type); }
   ;
- 
+  
 str
-  : T_STRING { $$ = @StrLit($1->value, $1->flag); }
+  : T_STRING                 { $$ = @StrLit($1); }
+  | str T_SUBST '{' rxpr '}' { $1->add($4); $$ = $1; }
+  | str T_SUBST T_STRING     { $1->add(@StrLit($3)); $$ = $1; }
   ;
   
 num

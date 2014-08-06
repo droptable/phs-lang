@@ -214,8 +214,30 @@ class UnitValidator extends Visitor
     
     $nmo = [];
     $cmo = [];
+    $ppp = null;
     
-    foreach ($mods as $mod) {      
+    foreach ($mods as $mod) {
+      switch ($mod->type) {
+        case T_PROTECTED:
+          if (!$this->within('class', [ 'fn' ]) &&
+              !$this->within('trait', [ 'fn' ]) &&
+              !$this->within('iface', [ 'fn' ]))
+            break; // will be reported as error anyway
+          
+        case T_PUBLIC:
+        case T_PRIVATE:
+          if ($ppp !== null && $ppp->type !== $mod->type) {
+            Logger::error_at($mod->loc, 'ambiguous modifier `%s`', $mod->value);
+            Logger::info_at($ppp->loc, 'already seen modifier `%s` here', $ppp->value);
+          } elseif ($ppp === null)
+            $ppp = $mod;
+            
+          break;  
+          
+        default:
+          // pass
+      } 
+      
       switch ($mod->type) {          
         case T_STATIC:
           if ($this->within('fn', [ '*' ]))
@@ -224,8 +246,8 @@ class UnitValidator extends Visitor
           // no break
           
         case T_PROTECTED:
-          if (!$this->within('class', [ 'fn' ]) ||
-              !$this->within('trait', [ 'fn' ]) ||
+          if (!$this->within('class', [ 'fn' ]) &&
+              !$this->within('trait', [ 'fn' ]) &&
               !$this->within('iface', [ 'fn' ]))
             goto err;
           
@@ -255,7 +277,8 @@ class UnitValidator extends Visitor
             goto err;
           
           break;
-          
+        
+        case T_INLINE:
         case T_SEALED:
           if (!$fn)
             goto err;
@@ -274,10 +297,11 @@ class UnitValidator extends Visitor
       
       err:
       Logger::error_at($mod->loc, 'illegal modifier `%s`', $mod->value);
+      Logger::debug('stack = %s', json_encode($this->stack));
       
       nxt:
       if (isset ($nmo[$mod->type])) {
-        Logger::warn_at($mod->loc, 'duplicate modifier');
+        Logger::warn_at($mod->loc, 'duplicate modifier `%s`', $mod->value);
         Logger::info_at($nmo[$mod->type], 'previous modifier was here');
       } else {
         $nmo[$mod->type] = $mod->loc;
@@ -302,7 +326,7 @@ class UnitValidator extends Visitor
     foreach ($this->nmods as $nmo) {
       foreach ($mods as $mod) {
         if (isset ($nmo[$mod->type])) {
-          Logger::warn_at($mod->loc, 'duplicate modifier');
+          Logger::warn_at($mod->loc, 'duplicate modifier `%s`', $mod->value);
           Logger::info_at($nmo[$mod->type], 'previous modifier was here');
         }
       }
@@ -333,7 +357,13 @@ class UnitValidator extends Visitor
       }
     }
     
-    array_push($this->nmods, array_diff($mods, $skip));
+    $marr = [];
+    
+    foreach ($mods as $mod)
+      if (!in_array($mod, $skip))
+        $marr[$mod->type] = $mod->loc;
+    
+    array_push($this->nmods, $marr);
   }
   
   /**
@@ -358,6 +388,40 @@ class UnitValidator extends Visitor
     
     foreach ($mods as $mod)
       if ($mod->type === T_EXTERN) 
+        return true;
+    
+    return false;
+  }
+  
+  /**
+   * checks if <static> modifier is set
+   *
+   * @param  array  $mods
+   * @return boolean
+   */
+  private function has_static_mod($mods)
+  {
+    if (!$mods) return false;
+    
+    foreach ($mods as $mod)
+      if ($mod->type === T_STATIC) 
+        return true;
+    
+    return false;
+  }
+  
+  /**
+   * checks if <final> modifier is set
+   *
+   * @param  array  $mods
+   * @return boolean
+   */
+  private function has_final_mod($mods)
+  {
+    if (!$mods) return false;
+    
+    foreach ($mods as $mod)
+      if ($mod->type === T_FINAL) 
         return true;
     
     return false;
@@ -562,7 +626,10 @@ class UnitValidator extends Visitor
    */
   public function visit_ctor_decl($node) 
   {
-    $this->check_mods($node->mods);  
+    $this->check_mods($node->mods);
+    
+    if ($this->has_static_mod($node->mods))
+      Logger::error_at($node->loc, 'constructor can not be static');
   }
   
   /**
@@ -573,7 +640,10 @@ class UnitValidator extends Visitor
    */
   public function visit_dtor_decl($node) 
   {
-    $this->check_mods($node->mods);  
+    $this->check_mods($node->mods); 
+    
+    if ($this->has_static_mod($node->mods))
+      Logger::error_at($node->loc, 'destructor can not be static'); 
   }
   
   /**
@@ -658,15 +728,32 @@ class UnitValidator extends Visitor
     $this->check_mods($node->mods, true);
     $this->check_params($node->params);
     
+    $id = ident_to_str($node->id);
+    
     if ($this->within('iface') && $node->body !== null)
-      Logger::error_at($node->loc, 'iface method must not have a body');
+      Logger::error_at($node->loc, 'iface method `%s` must not have a body', $id);
+    
+    // TODO: php allows this
+    elseif ($this->within('iface') && $this->has_static_mod($node->mods)) {
+      Logger::error_at($node->loc, 'static members inside interfaces are \\ ');
+      Logger::error_at($node->loc, 'currently not supported (`%s`)', $id);
+    }
     
     elseif ($this->has_extern_mod($node->mods) && $node->body !== null)
-      Logger::error_at($node->loc, 'extern function must not have a body');
+      Logger::error_at($node->loc, 'extern function `%s` must not have a body', $id);
     
     elseif (!$this->within('class') && !$this->within('trait') && 
             !$this->has_extern_mod($node->mods) && $node->body === null)
-      Logger::error_at($node->loc, 'non-extern function must have a body');
+      Logger::error_at($node->loc, 'non-extern function `%s` must have a body', $id);
+    
+    // TODO: php allows this
+    elseif (($this->within('class') || $this->within('trait')) &&
+            $this->has_static_mod($node->mods) && $node->body === null)
+      Logger::error_at($node->loc, 'static method `%s` can not be abstract', $id);
+    
+    elseif (($this->within('class') || $this->within('trait')) &&
+            $this->has_final_mod($node->mods) && $node->body === null)
+      Logger::error_at($node->loc, 'final method `%s` can not be abstract', $id);
     
     if ($node->body !== null) {
       $this->enter('fn');
@@ -1047,6 +1134,17 @@ class UnitValidator extends Visitor
   public function visit_expr_stmt($node) 
   {
     $this->visit($node->expr);  
+  }
+  
+  /**
+   * Visitor#visit_paren_expr()
+   *
+   * @param  Node $node
+   * @return void
+   */
+  public function visit_paren_expr($node)
+  {
+    $this->visit($node->expr);
   }
   
   /**
