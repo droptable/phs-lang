@@ -43,42 +43,16 @@
       |
       
       # integer
-      (?:
+      (?: 
         \d+ 
         
         # optional suffix
         (?:[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)?
       )
     )
-  | 
-    # strings
-    (?:
-      # single quote
-      (?:
-        [rc]?[']
-        (?:
-          # eat everything except '\\' and '\''
-          [^\\']+ 
-          
-          # allow '\\' followed by a single char
-          | [\\].
-        )*
-        [']
-      )
-      
-      # double quote
-      | (?:
-        [rc]?["]
-        (?:
-          # eat everything except '\\' and '"'
-          [^\\"]+ 
-          
-          # allow '\\' followed by a single char
-          | [\\].
-        )*
-        ["]
-      )
-    )
+  |
+    # string-start delimiters
+    (?:[cr])?["']
   |
     # the "is" and "in" operator
     (?:(?:!?i[ns])(?=\s|$))

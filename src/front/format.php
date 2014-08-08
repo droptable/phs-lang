@@ -5,6 +5,9 @@ namespace phs\front;
 require_once 'utils.php';
 require_once 'visitor.php';
 
+use phs\Logger;
+use phs\Session;
+
 use phs\front\ast\Node;
 use phs\front\ast\Unit;
 use phs\front\ast\Expr;
@@ -393,6 +396,8 @@ class AstFormatter extends Visitor
     $buff .= '"';
     
     $esc = false;
+    $dlm = $node->delim;
+    
     for ($i = 0, $l = strlen($node->data); $i < $l; ++$i) {
       $c = $node->data[$i];
       
@@ -403,6 +408,17 @@ class AstFormatter extends Visitor
           $esc = false;
         else
           $buff .= '\\';
+      } else {
+        switch ($c) {
+          case "\n": $c = '\\n'; break; 
+          case "\r": $c = '\\r'; break;          
+          case "\t": $c = '\\t'; break;         
+          case "\f": $c = '\\f'; break;          
+          case "\v": $c = '\\v'; break;          
+          case "\e": $c = '\\e'; break;
+          case '\\': $c = '\\\\'; break;
+          case $dlm: $c = "\\{$dlm}"; break;
+        }
       }
       
       $buff .= $c;
@@ -420,6 +436,7 @@ class AstFormatter extends Visitor
       }
       
     $buff .= '"';
+    Logger::debug('generated string-slice: %s', $buff);
     return $buff;
   }
   

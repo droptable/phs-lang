@@ -257,6 +257,9 @@ class UnitDesugarer extends Visitor
     $thps = [];
     $thid = [];
     
+    if (!$node->params)
+      goto out;
+    
     $params = &$node->params;
     
     foreach ($params as $idx => $param) {
@@ -303,7 +306,10 @@ class UnitDesugarer extends Visitor
     }
     
     $this->handle_params($node->params);
-    $this->visit($node->body);
+    
+    out:
+    if ($node->body)
+      $this->visit($node->body);
   }
   
   /**

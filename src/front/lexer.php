@@ -1,5 +1,7 @@
 <?php
 
+// TODO: string interpolation needs to be recursive ...
+
 namespace phs\front;
 
 require_once 'glob.php';
@@ -98,7 +100,7 @@ class Lexer
     if (!self::$re)
       self::$re = file_get_contents(__DIR__ . '/lexer.re');
     
-    /*       
+           
     for ($i = 0; $i < 100; ++$i) {
       $tok = $this->next();
       
@@ -110,7 +112,7 @@ class Lexer
     }
     
     exit;
-    */
+    
   }
   
   /**
@@ -319,11 +321,13 @@ class Lexer
         // -> switch to state 3
         if ($tok->type === T_RBRACE && --$this->subbc === 0)
           $this->subst = 3;
+        elseif ($tok->type === T_LBRACE)
+          ++$this->subbc;
         
         return $tok;
       
       case 4: // repeat or end interpolation
-        return $this->cont_subst();
+        return $this->scan_string($this->subqt, true);
         
       default: // no state
         return $this->scan_token();
@@ -423,25 +427,10 @@ class Lexer
       }
       
       $str = null;
-      if (preg_match('/^([cr])?(["\'])/', $sub, $str)) {
-        $flg = $str[1];
-        $beg = $str[2];
-        $off = $flg ? 2 : 1;
-        $sub = substr($sub, $off, -1);
-        
-        if ($beg === '"')
-          $sub = $this->scan_concat($sub);
-        
-        if ($flg !== 'r')
-          $tok = $this->scan_subst($sub, $beg);
-        else {
-          $tok = $this->token(T_STRING, $sub, false);
-          $tok->flag = $flg;
-          $tok->delim = $beg;
-          
-          // update end line/coln
-          $this->adjust_line_coln_end($sub, 0);
-        }
+      if (preg_match('/^([cr])?(["\'])$/', $sub, $str)) {
+        $tok = $this->scan_string($str[2]);
+        $tok->flag = $str[1];
+        $tok->delim = $str[2];
       } else {
         // update end line/coln
         $this->adjust_line_coln_end($sub, 0);
@@ -482,179 +471,120 @@ class Lexer
   }
   
   /**
-   * start the substitution scanner (string interpolation)
+   * scans a string with optional interpolation
    *
-   * @param  string $str
+   * @param  string $dlm
+   * @param  boolean $loc
    * @return Token
    */
-  protected function scan_subst($str, $beg)
+  protected function scan_string($dlm, $loc = false)
   {
-    $len = strlen($str);
-    $esc = false;
-    $dol = false;
-    $end = -1;
+    $str = '';
+    $dat = $this->data;
+    $len = strlen($dat); // TODO: optimize
+    $dol = false;        // seen '$'
+    $esc = false;        // seen '\'
+    $end = -1;           // end of slice/string
+    $eos = false;        // seen ending delimiter
     
-    $line = $this->line;
-    $coln = $this->coln;
+    $pl = $this->line;
+    $pc = $this->coln;
     
-    for ($idx = 0; $idx < $len && $end === -1; ++$idx) {
-      $cur = $str[$idx];
-      
-      if ($cur === '\\')
-        $esc = !$esc;
-      else {
-        if ($cur === '$' && !$esc)
-          $dol = true;
-        else {
-          if ($cur === '{' && $dol)
-            $end = $idx;
-          
-          $dol = false;
-          $esc = false;
-        }
-      }
-      
-      if ($cur === "\n") {
-        $line += 1;
-        $coln = 1;
-      } else
-        $coln += 1;
-    }
-    
-    if ($end === -1) {
-      // update end line/coln
-      $this->adjust_line_coln_end($str . $beg, 0);
-      
-      // no substitutions
-      $tok = $this->token(T_STRING, $str);
-      $tok->delim = $beg;
-      return $tok;
-    }
-    
-    // update line/coln
-    $this->line = $line;
-    $this->coln = $coln;
-    
-    // set substitution flag
-    $this->subst = 1;
-    $this->subbc = 1;
-    $this->subqt = $beg;
+    // used for concatenation
+    for ($idx = 0;;) {
+      for (; $idx < $len && !$eos; ++$idx) {
+        $raw = $dat[$idx];
+        $chr = $raw; // may get modified
         
-    // move substitution expression back to our data
-    $this->data = substr($str, $end) . $beg . $this->data;
-    
-    // first slice is our token
-    $tok = $this->token(T_STRING, substr($str, 0, $end - 1), true);
-    $tok->delim = $beg;
-    return $tok;
-  }
-  
-  /**
-   * continues string-substitution
-   *
-   * @return Token
-   */
-  protected function cont_subst()
-  {
-    $len = strlen($this->data);
-    $qot = $this->subqt;
-    $esc = false;
-    $dol = false;
-    $end = -1;
-    $eos = -1;
-    
-    $line = $this->line;
-    $coln = $this->coln;
-    
-    for ($idx = 0; $idx < $len && ($end & $eos) === -1; ++$idx) {
-      $cur = $this->data[$idx];
-      
-      if ($cur === $qot && !$esc)
-        $eos = $idx;
-      elseif ($cur === '\\')
-        $esc = !$esc;
-      else {
-        if ($cur === '$' && !$esc)
-          $dol = true;
-        else {
-          if ($cur === '{' && $dol)
-            $end = $idx;
+        if ($esc) {
+          switch ($chr) {
+            case 'n': $chr = "\n"; break; 
+            case 'r': $chr = "\r"; break;          
+            case 't': $chr = "\t"; break;         
+            case 'f': $chr = "\f"; break;          
+            case 'v': $chr = "\v"; break;          
+            case 'e': $chr = "\e"; break;
+          }
           
-          $dol = false;
+          $str .= $chr;
           $esc = false;
+        } else {
+          if ($dol && $chr === '{') {
+            /* start interpolation */
+            $eos = false;
+            $end = $idx;
+            break;
+          }
+          
+          if ($dol) {
+            $str .= '$';
+            $dol = false;
+          }
+          
+          switch ($chr) {
+            case '$':  $dol = true; break;
+            case '\\': $esc = true; break;
+            case $dlm: 
+              $eos = true; 
+              $end = $idx + 1; 
+              break;
+            default:
+              $str .= $chr;
+          }
         }
+        
+        if ($raw === "\n") {
+          $pl += 1;
+          $pc = 1;
+        } else
+          $pc += 1;
       }
       
-      if ($cur === "\n") {
-        $line += 1;
-        $coln = 1;
-      } else
-        $coln += 1;
-    }
-    
-    if ($end === -1) {
-      // reached end of string
-      assert($eos > -1);
-      
-      // extract string
-      $str = substr($this->data, 0, $eos);
-      $this->data = substr($this->data, $eos + 1);
-      
-      // no more substitutions
-      $this->subst = 0;
-      $tok = $this->token(T_STRING, $str, true);
-      $tok->delim = $this->subqt;
-      
-      // update end line/coln
-      $this->adjust_line_coln_end($str . $qot, 0);
-      
-      return $tok;
-    }
-    
-    // update line/coln
-    $this->line = $line;
-    $this->coln = $coln;
-    
-    // set substitution flag
-    $this->subst = 1;
-    $this->subbc = 1;
-    
-    // extract string 
-    $str = substr($this->data, 0, $end - 1);
-    $this->data = substr($this->data, $end);
-    
-    $tok = $this->token(T_STRING, $str, true);
-    $tok->delim = $this->subqt;
-    return $tok;
-  }
-  
-  /** 
-   * scans a string-concat token
-   * "foo" "bar" -> "foobar"
-   * 
-   * @param  string $str
-   * @return string
-   */
-  protected function scan_concat($str)
-  {
-    static $re = '/^[\h\v]*["]((?:[^\\\\"]+|[\\\\].)*)["]/';
-    
-    for (;;) {
-      if (!preg_match($re, $this->data, $m))
+      // break if concatenation is not possible
+      if (!$eos || $dlm !== '"' || $end + 1 >= $len)
         break;
       
-      list ($raw, $sub) = $m;
-      $len = strlen($raw);
-      $str .= $sub;
+      // skip ending delimiter
+      $idx = $end + 1;
       
-      // update line and coln
-      $this->adjust_line_coln($raw, $len);
+      // skip whitespace between strings
+      $tl = $pl;
+      $tc = $pc;
       
-      // remove scan from data
-      $this->data = substr($this->data, $len);
+      for (; $idx < $len && ctype_space($dat[$idx]); ++$idx)
+        if ($dat[$idx] === "\n") {
+          $tl += 1;
+          $tc = 1;
+        } else
+          $tc += 1;
+      
+      // if the next char is a " -> start concatenation
+      if ($dat[$idx] !== '"')
+        break;
+      
+      $idx += 1;
+      $eos = false;
+      
+      $pl = $tl;
+      $pc = $tc;
     }
     
-    return $str;
+    $this->data = substr($this->data, $end);
+    
+    if ($eos)
+      $this->subst = 0;
+    else {
+      $this->subst = 1;
+      $this->subbc = 0;
+      $this->subqt = $dlm;
+    }
+       
+    $tok = $this->token(T_STRING, $str, $loc);
+    
+    $this->line = $pl;
+    $this->coln = $pc;
+    
+    return $tok;
   }
   
   /**
