@@ -1,15 +1,11 @@
 <?php
 
-// TODO: string interpolation needs to be recursive ...
-
 namespace phs\front;
 
 require_once 'glob.php';
 
 use phs\Source;
 use phs\Logger;
-
-use phs\front\ast\StrLit;
 
 /** ascii tokens */
 const 
@@ -68,6 +64,9 @@ class Lexer
   // substitution flag
   private $subst = 0;
   
+  // substitutio stack
+  private $subsk = [];
+  
   // substitution end-quotation ( " or ' )
   private $subqt;
   
@@ -100,7 +99,7 @@ class Lexer
     if (!self::$re)
       self::$re = file_get_contents(__DIR__ . '/lexer.re');
     
-           
+    /*     
     for ($i = 0; $i < 100; ++$i) {
       $tok = $this->next();
       
@@ -112,7 +111,7 @@ class Lexer
     }
     
     exit;
-    
+    */
   }
   
   /**
@@ -134,10 +133,12 @@ class Lexer
    * 
    * @return void
    */
-  public function loc()
+  public function loc($line = null, $coln = null)
   {
-    return new Location($this->file, 
-      new Position($this->line, $this->coln));
+    if ($line === null) $line = $this->line;
+    if ($coln === null) $coln = $this->coln;
+    
+    return new Location($this->file, new Position($line, $coln));
   }
     
   /**
@@ -427,8 +428,17 @@ class Lexer
       }
       
       $str = null;
-      if (preg_match('/^([cr])?(["\'])$/', $sub, $str)) {
-        $tok = $this->scan_string($str[2]);
+      if (preg_match('/^([cr])?(["\'])/', $sub, $str)) {
+        if ($str[1] === 'r') {
+          // raw string
+          $tok = $this->token(T_STRING, substr($sub, 2, -1));
+          // update end line/coln
+          $this->adjust_line_coln_end($sub, 0);
+        } else
+          // string with (maybe) interpolation:
+          // start advanced string-scanner
+          $tok = $this->scan_string($str[2]);
+        
         $tok->flag = $str[1];
         $tok->delim = $str[2];
       } else {
@@ -559,7 +569,7 @@ class Lexer
           $tc += 1;
       
       // if the next char is a " -> start concatenation
-      if ($dat[$idx] !== '"')
+      if ($idx >= $len || $dat[$idx] !== '"')
         break;
       
       $idx += 1;
@@ -571,9 +581,29 @@ class Lexer
     
     $this->data = substr($this->data, $end);
     
-    if ($eos)
-      $this->subst = 0;
-    else {
+    if ($eos) {
+      // pop state
+      if ($this->subst === 4) {
+        $prev = array_pop($this->subsk);
+        $this->subst = $prev[0];
+        $this->subbc = $prev[1];
+        $this->subqt = $prev[2];
+        
+        Logger::debug_at($this->loc($pl, $pc),
+          'Lexer#scan_string(): pop state: %d', $this->subst);
+        
+      } else
+        $this->subst = 0;
+    } else {     
+      // push state
+      if ($this->subst === 2) {
+        array_push($this->subsk, [
+          $this->subst,
+          $this->subbc,
+          $this->subqt
+        ]);
+      }
+      
       $this->subst = 1;
       $this->subbc = 0;
       $this->subqt = $dlm;

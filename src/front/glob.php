@@ -11,6 +11,7 @@ class Token
   public $flag;
   public $type;
   public $value;
+  public $delim;
   
   private static $uid_base = 0;
   

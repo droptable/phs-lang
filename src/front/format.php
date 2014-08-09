@@ -436,7 +436,6 @@ class AstFormatter extends Visitor
       }
       
     $buff .= '"';
-    Logger::debug('generated string-slice: %s', $buff);
     return $buff;
   }
   
