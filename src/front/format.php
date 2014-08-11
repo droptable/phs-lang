@@ -68,16 +68,19 @@ class AstFormatter extends Visitor
     // replace `for (;;) {}` with `for {...}`
     $this->buff = preg_replace('/\bfor\s*\(\s*;\s*;\s*\)/', 'for', $this->buff);
     
+    // remove trailing new-lines and whitespace
+    $this->buff = rtrim($this->buff, "\n ");
+    
+    // remove trailing ";"
+    $this->buff = preg_replace('/(?:\s*[;]){2,}$/', ';', $this->buff);
+    
+    // add final new-line
+    $this->buff .= "\n";
+    
     // insert strings
     $this->buff = preg_replace_callback('/\\\\(\d+)/', function($m) {
       return $this->strs[(int)$m[1]];
     }, $this->buff);
-    
-    // remove trailing new-lines and whitespace
-    $this->buff = rtrim($this->buff, "\n ");
-    
-    // add final new-line
-    $this->buff .= "\n";
     
     // done!
     $buff = $this->buff;
@@ -1197,6 +1200,31 @@ class AstFormatter extends Visitor
     $this->emit('(');
     $this->emit_expr($node->expr);
     $this->emit(')');
+  }
+  
+  /**
+   * Visitor#visit_tuple_expr()
+   *
+   * @param  Node $node
+   * @return void
+   */
+  public function visit_tuple_expr($node)
+  {
+    $this->emit('(');
+    
+    if (empty($node->seq))
+      $this->emit(')');
+    else {      
+      foreach ($node->seq as $idx => $expr) {
+        if ($idx > 0) $this->emit(', ');
+        $this->visit($expr);
+      }
+      
+      if (count($node->seq) === 1)
+        $this->emit(',');
+      
+      $this->emit(')');
+    }
   }
   
   /**

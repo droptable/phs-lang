@@ -733,6 +733,17 @@ class UnitDesugarer extends Visitor
   }
   
   /**
+   * Visitor#visit_tuple_expr()
+   *
+   * @param  Node $node
+   * @return void
+   */
+  public function visit_tuple_expr($node)
+  {
+    $this->visit($node->seq);
+  }
+  
+  /**
    * Visitor#visit_fn_expr()
    *
    * @param  Node  $node

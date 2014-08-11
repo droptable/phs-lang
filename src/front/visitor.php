@@ -95,6 +95,7 @@ abstract class Visitor
   public function visit_return_stmt($n) {}
   public function visit_expr_stmt($n) {}
   public function visit_paren_expr($n) {}
+  public function visit_tuple_expr($n) {}
   public function visit_fn_expr($n) {}
   public function visit_bin_expr($n) {}
   public function visit_check_expr($n) {}

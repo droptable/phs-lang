@@ -87,6 +87,7 @@ require_once 'ast/del_expr.php';
 require_once 'ast/named_arg.php';
 require_once 'ast/rest_arg.php';
 require_once 'ast/paren_expr.php';
+require_once 'ast/tuple_expr.php';
 require_once 'ast/regexp_lit.php';
 require_once 'ast/name.php';
 require_once 'ast/type_id.php';

@@ -1082,13 +1082,25 @@ arg
   ;
   
 atom
-  : num          { $$ = $1; }
-  | reg          { $$ = $1; }
-  | arr          { $$ = $1; }
-  | name         { $$ = $1; }
-  | kwc          { $$ = $1; }
-  | str          { $$ = $1; }
-  | '(' rseq ')' { $$ = @ParenExpr($2); }
+  : num  { $$ = $1; }
+  | reg  { $$ = $1; }
+  | arr  { $$ = $1; }
+  | name { $$ = $1; }
+  | kwc  { $$ = $1; }
+  | str  { $$ = $1; }
+  | tup  { $$ = $1; }
+  ;
+ 
+tup
+  : '(' rseq comma_opt ')' 
+    { 
+      if ($2 === null || (count($2) === 1 && $3 === null))
+        $$ = @ParenExpr($2);
+      else
+        $$ = @TupleExpr($2);
+    }
+  | '(' ')'       { $$ = @TupleExpr(null); }
+  | '(' error ')' { $$ = null; }
   ;
  
 reg
@@ -1328,8 +1340,8 @@ obj_key
   ;
   
 comma_opt
-  : /* empty */
-  | ','
+  : /* empty */ { $$ = null; }
+  | ','         { $$ = $1; }
   ;
   
 %%
