@@ -70,6 +70,9 @@ class Lexer
   // substitution end-quotation ( " or ' )
   private $subqt;
   
+  // location of string-interpolation start
+  private $sublc;
+  
   // substitution l-brace count
   private $subbc = 0;
   
@@ -98,11 +101,12 @@ class Lexer
     // load pattern
     if (!self::$re)
       self::$re = file_get_contents(__DIR__ . '/lexer.re');
-    
-    /*     
+    /*
     for ($i = 0; $i < 100; ++$i) {
       $tok = $this->next();
       
+      print "\n";
+      Logger::debug('state = %d, braces = %d', $this->subst, $this->subbc);
       print "\n";
       $tok->debug();
       
@@ -346,6 +350,12 @@ class Lexer
     unset ($this->data);
     unset ($this->queue);
     
+    if ($this->subst !== 0) {
+      Logger::error_at($this->loc(), 'unterminated string-literal');
+      Logger::error_at($this->sublc, 'string started here');
+      $this->subst = 0;
+    }
+    
     // if EOF was not set before
     if ($this->eof !== true) {
       // produce one more TOK_SEMI
@@ -490,20 +500,29 @@ class Lexer
   protected function scan_string($dlm, $loc = false)
   {
     $str = '';
-    $dat = $this->data;
-    $len = strlen($dat); // TODO: optimize
-    $dol = false;        // seen '$'
-    $esc = false;        // seen '\'
-    $end = -1;           // end of slice/string
-    $eos = false;        // seen ending delimiter
+    $inp = $this->data;  // does not get modified during scan, 
+                         // so this is the same as a reference
+    $len = strlen($inp);
     
-    $pl = $this->line;
-    $pc = $this->coln;
+    // scanner vars
+    $dol = false; // seen '$'
+    $esc = false; // seen '\'
+    $hex = false; // seen "\x" or "\X"
+    $end = -1;    // end of slice/string
+    $eos = false; // seen ending delimiter
     
-    // used for concatenation
-    for ($idx = 0;;) {
+    // hex-scanner vars
+    $hex_chr = ''; // hex char 'x' or 'X'
+    $hex_buf = ''; // hex buffer
+    $hex_len = 0;  // hex length
+    
+    // modifing line & coln directly would corrupt locations
+    $line = $this->line;
+    $coln = $this->coln;
+    
+    for ($idx = 0;;) { // <- used for concatenation
       for (; $idx < $len && !$eos; ++$idx) {
-        $raw = $dat[$idx];
+        $raw = $inp[$idx];
         $chr = $raw; // may get modified
         
         if ($esc) {
@@ -514,105 +533,134 @@ class Lexer
             case 'f': $chr = "\f"; break;          
             case 'v': $chr = "\v"; break;          
             case 'e': $chr = "\e"; break;
+            case '0': $chr = "\0"; break; // TODO: remove?
+            case 'x': 
+            case 'X':
+              // start hex scanner
+              $hex_chr = $chr;
+              $hex_len = 0;
+              $hex_buf = '';
+              $hex = true; 
+              $chr = '';
+              break;
+            default: 
+              // unknown escape-sequence
+              $str .= '\\';
           }
           
           $str .= $chr;
           $esc = false;
         } else {
-          if ($dol && $chr === '{') {
-            /* start interpolation */
-            $eos = false;
-            $end = $idx;
-            break;
-          }
-          
-          if ($dol) {
-            $str .= '$';
-            $dol = false;
-          }
-          
-          switch ($chr) {
-            case '$':  $dol = true; break;
-            case '\\': $esc = true; break;
-            case $dlm: 
-              $eos = true; 
-              $end = $idx + 1; 
-              break;
-            default:
+          if ($hex) {
+            // scan a hex-char
+            if (ctype_xdigit($chr)) {
+              $hex_buf .= $chr;
+              
+              if (++$hex_len === 2) {
+                $str .= chr(hexdec($hex_buf));
+                $hex = false;
+              }
+            } else {
+              $str .= '\\';
+              $str .= $hex_chr;
+              $str .= $hex_buf;
               $str .= $chr;
+              $hex = false;
+            }
+          } else {
+            // handle non-escaped data
+            if ($dol && $chr === '{') {
+              /* start interpolation */
+              $eos = false;
+              $end = $idx;
+              break;
+            }
+            
+            if ($dol) {
+              $str .= '$';
+              $dol = false;
+            }
+            
+            switch ($chr) {
+              case '$':  $dol = true; break;
+              case '\\': $esc = true; break;
+              case $dlm: 
+                $eos = true; 
+                $end = $idx + 1; 
+                break;
+              default:
+                $str .= $chr;
+            }
           }
         }
         
         if ($raw === "\n") {
-          $pl += 1;
-          $pc = 1;
+          $line += 1;
+          $coln = 1;
         } else
-          $pc += 1;
+          $coln += 1;
       }
       
       // break if concatenation is not possible
       if (!$eos || $dlm !== '"' || $end + 1 >= $len)
         break;
       
-      // skip ending delimiter
-      $idx = $end + 1;
-      
       // skip whitespace between strings
-      $tl = $pl;
-      $tc = $pc;
+      $tl = $line;
+      $tc = $coln;
       
-      for (; $idx < $len && ctype_space($dat[$idx]); ++$idx)
-        if ($dat[$idx] === "\n") {
+      for (; $idx < $len && ctype_space($inp[$idx]); ++$idx)
+        if ($inp[$idx] === "\n") {
           $tl += 1;
           $tc = 1;
         } else
           $tc += 1;
       
       // if the next char is a " -> start concatenation
-      if ($idx >= $len || $dat[$idx] !== '"')
+      if ($idx >= $len || $inp[$idx] !== '"')
         break;
       
       $idx += 1;
       $eos = false;
       
-      $pl = $tl;
-      $pc = $tc;
+      $line = $tl;
+      $coln = $tc;
     }
     
     $this->data = substr($this->data, $end);
     
     if ($eos) {
-      // pop state
-      if ($this->subst === 4) {
-        $prev = array_pop($this->subsk);
-        $this->subst = $prev[0];
-        $this->subbc = $prev[1];
-        $this->subqt = $prev[2];
-        
-        Logger::debug_at($this->loc($pl, $pc),
-          'Lexer#scan_string(): pop state: %d', $this->subst);
-        
-      } else
-        $this->subst = 0;
+      // don't change state if we're waiting for a '}'
+      if ($this->subbc === 0)
+        // pop state
+        if ($this->subst === 4 && !empty($this->subsk)) {
+          $prev = array_pop($this->subsk);
+          $this->subst = 2;
+          $this->subbc = $prev[0];
+          $this->subqt = $prev[1];  
+          $this->sublc = $prev[2];      
+        } else
+          $this->subst = 0;
     } else {     
       // push state
       if ($this->subst === 2) {
         array_push($this->subsk, [
-          $this->subst,
           $this->subbc,
-          $this->subqt
+          $this->subqt,
+          $this->sublc
         ]);
       }
       
       $this->subst = 1;
       $this->subbc = 0;
       $this->subqt = $dlm;
+      $this->sublc = $this->loc();
     }
-       
+    
     $tok = $this->token(T_STRING, $str, $loc);
     
-    $this->line = $pl;
-    $this->coln = $pc;
+    $this->line = $line;
+    $this->coln = $coln;
     
     return $tok;
   }
@@ -675,7 +723,8 @@ class Lexer
     
     // do not handle it as regex
     if (!$end) {
-      Logger::warn_at($this->loc(), 'a regular expression was expected but could not be scanned');
+      Logger::warn_at($this->loc(), 
+        'a regular expression was expected but could not be scanned');
       
       // push a T_INVL token
       $this->push($this->token(T_INVL, '<invalid>', true));
