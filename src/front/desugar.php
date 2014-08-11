@@ -950,6 +950,19 @@ class UnitDesugarer extends Visitor
   }
   
   /**
+   * Visitor#visit_arr_gen()
+   *
+   * @param  Node  $node
+   * @return void
+   */
+  public function visit_arr_gen($node)
+  {
+    $this->visit($node->expr);
+    $this->visit($node->init);
+    $this->visit($node->each);
+  }
+  
+  /**
    * Visitor#visit_arr_lit()
    *
    * @param  Node  $node

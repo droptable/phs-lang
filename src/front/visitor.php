@@ -113,6 +113,7 @@ abstract class Visitor
   public function visit_dnum_lit($n) {}
   public function visit_snum_lit($n) {}
   public function visit_regexp_lit($n) {}
+  public function visit_arr_gen($n) {}
   public function visit_arr_lit($n) {}
   public function visit_obj_lit($n) {}
   public function visit_name($n) {}

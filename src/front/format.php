@@ -1481,6 +1481,23 @@ class AstFormatter extends Visitor
   }
   
   /**
+   * Visitor#visit_arr_gen()
+   *
+   * @param  Node  $node
+   * @return void
+   */
+  public function visit_arr_gen($node)
+  {
+    $this->emit('[ ');
+    $this->visit($node->expr);
+    $this->emit(' for (');
+    $this->visit($node->init);
+    $this->emit(' in ');
+    $this->visit($node->each);
+    $this->emit(') ]');
+  }
+  
+  /**
    * Visitor#visit_arr_lit()
    *
    * @param  Node  $node
@@ -1523,24 +1540,25 @@ class AstFormatter extends Visitor
     $this->emitln('');
     
     $len = count($node->pairs);
-    foreach ($node->pairs as $idx => $pair) {
-      if ($pair->key instanceof ObjKey) {
-        $this->emit('(');
-        $this->visit($pair->key->expr);
-        $this->emit(')');
-      } else
-        $this->visit($pair->key);
+    if ($len > 0)
+      foreach ($node->pairs as $idx => $pair) {
+        if ($pair->key instanceof ObjKey) {
+          $this->emit('(');
+          $this->visit($pair->key->expr);
+          $this->emit(')');
+        } else
+          $this->visit($pair->key);
+        
+        $this->emit(': ');
+        $this->visit($pair->value);
+        if ($idx + 1 < $len)
+          $this->emitln(',');
+      }
       
-      $this->emit(': ');
-      $this->visit($pair->value);
-      if ($idx + 1 < $len)
-        $this->emitln(',');
+      $this->tabs--;
+      $this->emitln('');
+      $this->emit('}');
     }
-    
-    $this->tabs--;
-    $this->emitln('');
-    $this->emit('}');
-  }
   
   /**
    * Visitor#visit_name()

@@ -49,6 +49,9 @@ class Lexer
   // sync-mode
   public $sync = false;
   
+  // looking for ident-flag
+  public $lfi = false;
+  
   // the source
   private $data;
   
@@ -811,7 +814,7 @@ class Lexer
       if (isset(self::$table[$sub]))         
         // lookup token-table and check if the token is separator/operator  
         $tok = $this->token(self::$table[$sub], $sub);
-      elseif (!$this->tnl && isset(self::$rids[$sub]))
+      elseif (!$this->tnl && !$this->lfi && isset(self::$rids[$sub]))
         // check if the token is a keyword (rid -> reserved identifier)
         $tok = $this->token(self::$rids[$sub], $sub); 
       else
@@ -819,6 +822,7 @@ class Lexer
         $tok = $this->token(T_IDENT, $sub);
     }
     
+    $this->lfi = false;
     return $tok;
   }
   

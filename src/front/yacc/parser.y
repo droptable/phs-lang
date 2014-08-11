@@ -1109,9 +1109,9 @@ reg
   ;
   
 name
-  : ident              { $$ = @Name($1, false); }
-  | T_DDDOT ident      { $$ = @Name($2, true); }
-  | name T_DDDOT ident { $1->add($3); $$ = $1; }
+  : ident            { $$ = @Name($1, false); }
+  | dddot_ident      { $$ = @Name($1, true); }
+  | name dddot_ident { $1->add($2); $$ = $1; }
   ;
 
 type_name
@@ -1133,69 +1133,12 @@ ident
   | T_SET     { $$ = @Ident($1->value); }
   ;
   
-/* this rule allows us to use all kinds of keywords as props in objects */
-/* e.g.: `foo.if = 1;` */
-
 dot_ident
-  : '.' ident       { $$ = $2; }
-  | '.' T_FN        { $$ = @Ident($2->value); }
-  | '.' T_LET       { $$ = @Ident($2->value); }
-  | '.' T_PHP       { $$ = @Ident($2->value); }    
-  | '.' T_TEST      { $$ = @Ident($2->value); }     
-  | '.' T_ASSERT    { $$ = @Ident($2->value); }       
-  | '.' T_TRUE      { $$ = @Ident($2->value); }     
-  | '.' T_FALSE     { $$ = @Ident($2->value); }      
-  | '.' T_NULL      { $$ = @Ident($2->value); }     
-  | '.' T_IF        { $$ = @Ident($2->value); }   
-  | '.' T_ELSIF     { $$ = @Ident($2->value); }     
-  | '.' T_ELSE      { $$ = @Ident($2->value); }     
-  | '.' T_TRY       { $$ = @Ident($2->value); }    
-  | '.' T_THROW     { $$ = @Ident($2->value); }      
-  | '.' T_CATCH     { $$ = @Ident($2->value); }      
-  | '.' T_FINALLY   { $$ = @Ident($2->value); }        
-  | '.' T_USE       { $$ = @Ident($2->value); }    
-  | '.' T_MODULE    { $$ = @Ident($2->value); }       
-  | '.' T_EXTERN    { $$ = @Ident($2->value); }       
-  | '.' T_CLASS     { $$ = @Ident($2->value); } 
-  | '.' T_TRAIT     { $$ = @Ident($2->value); }      
-  | '.' T_IFACE     { $$ = @Ident($2->value); }      
-  | '.' T_THIS      { $$ = @Ident($2->value); }     
-  | '.' T_STATIC    { $$ = @Ident($2->value); }       
-  | '.' T_CONST     { $$ = @Ident($2->value); }      
-  | '.' T_FINAL     { $$ = @Ident($2->value); }      
-  | '.' T_PUBLIC    { $$ = @Ident($2->value); }       
-  | '.' T_PRIVATE   { $$ = @Ident($2->value); }        
-  | '.' T_PROTECTED { $$ = @Ident($2->value); }          
-  | '.' T_ENUM      { $$ = @Ident($2->value); }     
-  | '.' T_SWITCH    { $$ = @Ident($2->value); }       
-  | '.' T_CASE      { $$ = @Ident($2->value); }     
-  | '.' T_DEFAULT   { $$ = @Ident($2->value); }        
-  | '.' T_FOR       { $$ = @Ident($2->value); }    
-  | '.' T_WHILE     { $$ = @Ident($2->value); }      
-  | '.' T_DO        { $$ = @Ident($2->value); }   
-  | '.' T_BREAK     { $$ = @Ident($2->value); }      
-  | '.' T_CONTINUE  { $$ = @Ident($2->value); }         
-  | '.' T_RETURN    { $$ = @Ident($2->value); }        
-  | '.' T_SUPER     { $$ = @Ident($2->value); }      
-  | '.' T_GOTO      { $$ = @Ident($2->value); }     
-  | '.' T_REQUIRE   { $$ = @Ident($2->value); }        
-  | '.' T_YIELD     { $$ = @Ident($2->value); }      
-  | '.' T_GLOBAL    { $$ = @Ident($2->value); }       
-  | '.' T_TINT      { $$ = @Ident($2->value); }     
-  | '.' T_TBOOL     { $$ = @Ident($2->value); }      
-  | '.' T_TFLOAT    { $$ = @Ident($2->value); }       
-  | '.' T_TSTRING   { $$ = @Ident($2->value); }
-  | '.' T_TREGEXP   { $$ = @Ident($2->value); }
-  | '.' T_SEALED    { $$ = @Ident($2->value); }
-  | '.' T_INLINE    { $$ = @Ident($2->value); }
-  | '.' T_CDIR      { $$ = @Ident($2->value); }
-  | '.' T_CFILE     { $$ = @Ident($2->value); }
-  | '.' T_CLINE     { $$ = @Ident($2->value); }
-  | '.' T_CCOLN     { $$ = @Ident($2->value); }
-  | '.' T_CFN       { $$ = @Ident($2->value); }
-  | '.' T_CCLASS    { $$ = @Ident($2->value); }
-  | '.' T_CMETHOD   { $$ = @Ident($2->value); }
-  | '.' T_CMODULE   { $$ = @Ident($2->value); }
+  : '.' { $this->lex->lfi= true; } ident { $$ = $2; }
+  ;
+  
+dddot_ident
+  : T_DDDOT { $this->lex->lfi = true; } ident { $$ = $2; }
   ;
  
 kwc
@@ -1237,10 +1180,10 @@ lit
   ;
 
 arr
-  : '[' ']'                                        { $$ = @ArrLit(null); }
-  | '[' rxpr T_FOR '(' rxpr_noin T_IN rxpr ')' ']' { $$ = @ArrGen($2, $5, $7); }
-  | '[' arr_vals ']'                               { $$ = @ArrLit($2); }
-  | '[' error ']'                                  { $$ = null; }
+  : '[' ']'                                    { $$ = @ArrLit(null); }
+  | '[' rxpr T_FOR '(' ident T_IN rxpr ')' ']' { $$ = @ArrGen($2, $5, $7); }
+  | '[' arr_vals ']'                           { $$ = @ArrLit($2); }
+  | '[' error ']'                              { $$ = null; }
   ;
   
 arr_vals
@@ -1280,63 +1223,6 @@ obj_key
   : ident        { $$ = $1; }
   | str          { $$ = $1; }
   | '(' rxpr ')' { $$ = @ObjKey($2); }
-  | T_FN         { $$ = @Ident($1->value); }
-  | T_LET        { $$ = @Ident($1->value); }
-  | T_PHP        { $$ = @Ident($1->value); }    
-  | T_TEST       { $$ = @Ident($1->value); }     
-  | T_ASSERT     { $$ = @Ident($1->value); }       
-  | T_TRUE       { $$ = @Ident($1->value); }     
-  | T_FALSE      { $$ = @Ident($1->value); }      
-  | T_NULL       { $$ = @Ident($1->value); }     
-  | T_IF         { $$ = @Ident($1->value); }   
-  | T_ELSIF      { $$ = @Ident($1->value); }     
-  | T_ELSE       { $$ = @Ident($1->value); }     
-  | T_TRY        { $$ = @Ident($1->value); }    
-  | T_THROW      { $$ = @Ident($1->value); }      
-  | T_CATCH      { $$ = @Ident($1->value); }      
-  | T_FINALLY    { $$ = @Ident($1->value); }        
-  | T_USE        { $$ = @Ident($1->value); }    
-  | T_MODULE     { $$ = @Ident($1->value); }       
-  | T_EXTERN     { $$ = @Ident($1->value); }       
-  | T_CLASS      { $$ = @Ident($1->value); }      
-  | T_TRAIT      { $$ = @Ident($1->value); }      
-  | T_IFACE      { $$ = @Ident($1->value); }      
-  | T_THIS       { $$ = @Ident($1->value); }     
-  | T_STATIC     { $$ = @Ident($1->value); }       
-  | T_CONST      { $$ = @Ident($1->value); }      
-  | T_FINAL      { $$ = @Ident($1->value); }      
-  | T_PUBLIC     { $$ = @Ident($1->value); }       
-  | T_PRIVATE    { $$ = @Ident($1->value); }        
-  | T_PROTECTED  { $$ = @Ident($1->value); }          
-  | T_ENUM       { $$ = @Ident($1->value); }     
-  | T_SWITCH     { $$ = @Ident($1->value); }       
-  | T_CASE       { $$ = @Ident($1->value); }            
-  | T_FOR        { $$ = @Ident($1->value); }    
-  | T_WHILE      { $$ = @Ident($1->value); }      
-  | T_DO         { $$ = @Ident($1->value); }   
-  | T_BREAK      { $$ = @Ident($1->value); }      
-  | T_CONTINUE   { $$ = @Ident($1->value); }         
-  | T_RETURN     { $$ = @Ident($1->value); }        
-  | T_SUPER      { $$ = @Ident($1->value); }      
-  | T_GOTO       { $$ = @Ident($1->value); }     
-  | T_REQUIRE    { $$ = @Ident($1->value); }        
-  | T_YIELD      { $$ = @Ident($1->value); }      
-  | T_GLOBAL     { $$ = @Ident($1->value); }       
-  | T_TINT       { $$ = @Ident($1->value); }     
-  | T_TBOOL      { $$ = @Ident($1->value); }      
-  | T_TFLOAT     { $$ = @Ident($1->value); }       
-  | T_TSTRING    { $$ = @Ident($1->value); } 
-  | T_TREGEXP    { $$ = @Ident($1->value); }
-  | T_SEALED     { $$ = @Ident($1->value); }
-  | T_INLINE     { $$ = @Ident($1->value); }
-  | T_CDIR       { $$ = @Ident($1->value); }
-  | T_CFILE      { $$ = @Ident($1->value); }
-  | T_CLINE      { $$ = @Ident($1->value); }
-  | T_CCOLN      { $$ = @Ident($1->value); }
-  | T_CFN        { $$ = @Ident($1->value); }
-  | T_CCLASS     { $$ = @Ident($1->value); }
-  | T_CMETHOD    { $$ = @Ident($1->value); }
-  | T_CMODULE    { $$ = @Ident($1->value); }
   ;
   
 comma_opt
