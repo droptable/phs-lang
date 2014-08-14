@@ -4,10 +4,10 @@ namespace phs\front\ast;
 
 class DNumLit extends Expr
 {
-  public $value;
+  public $data;
   
-  public function __construct($value)
+  public function __construct($data)
   {
-    $this->value = $value;
+    $this->data = $data;
   }
 }

@@ -4,18 +4,14 @@ namespace phs\front\ast;
 
 class MemberExpr extends Expr
 {
-  public $prop;
-  public $computed;
-  public $obj;
+  public $object;
   public $member;
+  public $computed;
   
-  public $variant = 'generic';
-  
-  public function __construct($prop, $computed, $obj, $member)
+  public function __construct($object, $member, $computed = false)
   {
-    $this->prop = $prop; // true: object, false: array
-    $this->computed = $computed;
-    $this->obj = $obj;
+    $this->object = $object;
     $this->member = $member;
+    $this->computed = $computed;
   }
 }

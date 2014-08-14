@@ -4,12 +4,12 @@ namespace phs\front\ast;
 
 class SNumLit extends Expr
 {
-  public $value;
+  public $data;
   public $suffix;
   
-  public function __construct($value, $suffix)
+  public function __construct($data, $suffix)
   {
-    $this->value = $value;
+    $this->data = $data;
     $this->suffix = $suffix;
   }
 }

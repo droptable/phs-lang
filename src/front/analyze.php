@@ -70,7 +70,7 @@ class Analyzer
     
     // 5. reduce constant expressions
     // 6. resolve usage and imports
-    #$this->resolve_unit($unit);
+    $this->resolve_unit($unit);
     
     if ($this->sess->aborted)
       goto err;

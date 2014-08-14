@@ -268,6 +268,179 @@ class AstFormatter extends Visitor
   }
   
   /**
+   * emits a value
+   *
+   * @param  Value $value
+   * @return boolean
+   */
+  private function emit_value(Value $value = null)
+  {
+    if (!$value || $value->kind === VAL_KIND_UNDEF) 
+      return false;
+     
+    switch ($value->kind) {
+      case VAL_KIND_INT:
+      case VAL_KIND_FLOAT:
+        $this->emit((string) $value->data);
+        break;
+        
+      case VAL_KIND_STR:
+        $this->emit_str_value($value->data);
+        break;
+        
+      case VAL_KIND_BOOL:
+        $this->emit_bool_value($value->data);
+        break;
+        
+      case VAL_KIND_LIST:
+        $this->emit_list_value($value->data);
+        break;
+        
+      case VAL_KIND_TUPLE:
+        $this->emit_tuple_value($value->data);
+        break;
+        
+      case VAL_KIND_DICT:
+        $this->emit_dict_Value($value->data);
+        break;
+        
+      case VAL_KIND_NULL:
+        $this->emit('null');
+        break;
+        
+      case VAL_KIND_NEW:
+      case VAL_KIND_SYMBOL:
+        return false;
+      
+      default:
+        assert(0);
+    }
+    
+    return true;
+  }
+  
+  /**
+   * emits a string value
+   *
+   * @param  string $val
+   * @return void
+   */
+  private function emit_str_value($val)
+  {
+    $buf = '"' . $this->format_str($val, '"') . '"';
+    
+    if ($this->hstr) {
+      $this->emit('\\');
+      $this->emit(array_push($this->strs, $buf) - 1);
+    } else
+      $this->emit($buf);
+  }
+  
+  /**
+   * emits a boolean value
+   *
+   * @param  boolean $val
+   * @return void
+   */
+  private function emit_bool_value($val) 
+  {
+    $this->emit($val ? 'true' : 'false');
+  }
+  
+  /**
+   * emits a list value
+   *
+   * @param  array $list
+   * @return void
+   */
+  private function emit_list_value($list)
+  {
+    if (empty ($list)) {
+      $this->emit('[]');
+      return;
+    }
+    
+    $this->emit('[');
+    $this->tabs++;
+    $this->emitln(' ');
+    
+    foreach ($list as $idx => $item) {
+      if ($idx > 0)
+        $this->emitln(',');
+      
+      $this->emit_value($item);
+    }
+    
+    $this->tabs--;
+    $this->emitln('');
+    $this->emit(']');
+  }
+  
+  /**
+   * emits a tuple value
+   *
+   * @param  array $list
+   * @return void
+   */
+  private function emit_tuple_value($list)
+  {
+    if (empty ($list)) {
+      $this->emit('()');
+      return;
+    }
+    
+    $this->emit('(');
+    $this->tabs++;
+    $this->emitln(' ');
+    
+    foreach ($list as $idx => $item) {
+      if ($idx > 0)
+        $this->emitln(',');
+      
+      $this->emit_value($item);
+    }
+    
+    if (count($list) === 1)
+      $this->emit(',');
+    
+    $this->tabs--;
+    $this->emitln('');
+    $this->emit(')');
+  }
+  
+  /**
+   * emits a list value
+   *
+   * @param  array $list
+   * @return void
+   */
+  private function emit_dict_value($dict)
+  {
+    if (empty ($dict)) {
+      $this->emit('{}');
+      return;
+    }
+    
+    $this->emit('{');
+    $this->tabs++;
+    $this->emitln(' ');
+    
+    $idx = 0;
+    foreach ($dict as $key => $val) {
+      if ($idx++ > 0)
+        $this->emitln(',');
+      
+      $this->emit_str($key);
+      $this->emit(': ');
+      $this->emit_value($item);
+    }
+    
+    $this->tabs--;
+    $this->emitln('');
+    $this->emit('}');
+  }
+  
+  /**
    * checks if a expression is a 
    * immediately-invoked function expression (iife) in parentheses
    * 
@@ -387,22 +560,19 @@ class AstFormatter extends Visitor
   }
   
   /**
-   * handles a string-literal
+   * formats an interpreted string to a source-string
    *
-   * @param  Node $node
+   * @param  string $str
+   * @param  string $dlm
    * @return string
    */
-  private function handle_str($node)
+  private function format_str($str, $dlm)
   {
-    $buff = '';
-    $buff .= $node->flag;
-    $buff .= '"';
-    
     $esc = false;
-    $dlm = $node->delim;
+    $buf = '';
     
-    for ($i = 0, $l = strlen($node->data); $i < $l; ++$i) {
-      $c = $node->data[$i];
+    for ($i = 0, $l = strlen($str); $i < $l; ++$i) {
+      $c = $str[$i];
       
       if ($c === '\\')
         $esc = !$esc;
@@ -410,7 +580,7 @@ class AstFormatter extends Visitor
         if ($esc) 
           $esc = false;
         else
-          $buff .= '\\';
+          $buf .= '\\';
       } else {
         switch ($c) {
           case "\n": $c = '\\n'; break; 
@@ -424,22 +594,38 @@ class AstFormatter extends Visitor
         }
       }
       
-      $buff .= $c;
+      $buf .= $c;
     }
+    
+    return $buf;
+  }
+  
+  /**
+   * handles a string-literal
+   *
+   * @param  Node $node
+   * @return string
+   */
+  private function handle_str($node)
+  {
+    $buf = '';
+    $buf .= $node->flag;
+    $buf .= '"';
+    $buf .= $this->format_str($node->data, $node->delim);
     
     if ($node->flag !== 'r' && count($node->parts))
       foreach ($node->parts as $idx => $part) {
         if ($idx & 1) 
-          $buff .= substr($this->handle_str($part), 1, -1);
+          $buf .= $this->format_str($part->data, $node->delim);
         else {
-          $buff .= '${';
-          $buff .= $this->handle_expr($part);
-          $buff .= '}';
+          $buf .= '${';
+          $buf .= $this->handle_expr($part);
+          $buf .= '}';
         }
       }
       
-    $buff .= '"';
-    return $buff;
+    $buf .= '"';
+    return $buf;
   }
   
   /**
@@ -1197,6 +1383,9 @@ class AstFormatter extends Visitor
    */
   public function visit_paren_expr($node)
   {
+    if ($this->emit_value($node->value))
+      return;
+    
     $this->emit('(');
     $this->emit_expr($node->expr);
     $this->emit(')');
@@ -1210,6 +1399,9 @@ class AstFormatter extends Visitor
    */
   public function visit_tuple_expr($node)
   {
+    if ($this->emit_value($node->value))
+      return;
+    
     $this->emit('(');
     
     if (empty($node->seq))
@@ -1257,6 +1449,9 @@ class AstFormatter extends Visitor
    */
   public function visit_bin_expr($node) 
   {
+    if ($this->emit_value($node->value))
+      return;
+    
     $this->visit($node->left);
     $this->emit(' ');
     $this->emit($node->op->value);
@@ -1272,6 +1467,9 @@ class AstFormatter extends Visitor
    */
   public function visit_check_expr($node) 
   {
+    if ($this->emit_value($node->value))
+      return;
+    
     $this->visit($node->left);
     $this->emit(' ');
     $this->emit($node->op->value);
@@ -1287,6 +1485,9 @@ class AstFormatter extends Visitor
    */
   public function visit_cast_expr($node) 
   {
+    if ($this->emit_value($node->value))
+      return;
+    
     $this->visit($node->expr);
     $this->emit(' as ');
     $this->visit($node->type);  
@@ -1332,22 +1533,36 @@ class AstFormatter extends Visitor
    */
   public function visit_member_expr($node) 
   {
-    $this->visit($node->obj);
+    if ($this->emit_value($node->value))
+      return;
     
-    if ($node->prop) {
-      $this->emit('.');
+    $this->visit($node->object);
+    $this->emit('.');
       
-      if ($node->computed)
-        $this->emit('{'); 
-    } else
-      $this->emit('[');
+    if ($node->computed)
+      $this->emit('{'); 
     
     $this->visit($node->member);
     
-    if (!$node->prop)
-      $this->emit(']');
-    elseif ($node->computed)
+    if ($node->computed)
       $this->emit('}');
+  }
+  
+  /**
+   * Visitor#visit_offset_expr()
+   *
+   * @param  Node  $node
+   * @return void
+   */
+  public function visit_offset_expr($node) 
+  {
+    if ($this->emit_value($node->value))
+      return;
+    
+    $this->visit($node->object);
+    $this->emit('[');
+    $this->visit($node->offset);
+    $this->emit(']');
   }
   
   /**
@@ -1358,6 +1573,9 @@ class AstFormatter extends Visitor
    */
   public function visit_cond_expr($node) 
   {
+    if ($this->emit_value($node->value))
+      return;
+    
     $this->visit($node->test);
     $this->emit(' ? ');
     
@@ -1406,6 +1624,9 @@ class AstFormatter extends Visitor
    */
   public function visit_unary_expr($node) 
   {
+    if ($this->emit_value($node->value))
+      return;
+    
     $this->emit($node->op->value);
     $this->visit($node->expr);  
   }
@@ -1443,7 +1664,7 @@ class AstFormatter extends Visitor
    */
   public function visit_lnum_lit($node) 
   {
-    $this->emit($node->value);  
+    $this->emit($node->data);  
   }
   
   /**
@@ -1454,7 +1675,7 @@ class AstFormatter extends Visitor
    */
   public function visit_dnum_lit($node) 
   {
-    $this->emit($node->value);   
+    $this->emit($node->data);   
   }
   
   /**
@@ -1465,7 +1686,7 @@ class AstFormatter extends Visitor
    */
   public function visit_snum_lit($node) 
   {
-    $this->emit($node->value); 
+    $this->emit($node->data); 
     $this->emit($node->suffix);  
   }
   
@@ -1477,7 +1698,7 @@ class AstFormatter extends Visitor
    */
   public function visit_regexp_lit($node) 
   {
-    $this->emit($node->value);
+    $this->emit($node->data);
   }
   
   /**
@@ -1505,6 +1726,9 @@ class AstFormatter extends Visitor
    */
   public function visit_arr_lit($node) 
   {
+    if ($this->emit_value($node->value))
+      return;
+    
     if (!$node->items) {
       $this->emit('[]');
       return;  
@@ -1534,7 +1758,10 @@ class AstFormatter extends Visitor
    * @return void
    */
   public function visit_obj_lit($node) 
-  {
+  {    
+    if ($this->emit_value($node->value))
+      return;
+    
     $this->emit('{');
     $this->tabs++;
     $this->emitln('');
@@ -1555,10 +1782,10 @@ class AstFormatter extends Visitor
           $this->emitln(',');
       }
       
-      $this->tabs--;
-      $this->emitln('');
-      $this->emit('}');
-    }
+    $this->tabs--;
+    $this->emitln('');
+    $this->emit('}');
+  }
   
   /**
    * Visitor#visit_name()
@@ -1645,6 +1872,9 @@ class AstFormatter extends Visitor
    */
   public function visit_engine_const($node) 
   {
+    if ($this->emit_value($node->value))
+      return;
+    
     switch ($node->type) {
       case T_CFN:
         $this->emit('__fn__');
@@ -1669,13 +1899,36 @@ class AstFormatter extends Visitor
    */
   public function visit_str_lit($node) 
   {
-    $buff = $this->handle_str($node);
+    if ($this->emit_value($node->value))
+      return;
+    
+    $buf = $this->handle_str($node);
     
     if ($this->hstr) {
       $this->emit('\\');
-      $this->emit(array_push($this->strs, $buff) -1); 
+      $this->emit(array_push($this->strs, $buf) -1); 
     } else
-      $this->emit($buff);
+      $this->emit($buf);
+  }
+  
+  /**
+   * Visitor#visit_kstr_lit()
+   *
+   * @param  Node $node
+   * @return void
+   */
+  public function visit_kstr_lit($node)
+  {
+    if ($this->emit_value($node->value))
+      return;
+    
+    $buf = 'c"' . $this->format_str($node->data, '"') . '"';
+    
+    if ($this->hstr) {
+      $this->emit('\\');
+      $this->emit(array_push($this->strs, $buf) - 1);
+    } else
+      $this->emit($buf);
   }
   
   /**

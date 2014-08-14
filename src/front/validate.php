@@ -148,7 +148,7 @@ class UnitValidator extends Visitor
   {
     array_push($this->stack, $type);
     
-    if ($type === 'loop') {
+    if ($type === 'loop' || $type === 'switch') {
       // labels inside a loop can not resolve gotos outside
       array_push($this->gstack, $this->gotos);
       $this->gotos = [];
@@ -176,7 +176,7 @@ class UnitValidator extends Visitor
     $last = array_pop($this->stack);
     assert($last === $type);
     
-    if ($type === 'loop') {
+    if ($type === 'loop' || $type === 'switch') {
       // gotos inside a loop can jump to the outside world
       // merge new unresolved gotos
       $lgotos = $this->gotos;
@@ -223,6 +223,8 @@ class UnitValidator extends Visitor
               !$this->within('trait', [ 'fn' ]) &&
               !$this->within('iface', [ 'fn' ]))
             break; // will be reported as error anyway
+          
+          // no break
           
         case T_PUBLIC:
         case T_PRIVATE:
@@ -502,18 +504,16 @@ class UnitValidator extends Visitor
       foreach ($gotos as $goto) {
         if ($goto->resolved === true)
           continue;
-          
-        $label = isset ($this->labels[$lid]) ? $this->labels[$lid] : null;
-        
-        if ($label === null)
+                  
+        if (!isset ($this->labels[$lid]))
           Logger::error_at($goto->loc, 'goto to undefined label `%s`', $goto->id);
         else {
           Logger::error_at($goto->loc, 'goto to unreachable label `%s`', $goto->id);
-          Logger::info_at($label->loc, 'label was defined here');
+          Logger::info_at($this->labels[$lid]->loc, 'label was defined here');
           
           if (!$seen_loop_info) {
             $seen_loop_info = true;
-            Logger::info_at($goto->loc, 'it is not possible to jump inside a loop');
+            Logger::info_at($goto->loc, 'it is not possible to jump into a loop or switch statement');
           }
         }
       }
@@ -569,20 +569,9 @@ class UnitValidator extends Visitor
     if ($this->within('iface'))
       Logger::error_at($node->loc, 'enum is not allowed inside of iface');
     
-    foreach ($node->vars as $var) {
-      if ($var->init !== null) {
-        $init = $var->init;
-        
-        if (!($init instanceof StrLit ||
-              $init instanceof LNumLit ||
-              $init instanceof SNumLit ||
-              $init instanceof DNumLit ||
-              $init instanceof TrueLit ||
-              $init instanceof FalseLit ||
-              $init instanceof NullLit))
-          Logger::error_at($var->loc, 'enum item does not reduce to a constant value');
-      }
-    }
+    foreach ($node->vars as $var)
+      if ($var->init && (!$var->init->value || !$var->init->value->is_primitive()))
+        Logger::error_at($var->loc, 'enum item does not reduce to a constant value');
   }
   
   /**
@@ -840,14 +829,8 @@ class UnitValidator extends Visitor
   {
     $expr = $node->expr;
     
-    if (!($expr instanceof StrLit ||
-          $expr instanceof LNumLit ||
-          $expr instanceof SNumLit ||
-          $expr instanceof DNumLit ||
-          $expr instanceof TrueLit ||
-          $expr instanceof FalseLit ||
-          $expr instanceof NullLit))
-      Logger::error_at($node->loc, 'require path does not reduce to a constant value');  
+    if (!$expr->value || $expr->value->kind !== VAL_KIND_STR)
+      Logger::error_at($node->loc, 'require path does not reduce to a constant string'); 
   }
   
   /**
@@ -1148,6 +1131,18 @@ class UnitValidator extends Visitor
   }
   
   /**
+   * Visitor#visit_tuple_expr()
+   *
+   * @param  Node $node
+   * @return void
+   */
+  public function visit_tuple_expr($node)
+  {
+    foreach ($node->seq as $expr)
+      $this->visit($expr);
+  }
+  
+  /**
    * Visitor#visit_fn_expr()
    *
    * @param  Node  $node
@@ -1228,11 +1223,23 @@ class UnitValidator extends Visitor
    */
   public function visit_member_expr($node) 
   {
-    $this->visit($node->obj);
+    $this->visit($node->object);
     
-    // only visit member on computed/offset expressions
-    if (!$node->prop || $node->computed)
+    // only visit member on computed expressions
+    if ($node->computed)
       $this->visit($node->member);
+  }
+  
+  /**
+   * Visitor#visit_offset_expr()
+   *
+   * @param  Node  $node
+   * @return void
+   */
+  public function visit_offset_expr($node) 
+  {
+    $this->visit($node->object);
+    $this->visit($node->offset);
   }
   
   /**
@@ -1356,6 +1363,18 @@ class UnitValidator extends Visitor
   public function visit_regexp_lit($node) 
   {
     // noop  
+  }
+  
+  /**
+   * Visitor#visit_arr_gen()
+   *
+   * @param  Node $node
+   * @return void
+   */
+  public function visit_arr_gen($node)
+  {
+    $this->visit($node->expr);
+    $this->visit($node->each);
   }
   
   /**
@@ -1487,6 +1506,17 @@ class UnitValidator extends Visitor
    * @return void
    */
   public function visit_str_lit($node) 
+  {
+    // noop  
+  }
+  
+  /**
+   * Visitor#visit_kstr_lit()
+   *
+   * @param  Node  $node
+   * @return void
+   */
+  public function visit_kstr_lit($node) 
   {
     // noop  
   }

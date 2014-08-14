@@ -12,6 +12,8 @@ require_once 'front/lexer.php';
 require_once 'front/parser.php';
 require_once 'front/analyze.php';
 
+require_once 'lang/builtin.php';
+
 #require_once 'back/optimizer.php';
 #require_once 'back/codegen.php';
 

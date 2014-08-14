@@ -823,11 +823,23 @@ class UnitDesugarer extends Visitor
    */
   public function visit_member_expr($node) 
   {
-    $this->visit($node->obj);
+    $this->visit($node->object);
     
-    // only visit member on computed/offset expressions
-    if (!$node->prop || $node->computed)
+    // only visit member on computed expressions
+    if ($node->computed)
       $this->visit($node->member);
+  }
+  
+  /**
+   * Visitor#visit_offset_expr()
+   *
+   * @param  Node  $node
+   * @return void
+   */
+  public function visit_offset_expr($node) 
+  {
+    $this->visit($node->object);
+    $this->visit($node->offset);
   }
   
   /**
@@ -1098,6 +1110,17 @@ class UnitDesugarer extends Visitor
     
     foreach ($node->parts as $part)
       $this->visit($part);
+  }
+  
+  /**
+   * Visitor#visit_kstr_lit()
+   *
+   * @param  Node $node
+   * @return void
+   */
+  public function visit_kstr_lit($node)
+  {
+    // noop
   }
   
   /**

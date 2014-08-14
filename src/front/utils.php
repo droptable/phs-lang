@@ -16,7 +16,9 @@ function var_dump_into($var, $file) {
   file_put_contents($file, ob_get_clean());
 }
 
-function ident_to_str(Ident $id) {
+function ident_to_str($id) {
+  if (!($id instanceof Ident))
+    throw new \RuntimeException;
   return $id->value;
 }
 

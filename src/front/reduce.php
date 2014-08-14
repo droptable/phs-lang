@@ -197,11 +197,11 @@ class Reducer extends Visitor
    */
   protected function reduce_boolean_op($node)
   {
-    $lhs = $this->reduce_expr($node->left);
-    $rhs = null;
+    $lhs = $node->left->value;
+    $rhs = $node->right->value;
     
     if ($lhs->kind === VAL_KIND_UNDEF)
-      return new Value(VAL_KIND_UNDEF);
+      return Value::$UNDEF;
     
     $data = false;
     
@@ -209,10 +209,8 @@ class Reducer extends Visitor
       case T_BOOL_AND:
         if (!$lhs->data) break;
         
-        $rhs = $this->reduce_expr($node->right);
-        
         if ($rhs->kind === VAL_KIND_UNDEF)
-          return new Value(VAL_KIND_UNDEF);
+          return Value::$UNDEF;
         
         if (!$rhs->data) break;
         
@@ -225,24 +223,20 @@ class Reducer extends Visitor
           break;
         }
         
-        $rhs = $this->reduce_expr($node->right);
-        
         if ($rhs->kind === VAL_KIND_UNDEF)
-          return new Value(VAL_KIND_UNDEF);
+          return Value::$UNDEF;
         
         $data = !!$rhs->data;
         break;
         
       case T_BOOL_XOR:
-        $rhs = $this->reduce_expr($node->right);
-        
         if ($rhs->kind === VAL_KIND_UNDEF)
-          return new Value(VAL_KIND_UNDEF);
+          return Value::$UNDEF;
         
-        $lvl = (bool)$lhs->data;
-        $rvl = (bool)$rhs->data;
+        $lval = (bool)$lhs->data;
+        $rval = (bool)$rhs->data;
         
-        $data = ($lvl && !$rvl) || (!$lvl && $rvl);
+        $data = ($lval && !$rval) || (!$lval && $rval);
         break;
         
       default: assert(0);
@@ -259,12 +253,12 @@ class Reducer extends Visitor
    */
   protected function reduce_concat_op($node)
   {
-    $lhs = $this->reduce_expr($node->left);
-    $rhs = $this->reduce_expr($node->right);
+    $lhs = clone $node->left->value;
+    $rhs = clone $node->right->value;
     
     if (!($this->convert_to_str($lhs) &&
           $this->convert_to_str($rhs)))
-      return new Value(VAL_KIND_UNDEF);
+      return Value::$UNDEF;
     
     $data = $lhs->data . $rhs->data;
     return new Value(VAL_KIND_STR, $data);

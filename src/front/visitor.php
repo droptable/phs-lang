@@ -103,6 +103,7 @@ abstract class Visitor
   public function visit_update_expr($n) {}
   public function visit_assign_expr($n) {}
   public function visit_member_expr($n) {}
+  public function visit_offset_expr($n) {}
   public function visit_cond_expr($n) {}
   public function visit_call_expr($n) {}
   public function visit_yield_expr($n) {}
@@ -125,5 +126,6 @@ abstract class Visitor
   public function visit_false_lit($n) {}
   public function visit_engine_const($n) {}
   public function visit_str_lit($n) {}
+  public function visit_kstr_lit($n) {}
   public function visit_type_id($n) {}
 }

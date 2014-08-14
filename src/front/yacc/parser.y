@@ -621,27 +621,27 @@ params
   ;
   
 param
-  : ident                              { $$ = @Param(false, null, null, $1, null, false); }
-  | ident '?'                          { $$ = @Param(false, null, null, $1, null, true); }
-  | ident '=' rxpr                     { $$ = @Param(false, null, null, $1, $3, false); }
-  | hint ident                         { $$ = @Param(false, null, $1, $2, null, false); }
-  | hint ident '?'                     { $$ = @Param(false, null, $1, $2, null, true); }
-  | hint ident '=' rxpr                { $$ = @Param(false, null, $1, $2, $4, false); }
-  | mods ident                         { $$ = @Param(false, $1, null, $2, null, false); }
-  | mods ident '?'                     { $$ = @Param(false, $1, null, $2, null, true); }
-  | mods ident '=' rxpr                { $$ = @Param(false, $1, null, $2, $4, false); }
-  | mods hint ident                    { $$ = @Param(false, $1, $2, $3, null, false); }
-  | mods hint ident '?'                { $$ = @Param(false, $1, $2, $3, null, true); }
-  | mods hint ident '=' rxpr           { $$ = @Param(false, $1, $2, $3, $5, false); }
-  | hint_opt T_THIS dot_ident          { $$ = @ThisParam($1, $3, null, false); }
-  | hint_opt T_THIS dot_ident '=' rxpr { $$ = @ThisParam($1, $3, $5, false); }
-  | hint_opt T_REST ident              { $$ = @RestParam($1, $3); }
-  | '&' ident                          { $$ = @Param(true, null, null, $2, null, false); }
-  | hint '&' ident                     { $$ = @Param(true, null, $1, $3, null, false); }
-  | mods '&' ident                     { $$ = @Param(true, $1, null, $3, null, false); }
-  | mods hint '&' ident                { $$ = @Param(true, $1, $2, $4, null, false); }
-  |      '&' T_THIS dot_ident          { $$ = @ThisParam(null, $3, null, true); }
-  | hint '&' T_THIS dot_ident          { $$ = @ThisParam($1, $4, null, true); }
+  : ident                            { $$ = @Param(false, null, null, $1, null, false); }
+  | ident '?'                        { $$ = @Param(false, null, null, $1, null, true); }
+  | ident '=' rxpr                   { $$ = @Param(false, null, null, $1, $3, false); }
+  | hint ident                       { $$ = @Param(false, null, $1, $2, null, false); }
+  | hint ident '?'                   { $$ = @Param(false, null, $1, $2, null, true); }
+  | hint ident '=' rxpr              { $$ = @Param(false, null, $1, $2, $4, false); }
+  | mods ident                       { $$ = @Param(false, $1, null, $2, null, false); }
+  | mods ident '?'                   { $$ = @Param(false, $1, null, $2, null, true); }
+  | mods ident '=' rxpr              { $$ = @Param(false, $1, null, $2, $4, false); }
+  | mods hint ident                  { $$ = @Param(false, $1, $2, $3, null, false); }
+  | mods hint ident '?'              { $$ = @Param(false, $1, $2, $3, null, true); }
+  | mods hint ident '=' rxpr         { $$ = @Param(false, $1, $2, $3, $5, false); }
+  | hint_opt T_THIS '.' aid          { $$ = @ThisParam($1, $4, null, false); }
+  | hint_opt T_THIS '.' aid '=' rxpr { $$ = @ThisParam($1, $4, $5, false); }
+  | hint_opt T_REST ident            { $$ = @RestParam($1, $3); }
+  | '&' ident                        { $$ = @Param(true, null, null, $2, null, false); }
+  | hint '&' ident                   { $$ = @Param(true, null, $1, $3, null, false); }
+  | mods '&' ident                   { $$ = @Param(true, $1, null, $3, null, false); }
+  | mods hint '&' ident              { $$ = @Param(true, $1, $2, $4, null, false); }
+  |      '&' T_THIS '.' aid          { $$ = @ThisParam(null, $4, null, true); }
+  | hint '&' T_THIS '.' aid          { $$ = @ThisParam($1, $5, null, true); }
   ;
   
 hint_opt
@@ -836,7 +836,7 @@ lxpr
   | lxpr '*' rxpr           { $$ = @BinExpr($1, $2, $3); }
   | lxpr '/' rxpr           { $$ = @BinExpr($1, $2, $3); }
   | lxpr '%' rxpr           { $$ = @BinExpr($1, $2, $3); }
-  | lxpr T_POW rxpr         { $$ = @BinExpr($1, $2, $2); }
+  | lxpr T_POW rxpr         { $$ = @BinExpr($1, $2, $3); }
   | lxpr '~' rxpr %prec '+' { $$ = @BinExpr($1, $2, $3); }
   | lxpr '&' rxpr           { $$ = @BinExpr($1, $2, $3); }
   | lxpr '|' rxpr           { $$ = @BinExpr($1, $2, $3); }
@@ -877,9 +877,9 @@ lxpr
   | lxpr T_ABOOL_XOR rxpr   { $$ = @AssignExpr($1, $2, $3); }
   | lxpr T_ASHIFT_L rxpr    { $$ = @AssignExpr($1, $2, $3); }
   | lxpr T_ASHIFT_R rxpr    { $$ = @AssignExpr($1, $2, $3); }
-  | lxpr dot_ident          { $$ = @MemberExpr(true, false, $1, $2); }
-  | lxpr '.' '{' rxpr '}'   { $$ = @MemberExpr(true, true, $1, $4); }
-  | lxpr '[' rxpr ']'       { $$ = @MemberExpr(false, true, $1, $3); }
+  | lxpr '.' aid            { $$ = @MemberExpr($1, $3); }
+  | lxpr '.' '{' rxpr '}'   { $$ = @MemberExpr($1, $4, true); }
+  | lxpr '[' rxpr ']'       { $$ = @OffsetExpr($1, $3); }
   | lxpr '[' error ']'      { $$ = null; }
   | lxpr '?' rxpr ':' rxpr  { $$ = @CondExpr($1, $3, $5); } 
   | lxpr '?' ':' rxpr       { $$ = @CondExpr($1, null, $4); }
@@ -910,7 +910,7 @@ rxpr
   | rxpr '*' rxpr           { $$ = @BinExpr($1, $2, $3); }
   | rxpr '/' rxpr           { $$ = @BinExpr($1, $2, $3); }
   | rxpr '%' rxpr           { $$ = @BinExpr($1, $2, $3); }
-  | rxpr T_POW rxpr         { $$ = @BinExpr($1, $2, $2); }
+  | rxpr T_POW rxpr         { $$ = @BinExpr($1, $2, $3); }
   | rxpr '~' rxpr %prec '+' { $$ = @BinExpr($1, $2, $3); }
   | rxpr '&' rxpr           { $$ = @BinExpr($1, $2, $3); }
   | rxpr '|' rxpr           { $$ = @BinExpr($1, $2, $3); }
@@ -951,9 +951,9 @@ rxpr
   | rxpr T_ABOOL_XOR rxpr   { $$ = @AssignExpr($1, $2, $3); }
   | rxpr T_ASHIFT_L rxpr    { $$ = @AssignExpr($1, $2, $3); }
   | rxpr T_ASHIFT_R rxpr    { $$ = @AssignExpr($1, $2, $3); }
-  | rxpr dot_ident          { $$ = @MemberExpr(true, false, $1, $2); }
-  | rxpr '.' '{' rxpr '}'   { $$ = @MemberExpr(true, true, $1, $4); }
-  | rxpr '[' rxpr ']'       { $$ = @MemberExpr(false, true, $1, $3); }
+  | rxpr '.' aid            { $$ = @MemberExpr($1, $3); }
+  | rxpr '.' '{' rxpr '}'   { $$ = @MemberExpr($1, $4, true); }
+  | rxpr '[' rxpr ']'       { $$ = @OffsetExpr($1, $3); }
   | rxpr '[' error ']'      { $$ = null; }
   | rxpr '?' rxpr ':' rxpr  { $$ = @CondExpr($1, $3, $5); } 
   | rxpr '?' ':' rxpr       { $$ = @CondExpr($1, null, $4); }
@@ -1025,9 +1025,9 @@ rxpr_noin
   | rxpr_noin T_ABOOL_XOR rxpr_noin   { $$ = @AssignExpr($1, $2, $3); }
   | rxpr_noin T_ASHIFT_L rxpr_noin    { $$ = @AssignExpr($1, $2, $3); }
   | rxpr_noin T_ASHIFT_R rxpr_noin    { $$ = @AssignExpr($1, $2, $3); }
-  | rxpr_noin dot_ident               { $$ = @MemberExpr(true, false, $1, $2); }
-  | rxpr_noin '.' '{' rxpr '}'        { $$ = @MemberExpr(true, true, $1, $4); }
-  | rxpr_noin '[' rxpr ']'            { $$ = @MemberExpr(false, true, $1, $3); }
+  | rxpr_noin '.' aid                 { $$ = @MemberExpr($1, $3); }
+  | rxpr_noin '.' '{' rxpr '}'        { $$ = @MemberExpr($1, $4, true); }
+  | rxpr_noin '[' rxpr ']'            { $$ = @OffsetExpr($1, $3); }
   | rxpr_noin '[' error ']'           { $$ = null; }
   | rxpr_noin '?' rxpr ':' rxpr_noin  { $$ = @CondExpr($1, $3, $5); } 
   | rxpr_noin '?' ':' rxpr_noin       { $$ = @CondExpr($1, null, $4); }
@@ -1052,9 +1052,9 @@ rxpr_noin
   ;
  
 nxpr
-  : nxpr dot_ident        { $$ = @MemberExpr(true, false, $1, $2); }
-  | nxpr '.' '{' rxpr '}' { $$ = @MemberExpr(true, true, $1, $4); }
-  | nxpr '[' rxpr ']'     { $$ = @MemberExpr(false, true, $1, $3); }
+  : nxpr '.' ident        { $$ = @MemberExpr($1, $3); }
+  | nxpr '.' '{' rxpr '}' { $$ = @MemberExpr($1, $4, true); }
+  | nxpr '[' rxpr ']'     { $$ = @OffsetExpr($1, $3); }
   | nxpr '[' error ']'    { $$ = null; }
   | atom                  { $$ = $1; }
   ;
@@ -1110,8 +1110,8 @@ reg
   
 name
   : ident            { $$ = @Name($1, false); }
-  | dddot_ident      { $$ = @Name($1, true); }
-  | name dddot_ident { $1->add($2); $$ = $1; }
+  | T_DDDOT aid      { $$ = @Name($2, true); }
+  | name T_DDDOT aid { $1->add($3); $$ = $1; }
   ;
 
 type_name
@@ -1132,14 +1132,6 @@ ident
   | T_GET     { $$ = @Ident($1->value); }
   | T_SET     { $$ = @Ident($1->value); }
   ;
-  
-dot_ident
-  : '.' { $this->lex->lfi= true; } ident { $$ = $2; }
-  ;
-  
-dddot_ident
-  : T_DDDOT { $this->lex->lfi = true; } ident { $$ = $2; }
-  ;
  
 kwc
   : T_THIS    { $$ = @ThisExpr; }
@@ -1147,10 +1139,10 @@ kwc
   | T_NULL    { $$ = @NullLit; }
   | T_TRUE    { $$ = @TrueLit; }
   | T_FALSE   { $$ = @FalseLit; }
-  | T_CDIR    { $$ = @StrLit($this->cdir, 'c'); }
-  | T_CFILE   { $$ = @StrLit($this->cfile, 'c'); }
-  | T_CLINE   { $$ = @StrLit($1->loc->pos->line, 'c'); }
-  | T_CCOLN   { $$ = @StrLit($1->loc->pos->coln, 'c'); }
+  | T_CDIR    { $$ = @KStrLit($this->cdir); }
+  | T_CFILE   { $$ = @KStrLit($this->cfile); }
+  | T_CLINE   { $$ = @KStrLit($1->loc->pos->line); }
+  | T_CCOLN   { $$ = @KStrLit($1->loc->pos->coln); }
   | T_CFN     { $$ = @EngineConst($1->type); }
   | T_CCLASS  { $$ = @EngineConst($1->type); }
   | T_CMETHOD { $$ = @EngineConst($1->type); }
@@ -1220,14 +1212,87 @@ obj_pair
   ;
   
 obj_key
-  : ident        { $$ = $1; }
+  : aid          { $$ = $1; }
   | str          { $$ = $1; }
-  | '(' rxpr ')' { $$ = @ObjKey($2); }
+  | '(' rxpr ')' { $$ = @ObjKey($2); }    
   ;
   
 comma_opt
   : /* empty */ { $$ = null; }
   | ','         { $$ = $1; }
+  ;
+  
+aid
+  : ident { $$ = $1; }
+  | rid   { $$ = @Ident($1->value); }
+  ;
+  
+rid
+  : T_FN        { $$ = $1; }
+  | T_LET       { $$ = $1; }
+  | T_USE       { $$ = $1; }
+  | T_ENUM      { $$ = $1; }
+  | T_CLASS     { $$ = $1; }
+  | T_TRAIT     { $$ = $1; }
+  | T_IFACE     { $$ = $1; }
+  | T_MODULE    { $$ = $1; }
+  | T_REQUIRE   { $$ = $1; }
+  | T_TRUE      { $$ = $1; }
+  | T_FALSE     { $$ = $1; }
+  | T_NULL      { $$ = $1; }
+  | T_THIS      { $$ = $1; }
+  | T_SUPER     { $$ = $1; }
+  | T_DO        { $$ = $1; }
+  | T_IF        { $$ = $1; }
+  | T_ELSIF     { $$ = $1; }
+  | T_ELSE      { $$ = $1; }
+  | T_FOR       { $$ = $1; }
+  | T_TRY       { $$ = $1; }
+  | T_GOTO      { $$ = $1; }
+  | T_BREAK     { $$ = $1; }
+  | T_CONTINUE  { $$ = $1; }
+  | T_THROW     { $$ = $1; }
+  | T_CATCH     { $$ = $1; }
+  | T_FINALLY   { $$ = $1; }
+  | T_WHILE     { $$ = $1; }
+  | T_ASSERT    { $$ = $1; }
+  | T_SWITCH    { $$ = $1; }
+  | T_CASE      { $$ = $1; }
+  | T_DEFAULT   { $$ = $1; }
+  | T_RETURN    { $$ = $1; }
+  | T_PRINT     { $$ = $1; }
+  | T_CONST     { $$ = $1; }
+  | T_FINAL     { $$ = $1; }
+  | T_STATIC    { $$ = $1; }
+  | T_EXTERN    { $$ = $1; }
+  | T_PUBLIC    { $$ = $1; }
+  | T_PRIVATE   { $$ = $1; }
+  | T_PROTECTED { $$ = $1; }
+  | T_SEALED    { $$ = $1; }
+  | T_INLINE    { $$ = $1; }
+  | T_GLOBAL    { $$ = $1; }
+  | T_PHP       { $$ = $1; }
+  | T_TEST      { $$ = $1; }
+  | T_CDIR      { $$ = $1; }
+  | T_CFILE     { $$ = $1; }
+  | T_CLINE     { $$ = $1; }
+  | T_CCOLN     { $$ = $1; }
+  | T_CFN       { $$ = $1; }
+  | T_CCLASS    { $$ = $1; }
+  | T_CMETHOD   { $$ = $1; }
+  | T_CMODULE   { $$ = $1; }
+  | T_YIELD     { $$ = $1; }
+  | T_NEW       { $$ = $1; }
+  | T_DEL       { $$ = $1; }
+  | T_AS        { $$ = $1; }
+  | T_IS        { $$ = $1; }
+  | T_IN        { $$ = $1; }
+  | T_TINT      { $$ = $1; }
+  | T_TBOOL     { $$ = $1; }
+  | T_TFLOAT    { $$ = $1; }
+  | T_TSTRING   { $$ = $1; }
+  | T_TREGEXP   { $$ = $1; }
+  | T_ALIAS     { $$ = $1; }
   ;
   
 %%

@@ -31,6 +31,17 @@ class Dict implements
   }
   
   /**
+   * __clone
+   *
+   * @return void
+   */
+  public function __clone()
+  {
+    foreach (get_dict_vars($this) as $key => &$val)
+      $this->$key = clone $val;
+  }
+  
+  /**
    * returns all properties of this dict as array
    * 
    * @return array 

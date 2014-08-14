@@ -2,12 +2,10 @@
 
 namespace phs\front\ast;
 
-class RegexpLit extends Expr
-{
-  public $data;
-  
+class KStrLit extends Expr
+{  
   public function __construct($data)
   {
-    $this->data = $data;
+    $this->data = (string) $data;
   }
 }
