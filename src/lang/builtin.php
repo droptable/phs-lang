@@ -11,10 +11,10 @@ use \InvalidArgumentException as IAEx;
 
 use phs\util\Dict;
 
-class _Dict extends Dict
+class BuiltInDict extends Dict
 {}
 
-class _List implements ArrayAccess, IteratorAggregate
+class BuiltInList implements ArrayAccess, IteratorAggregate
 {
   // internal memory
   private $mem;
@@ -31,7 +31,7 @@ class _List implements ArrayAccess, IteratorAggregate
       $this->mem = array_values($init);
     
     // init from a list
-    elseif ($init instanceof _List)
+    elseif ($init instanceof self)
       foreach ($init as $val)
         $this->mem = $val;
       

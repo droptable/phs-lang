@@ -275,7 +275,8 @@ class AstFormatter extends Visitor
    */
   private function emit_value(Value $value = null)
   {
-    if (!$value || $value->kind === VAL_KIND_UNDEF) 
+    if (!$value || $value->kind === VAL_KIND_UNDEF || 
+                   $value->kind === VAL_KIND_NONE) 
       return false;
      
     switch ($value->kind) {
@@ -658,7 +659,11 @@ class AstFormatter extends Visitor
   public function visit_module($node)
   {
     $this->emit('module ');
-    $this->emit(name_to_str($node->name));
+    
+    if ($node->name) {
+      $this->emit(name_to_str($node->name));
+      $this->emit(' ');
+    }
     
     $this->open_block('{');
     $this->visit($node->body);
@@ -1795,6 +1800,13 @@ class AstFormatter extends Visitor
    */
   public function visit_name($node) 
   {
+    if ($node->symbol && 
+        $node->symbol->kind === SYM_KIND_VAR &&
+        $node->symbol->flags & SYM_FLAG_CONST && 
+        $node->symbol->value &&
+        $this->emit_value($node->symbol->value))
+      return;
+    
     $this->emit(name_to_str($node));  
   }
   
@@ -1806,6 +1818,13 @@ class AstFormatter extends Visitor
    */
   public function visit_ident($node) 
   {
+    if ($node->symbol && 
+        $node->symbol->kind === SYM_KIND_VAR &&
+        $node->symbol->flags & SYM_FLAG_CONST && 
+        $node->symbol->value &&
+        $this->emit_value($node->symbol->value))
+      return;
+    
     $this->emit(ident_to_str($node));
   }
   

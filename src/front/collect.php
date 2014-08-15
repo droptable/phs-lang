@@ -112,7 +112,7 @@ class UnitCollector extends Visitor
           $nmod = $mmap->get($mid);
         else {
           // create and assign a new module
-          $nmod = new ModuleScope($mid, null, $nmod);
+          $nmod = new ModuleScope($mid, $nmod);
           $mmap->add($nmod);
         }
         

@@ -139,6 +139,16 @@ abstract class Symbol
     $this->flags = $flags;
   }
   
+  /**
+   * __clone
+   *
+   * @return void
+   */
+  public function __clone()
+  {
+    $this->scope = null;
+  }
+  
   /* ------------------------------------ */
   
   /**
@@ -648,6 +658,17 @@ class VarSymbol extends Symbol
   {
     // init symbol
     parent::__construct($id, SYM_VAR_NS, $loc, SYM_KIND_VAR, $flags);
+  }
+  
+  /**
+   * __clone
+   *
+   * @return void
+   */
+  public function __clone()
+  {
+    parent::__clone();
+    $this->value = clone $this->value;
   }
   
   /* ------------------------------------ */

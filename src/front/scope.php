@@ -251,23 +251,19 @@ class ModuleScope extends RootScope implements Entry
   // @var string  module-id
   public $id;
   
-  // @var Module  module-node
-  public $mod;
-  
   /**
    * constructor
    * 
    * @param string    $id 
    * @param RootScope $prev
    */
-  public function __construct($id, Module $mod, RootScope $prev)
+  public function __construct($id, RootScope $prev)
   {
     // $prev is not optional
     // a module must be defined in a unit or in a other module
     parent::__construct($prev);
     
     $this->id = $id;
-    $this->mod = $mod;
   }
   
   /**
@@ -347,5 +343,110 @@ class MemberScope extends Scope
   {
     parent::__construct($prev);
     $this->sealed = true;
+  }
+}
+
+/* ------------------------------------ */
+
+/** branch scope */
+class Branch extends Scope
+{
+  // @var Scope original scope
+  public $orig;
+  
+  /**
+   * constructor
+   *
+   * @param Scope $orig
+   */
+  public function __construct(Scope $orig)
+  {
+    parent::__construct(null);
+    $this->orig = $orig;
+  }
+  
+  /**
+   * fetch a symbol
+   *
+   * @param  string  $key
+   * @param  integer $ns 
+   * @return Symbol
+   */
+  public function get($key, $ns = -1)
+  {
+    $sym = parent::get($key, $ns);
+    
+    if (!$sym) {
+      // move symbol from orig scope to branch
+      $sym = $this->orig->get($key, $ns);
+      
+      if (!$sym) return null;
+      
+      $sym = clone $sym;
+      $this->put($sym);
+    }
+    
+    return $sym;
+  }
+}
+
+abstract class RootBranch extends Branch
+{
+  // @var ModuleMap (sub-)modules reference
+  public $mmap;
+  
+  public function __construct(RootScope $orig)
+  {
+    parent::__construct($orig);
+    $this->mmap = &$orig->mmap;
+  }
+}
+
+class UnitBranch extends RootBranch
+{  
+  // @var Unit  the unit reference
+  public $unit;
+  
+  // @var string  file-path reference
+  public $file;
+  
+  /**
+   * constructor
+   *    
+   */
+  public function __construct(UnitScope $orig)
+  {
+    parent::__construct($orig);
+    $this->unit = &$orig->unit;
+    $this->file = &$orig->file;
+  }
+}
+
+/** module scope */
+class ModuleBranch extends RootScope
+{
+  // @var string  module-id reference
+  public $id;
+  
+  /**
+   * constructor
+   * 
+   * @param string    $id 
+   * @param RootScope $prev
+   */
+  public function __construct(RootScope $orig)
+  {
+    parent::__construct($orig);
+    $this->id = &$orig->id;
+  }
+  
+  /**
+   * delegates to the original module
+   * 
+   * @return array
+   */
+  public function path()
+  {
+    return $this->orig->path();
   }
 }

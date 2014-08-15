@@ -3,276 +3,124 @@
 namespace phs\front;
 
 require_once 'utils.php';
-require_once 'visitor.php';
 require_once 'scope.php';
 
 use phs\Logger;
 use phs\Session;
 
+use phs\front\ast\Expr;
 use phs\front\ast\Name;
 use phs\front\ast\Ident;
-use phs\front\ast\MemberExpr;
-use phs\front\ast\TypeId;
 
-/** expression reducer */
-class Reducer extends Visitor
+/** lookup trait */
+trait Lookup
 {
-  // @var Session
-  private $sess;
-  
-  // @var Scope
-  private $scope;
-  
-  // @var Value   temporary value during ast-walking
-  private $value;
-  
-  // @var Walker
-  private $walker;
-  
   /**
-   * constructor
-   *
-   */
-  public function __construct(Session $sess, Scope $scope)
-  {
-    // super
-    parent::__construct();
-    $this->sess = $sess;
-    $this->scope = $scope;
-    $this->walker = new Walker($this);
-  }
-  
-  /**
-   * reduces a node
+   * lookup a value from a expression or symbol
    *
    * @param  Node $node
    * @return Value
    */
-  public function reduce($node)
+  private function lookup_value($node)
   {
-    $this->value = null;
-    $this->walker->walk_some($node);
-    return $this->value;
+    if ($node instanceof Expr)
+      return $node->value;
+    
+    if (($node instanceof Name ||
+         $node instanceof Ident) && $node->symbol)
+      return $node->symbol->value;
+    
+    return Value::$UNDEF;
   }
-  
-  // alias of reduce()
-  public function reduce_expr($node)
-  {
-    return $this->reduce($node);
-  }
-  
-  /* ------------------------------------ */
   
   /**
-   * reduces a arithmetic operation
+   * lookup a name
    *
    * @param  Node $node
-   * @return Value
+   * @return void
    */
-  protected function reduce_arithmetic_op($node)
+  private function lookup_name($node)
   {
-    static $kinds = [ VAL_KIND_INT, VAL_KIND_FLOAT ];
+    $this->lookup_path($node, $node->root, name_to_arr($node));
+  }
+  
+  /**
+   * lookup a ident
+   *
+   * @param  Node $node
+   * @return void
+   */
+  private function lookup_ident($node)
+  {
+    $this->lookup_path($node, false, [ ident_to_str($node) ]);
+  }
+  
+  /**
+   * lookup a path
+   *
+   * @param  Node $node
+   * @param  boolean $root
+   * @param  array $path
+   * @return void
+   */
+  private function lookup_path($node, $root, $path)
+  {
+    assert(!empty ($path));
     
-    $lhs = $this->reduce_expr($node->left);
-    $rhs = $this->reduce_expr($node->right);
+    $scope = $this->scope;
     
-    if (!($this->convert_to_num($lhs) &&
-          $this->convert_to_num($rhs)))
-      return new Value(VAL_KIND_UNDEF);
+    if ($root === true)
+      $scope = $this->sroot;
     
-    $kind = $kinds[(int) ($lhs->kind === VAL_KIND_FLOAT ||
-                          $rhs->kind === VAL_KIND_FLOAT)];
+    $len = count($path);
+    $sym = null;
+    $ref = end($path);
     
-    $data = 0;
-    
-    switch ($node->op) {
-      case '+': $data = $lhs + $rhs; break;
-      case '-': $data = $lhs - $rhs; break;
-      case '*': $data = $lhs * $rhs; break;
-      case T_POW: $data = pow($lhs, $rhs); break;
+    if ($len === 1) 
+      $sym = $scope->get($path[0]);
+    else {
+      $mod = $scope;
       
-      case '/': case '%':
-        if ($rhs == 0) { // "==" intended
-          Logger::warn_at($node->loc, 'division by zero');
+      for ($i = 0, $l = $len - 1; $i < $l; ++$i) {
+        $sub = $mod->mmap->get($path[$i]);
+        
+        if (!$sub) {
+          if ($i > 0)
+            Logger::error_at($node->loc, 'module `%s` has no sub-module `%s`', $mod->id, $path[$i]);
+          else
+            Logger::error_at($node->loc, 'module `%s` not found', $path[$i]);
           
-          // PHP: division by zero yields a boolean false
-          $kind = VAL_KIND_BOOL;
-          $data = false;
-          break;
+          return; 
         }
         
-        // PHP: division always results in a float
-        $kind = VAL_KIND_FLOAT;
-        
-        switch ($node->op) {
-          case '/': $data = $lhs / $rhs; break;
-          case '%': $data = $lhs % $rhs; break;
-          default: assert(0);
-        }
-        
-        break;
-      default: assert(0);
-    }
-    
-    return new Value($kind, $data);
-  }
-  
-  /**
-   * reduces a bitwise operation
-   *
-   * @param  Node $node
-   * @return Value
-   */
-  protected function reduce_bitwise_op($node)
-  {
-    $lhs = $this->reduce_expr($node->left);
-    $rhs = $this->reduce_expr($node->right);
-    
-    if (!($this->convert_to_int($lhs) &&
-          $this->convert_to_int($rhs)))
-      return new Value(VAL_KIND_UNDEF);
-    
-    $data = 0;
-    
-    switch ($node->op) {
-      case '^': $data = $lhs ^ $rhs; break;
-      case '&': $data = $lhs & $rhs; break;
-      case '|': $data = $lhs | $rhs; break;
-      case T_SL: $data = $lhs << $rhs; break;
-      case T_SR: $data = $lhs >> $rhs; break;
-      default: assert(0);
-    }
-    
-    return new Value(VAL_KIND_INT, $data);
-  }
-  
-  /**
-   * reduces a logical operation
-   *
-   * @param  Node $node
-   * @return Value
-   */
-  protected function reduce_logical_op($node)
-  {
-    $lhs = $this->reduce_expr($node->left);
-    $rhs = $this->reduce_expr($node->right);
-    
-    if ($lhs->kind === VAL_KIND_UNDEF ||
-        $rhs->kind === VAL_KIND_UNDEF)
-      return new Value(VAL_KIND_UNDEF);
-    
-    $data = false;
-    
-    switch ($node->op) {
-      case '>': case '<': 
-      case T_GTE:
-      case T_LTE:
-        if (!($this->convert_to_num($lhs) &&
-              $this->convert_to_num($rhs)))
-          return new Value(VAL_KIND_UNDEF);
-        
-        switch ($node->op) {
-          case '>': $data = $lhs > $rhs; break;
-          case '<': $data = $lhs < $rhs; break;
-          case T_GTE: $data = $lhs >= $rhs; break;
-          case T_LTR: $data = $lhs <= $rhs; break;
-          default: assert(0);
-        }
-        
-        break;
+        $mod = $sub;
+      }
       
-      case T_EQ: $data = $lhs === $rhs; break;
-      case T_NEQ: $data = $lhs !== $rhs; break;
-      default: assert(0);
+      $sym = $mod->get($path[$len - 1]);
     }
     
-    return new Value(VAL_KIND_BOOL, $data);
+    // check if symbol exists
+    if ($sym === null)
+      Logger::error_at($node->loc, 'reference to undefined symbol `%s`', $ref);
+    
+    // check access
+    elseif ($this->acc === ACC_READ && $sym->kind === SYM_KIND_VAR && 
+            (!$sym->value || $sym->value->kind === VAL_KIND_NONE))
+      Logger::warn_at($node->loc, 'reading uninitialized value of `%s`', $ref);
+       
+    $node->symbol = $sym;
   }
-  
-  /**
-   * reduces a boolean operation  
-   *
-   * @param  Node $node
-   * @return Value
-   */
-  protected function reduce_boolean_op($node)
-  {
-    $lhs = $node->left->value;
-    $rhs = $node->right->value;
-    
-    if ($lhs->kind === VAL_KIND_UNDEF)
-      return Value::$UNDEF;
-    
-    $data = false;
-    
-    switch ($node->op) {
-      case T_BOOL_AND:
-        if (!$lhs->data) break;
-        
-        if ($rhs->kind === VAL_KIND_UNDEF)
-          return Value::$UNDEF;
-        
-        if (!$rhs->data) break;
-        
-        $data = true;
-        break;
-        
-      case T_BOOL_OR:
-        if ($lhs->data) {
-          $data = true;
-          break;
-        }
-        
-        if ($rhs->kind === VAL_KIND_UNDEF)
-          return Value::$UNDEF;
-        
-        $data = !!$rhs->data;
-        break;
-        
-      case T_BOOL_XOR:
-        if ($rhs->kind === VAL_KIND_UNDEF)
-          return Value::$UNDEF;
-        
-        $lval = (bool)$lhs->data;
-        $rval = (bool)$rhs->data;
-        
-        $data = ($lval && !$rval) || (!$lval && $rval);
-        break;
-        
-      default: assert(0);
-    }
-    
-    return new Value(VAL_KIND_BOOL, $data);          
-  }
-  
-  /**
-   * reduces a string-concat operation
-   *
-   * @param  Node $node
-   * @return Value
-   */
-  protected function reduce_concat_op($node)
-  {
-    $lhs = clone $node->left->value;
-    $rhs = clone $node->right->value;
-    
-    if (!($this->convert_to_str($lhs) &&
-          $this->convert_to_str($rhs)))
-      return Value::$UNDEF;
-    
-    $data = $lhs->data . $rhs->data;
-    return new Value(VAL_KIND_STR, $data);
-  }
-  
-  /* ------------------------------------ */
-  
+}
+
+trait Convert
+{
   /**
    * converts the given value to a string
    *
    * @param  Value  $val
    * @return boolean
    */
-  protected function convert_to_str(Value $val)
+  private function convert_to_str(Value $val)
   {
     if ($val->kind === VAL_KIND_STRING)
       return true;
@@ -283,6 +131,8 @@ class Reducer extends Visitor
       case VAL_KIND_FLOAT:
       case VAL_KIND_BOOL:
       case VAL_KIND_STRING:
+      case VAL_KIND_LIST:
+      case VAL_KIND_DICT:
         $data = (string) $data;
         break;
         
@@ -290,12 +140,11 @@ class Reducer extends Visitor
         $data = ''; 
         break;
       
-      case VAL_KIND_LIST:
-      case VAL_KIND_DICT:
+      case VAL_KIND_TUPLE:
       case VAL_KIND_NEW:
       case VAL_KIND_UNDEF:
-        // TODO
         return false;
+        
       default:
         assert(0);
     }
@@ -312,7 +161,7 @@ class Reducer extends Visitor
    * @param  Value  $val
    * @return boolean
    */
-  protected function convert_to_int(Value $val)
+  private function convert_to_int(Value $val)
   {
     if ($val->kind === VAL_KIND_INT)
       return true;
@@ -324,6 +173,7 @@ class Reducer extends Visitor
       case VAL_KIND_FLOAT:
       case VAL_KIND_BOOL:
       case VAL_KIND_STRING:
+      case VAL_KIND_TUPLE:
         $data = (int) $data;
         break;
         
@@ -332,6 +182,9 @@ class Reducer extends Visitor
         break;
       
       case VAL_KIND_LIST:
+        $data = $data->size() ? 1 : 0;
+        break;
+        
       case VAL_KIND_DICT:
       case VAL_KIND_NEW:
       case VAL_KIND_UNDEF:
@@ -352,7 +205,7 @@ class Reducer extends Visitor
    * @param  Value  $val
    * @return boolean
    */
-  protected function convert_to_float(Value $val)
+  private function convert_to_float(Value $val)
   {
     if ($val->kind === VAL_KIND_FLOAT)
       return true;
@@ -363,6 +216,7 @@ class Reducer extends Visitor
       case VAL_KIND_INT:
       case VAL_KIND_BOOL:
       case VAL_KIND_STRING:
+      case VAL_KIND_TUPLE:
         $data = (float) $data;
         break;
         
@@ -371,6 +225,9 @@ class Reducer extends Visitor
         break;
       
       case VAL_KIND_LIST:
+        $data = $data->size() > 1 ? 1 : 0;
+        break;
+        
       case VAL_KIND_DICT:
       case VAL_KIND_NEW:
       case VAL_KIND_UNDEF:
@@ -391,7 +248,7 @@ class Reducer extends Visitor
    * @param  Value  $val
    * @return boolean
    */
-  protected function convert_to_num(Value $val)
+  private function convert_to_num(Value $val)
   {
     if ($val->kind === VAL_KIND_INT ||
         $val->kind === VAL_KIND_FLOAT)
@@ -406,7 +263,7 @@ class Reducer extends Visitor
    * @param  Value  $val
    * @return boolean
    */
-  protected function convert_to_bool(Value $val)
+  private function convert_to_bool(Value $val)
   {
     if ($val->kind === VAL_KIND_BOOL)
       return true;
@@ -426,9 +283,17 @@ class Reducer extends Visitor
       
       case VAL_KIND_LIST:
       case VAL_KIND_DICT:
+        $data = $data->size() > 0;
+        break;
+      
+      case VAL_KIND_TUPLE:
+        $data = !empty ($data);
+        break;
+        
       case VAL_KIND_NEW:
       case VAL_KIND_UNDEF:
         return false;
+        
       default:
         assert(0);
     }
@@ -438,322 +303,686 @@ class Reducer extends Visitor
     
     return true;
   }
+}
+
+/** expression reduce */
+trait Reduce
+{
+  // mixin lookup-methods
+  use Lookup;
   
-  /* ------------------------------------ */
+  // mixin convert-methods
+  use Convert;
   
   /**
-   * Visitor#visit_name()
+   * reduces a paren_expr
    *
-   * @param  Node $node
-   * @return void
+   * @param Node $node
    */
-  public function visit_name($node)
+  public function reduce_paren_expr($node) 
   {
-    return $this->lookup_name($node);
+    $node->value = $this->lookup_value($node->expr);
   }
   
   /**
-   * Visitor#visit_ident()
+   * reduces a tuple_expr
    *
-   * @param  Node $node
-   * @return void
+   * @param Node $node
    */
-  public function visit_ident($node)
+  public function reduce_tuple_expr($node) 
   {
-    return $this->lookup_path([ ident_to_str($node) ], false);
-  }
-  
-  /**
-   * Visitor#visit_fn_expr()
-   *
-   * @param  Node $node
-   * @return void
-   */
-  public function visit_fn_expr($node) 
-  {
-    // TODO: we can not call a function at compile-time...
-    // this may get changed sometime
-    $this->value = new Value(VAL_KIND_UNDEF);  
-  }
-  
-  /**
-   * Visitor#visit_bin_expr()
-   *
-   * @param  Node $node
-   * @return void
-   */
-  public function visit_bin_expr($node) 
-  {
-    switch ($node->op) {
-      // arithmetic 
-      case '+': case '-': case '*':
-      case '/': case '%': case T_POW:
-        $this->value = $this->reduce_arithmetic_op($node);
-        break;
-      // bitwise
-      case '^': case '&': case '|': 
-      case T_SL: case T_SR:
-        $this->value = $this->reduce_bitwise_op($node);
-        break;
-      // logical
-      case '>': case '<': case T_GTE:
-      case T_LTE: case T_EQ: case T_NEQ:
-        $this->value = $this->reduce_logical_op($node);
-        break;
-      // boolean
-      case T_BOOL_AND:
-      case T_BOOL_OR:
-      case T_BOOL_XOR:
-        $this->value = $this->reduce_boolean_op($node);
-        break;
-      case '~':
-        $this->value = $this->reduce_concat_op($node);
-        break;
-      // in/not-in and range
-      case T_IN:
-      case T_NIN:
-      case T_RANGE:
-        // TODO: implement constant lists/dicts first
-        $this->value = new Value(VAL_KIND_UNDEF);
-        break;
+    if (!$node->seq)
+      $node->value = new Value(VAL_KIND_TUPLE, []);
+    else {
+      $okay = true;
+      $node->value = Value::$UNDEF;
+      
+      foreach ($node->seq as $item)
+        if ($this->lookup_value($item)->kind === VAL_KIND_UNDEF) {
+          $okay = false;
+          break;
+        }
+        
+      if ($okay) {
+        $tupl = [];
+        
+        foreach ($node->seq as $item)
+          $tupl[] = $this->lookup_value($item);
+        
+        $node->value = new Value(VAL_KIND_TUPLE, $tupl);
+      }
     }  
   }
   
   /**
-   * Visitor#visit_check_expr()
+   * reduces a fn_expr
    *
-   * @param  Node $node
-   * @return void
+   * @param Node $node
    */
-  public function visit_check_expr($node) 
-  {
-    $lhs = $this->reduce_expr($node->left);
-    $sym = $this->lookup_name($node->right);
+  public function reduce_fn_expr($n) {}
+  
+  /**
+   * reduces a bin_expr
+   *
+   * @param Node $node
+   */
+  public function reduce_bin_expr($node)
+  {    
+    $lval = $this->lookup_value($node->left);
+    $rval = $this->lookup_value($node->right);
     
-    if (!$sym || $lhs->kind !== VAL_KIND_NEW)
-      $this->value = new Value(VAL_KIND_UNDEF);
+    if ($lval->kind === VAL_KIND_UNDEF ||
+        $rval->kind === VAL_KIND_UNDEF)
+      $node->value = Value::$UNDEF;
     else
-      $this->value = new Value(VAL_KIND_BOOL, $lhs->csym === $sym);
+      switch ($node->op->type) {
+        // arithmetic 
+        case T_PLUS: case T_MINUS: 
+        case T_MUL: case T_DIV: 
+        case T_MOD: case T_POW:
+          $node->value = $this->reduce_arithmetic_op($node, $lval, $rval);
+          break;
+        // bitwise
+        case T_BIT_XOR: case T_BIT_AND: 
+        case T_BIT_OR: 
+        case T_SL: case T_SR:
+          $node->value = $this->reduce_bitwise_op($node, $lval, $rval);
+          break;
+        // logical
+        case T_GT: case T_LT:  case T_GTE:
+        case T_LTE: case T_EQ: case T_NEQ:
+          $node->value = $this->reduce_logical_op($node, $lval, $rval);
+          break;
+        // boolean
+        case T_BOOL_AND: case T_BOOL_OR: 
+        case T_BOOL_XOR:
+          $node->value = $this->reduce_boolean_op($node, $lval, $rval);
+          break;
+        case T_CONCAT:
+          $node->value = $this->reduce_concat_op($node, $lval, $rval);
+          break;
+        // in/not-in and range
+        case T_IN: case T_NIN:
+          $node->value = $this->reduce_in_op($node, $lval, $rval);
+          break;
+        // range
+        case T_RANGE:
+          $node->value = $this->reduce_range_op($node, $lval, $rval);
+          break;
+        default:
+          assert(0);
+      }  
   }
   
   /**
-   * Visitor#visit_cast_expr()
+   * reduces a arithmetic operation
    *
-   * @param  Node $node
-   * @return void
+   * @param  Node  $node
+   * @param  Value $lval
+   * @param  Value $rval
+   * @return Value
    */
-  public function visit_cast_expr($node) 
+  protected function reduce_arithmetic_op($node, $lval, $rval)
   {
-    $lhs = $this->reduce_expr($node->expr);
+    static $kinds = [ VAL_KIND_INT, VAL_KIND_FLOAT ];
     
-    if (!$cty || $lhs->kind === VAL_KIND_UNDEF)
-      goto err;
+    $lval = clone $lval;
+    $rval = clone $rval;
+    
+    $out = Value::$UNDEF;
+    
+    if ($this->convert_to_num($lval) &&
+        $this->convert_to_num($rval)) {
+      $data = 0;
+      $kind = $kinds[(int) ($lval->kind === VAL_KIND_FLOAT ||
+                            $rval->kind === VAL_KIND_FLOAT)];
+      
+      $lhs = $lval->data;
+      $rhs = $rval->data;
+      
+      switch ($node->op->type) {
+        case T_PLUS:  $data = $lhs + $rhs; break;
+        case T_MINUS: $data = $lhs - $rhs; break;
+        case T_MUL:   $data = $lhs * $rhs; break;
+        case T_POW:   $data = pow($lhs, $rhs); break;
         
-    if ($node->type instanceof TypeId) {
-      switch ($lhs->kind) {
-        case VAL_KIND_LIST:
-        case VAL_KIND_DICT:
-        case VAL_KIND_NEW:
-          // not castable at compile-time
-          goto err;
-      }   
-      
-      $vdup = clone $lhs;
-      $stat = false;
-      
-      switch ($node->type->type) {
-        case T_TINT:
-          $stat = $this->convert_to_int($vdup);
-          break;
-        case T_TBOOL:
-          $stat = $this->convert_to_bool($vdup);
-          break;
-        case T_TFLOAT:
-          $stat = $this->convert_to_float($vdup);
-          break;
-        case T_TREGEXP: /* TODO: remove this type? */
-        case T_TSTRING:
-          $stat = $this->convert_to_str($vdup);
+        case T_DIV: 
+        case T_MOD:
+          if ($rhs == 0) { // "==" intended
+            Logger::warn_at($node->loc, 'division by zero');
+            
+            // PHP: division by zero yields a boolean false
+            $kind = VAL_KIND_BOOL;
+            $data = false;
+            break;
+          }
+          
+          // PHP: division always results in a float
+          $kind = VAL_KIND_FLOAT;
+          
+          switch ($node->op) {
+            case T_DIV: $data = $lhs / $rhs; break;
+            case T_MOD: $data = $lhs % $rhs; break;
+            default: assert(0);
+          }
+          
           break;
         default: assert(0);
       }
-      
-      if (!$stat) goto err;
-      
-      $this->value = $vdup;
-      goto out;
-    } 
-      
-    err:
-    $this->value = new Value(VAL_KIND_UNDEF);
     
-    out:
-    return;
+      $out = new Value($kind, $data);
+    }
+    
+    unset ($lval);
+    unset ($rval);
+    return $out;
   }
   
   /**
-   * Visitor#visit_update_expr()
+   * reduces a bitwise operation
    *
-   * @param  Node $node
-   * @return void
+   * @param  Node  $node
+   * @param  Value $lval
+   * @param  Value $rval
+   * @return Value
    */
-  public function visit_update_expr($node) 
+  protected function reduce_bitwise_op($node, $lval, $rval)
   {
-    // throw value away
-    $this->reduce_expr($node->expr);
-    $this->value = new Value(VAL_KIND_UNDEF);
-  }
-  
-  /** 
-   * Visitor#visit_assign_expr()
-   *
-   * @param  Node $node
-   * @return void
-   */
-  public function visit_assign_expr($node) 
-  {
-    if (!($node->left instanceof Name) &&
-        !($node->left instanceof Ident) &&
-        !($node->left instanceof MemberExpr)) {
-      Logger::error_at($node->left->loc, 'invalid assigment left-hand-side');
-      $this->value = new Value(VAL_KIND_UNDEF);
-    } else
-      $this->reduce_assign_op($node);
-  }
-  
-  /**
-   * Visitor#visit_member_expr()
-   *
-   * @param  Node $node
-   * @return void
-   */
-  public function visit_member_expr($node) 
-  {
-    $this->reduce_expr($node->obj);
+    $lval = clone $lval;
+    $rval = clone $rval;
     
-    if ($node->computed)
-      $this->reduce_expr($node->member);
+    $out = Value::$UNDEF;
     
-    // TODO: implement constant dicts
-    $this->value = new Value(VAL_KIND_UNDEF);  
+    if ($this->convert_to_int($lval) &&
+        $this->convert_to_int($rval)) {
+      $data = 0;
+    
+      $lhs = $lval->data;
+      $rhs = $rval->data;
+      
+      switch ($node->op->type) {
+        case T_BIT_XOR: $data = $lhs ^ $rhs; break;
+        case T_BIT_AND: $data = $lhs & $rhs; break;
+        case T_BIT_OR:  $data = $lhs | $rhs; break;
+        case T_SL:      $data = $lhs << $rhs; break;
+        case T_SR:      $data = $lhs >> $rhs; break;
+        default: assert(0);
+      }
+      
+      $out = new Value(VAL_KIND_INT, $data);
+    }
+    
+    unset ($lval);
+    unset ($rval);
+    return $out;
   }
   
   /**
-   * Visitor#visit_cond_expr()
+   * reduces a logical operation
    *
-   * @param  Node $node
-   * @return void
+   * @param  Node  $node
+   * @param  Value $lval
+   * @param  Value $rval
+   * @return Value
    */
-  public function visit_cond_expr($node) 
+  protected function reduce_logical_op($node, $lval, $rval)
   {
-    $test = $this->reduce_expr($node->test);
+    $data = false;
     
-    if ($test->kind === VAL_KIND_UNDEF)
-      $this->value = new Value(VAL_KIND_UNDEF);
+    $lhs = $lval->data;
+    $rhs = $rval->data;
+    
+    switch ($node->op->type) {
+      case T_GT: case T_LT: 
+      case T_GTE: case T_LTE:
+        $lval = clone $lval;
+        $rval = clone $rval;
+        
+        $out = Value::$UNDEF;
+        
+        if ($this->convert_to_num($lval) &&
+            $this->convert_to_num($rval)) {
+          $lhs = $lval->data;
+          $rhs = $rval->data;
+          
+          switch ($node->op) {
+            case T_GT:  $data = $lhs > $rhs; break;
+            case T_LT:  $data = $lhs < $rhs; break;
+            case T_GTE: $data = $lhs >= $rhs; break;
+            case T_LTR: $data = $lhs <= $rhs; break;
+            default: assert(0);
+          }
+          
+          $out = new Value(VAL_KIND_BOOL, $data);
+        }
+        
+        unset ($lval);
+        unset ($rval);
+        return $out;
+      
+      case T_EQ:  $data = $lhs === $rhs; break;
+      case T_NEQ: $data = $lhs !== $rhs; break;
+      default: assert(0);
+    }
+    
+    return new Value(VAL_KIND_BOOL, $data);
+  }
+  
+  /**
+   * reduces a boolean operation  
+   *
+   * @param  Node  $node
+   * @param  Value $lval
+   * @param  Value $rval
+   * @return Value
+   */
+  protected function reduce_boolean_op($node, $lval, $rval)
+  {
+    $lval = clone $lval;
+    $rval = clone $rval;
+    
+    $out = Value::$UNDEF;
+    
+    if ($this->convert_to_bool($lval) &&
+        $this->convert_to_bool($rval)) {
+      $lhs = $lval->data;
+      $rhs = $rval->data;
+      $data = false;
+      
+      switch ($node->op->type) {
+        case T_BOOL_AND: $data = $lhs && $rhs; break;
+        case T_BOOL_OR:  $data = $lhs || $rhs; break;
+          
+        case T_BOOL_XOR:        
+          $data = ($lhs && !$rhs) || (!$lhs && $rhs);
+          break;
+          
+        default: assert(0);
+      }
+      
+      $out = new Value(VAL_KIND_BOOL, $data);      
+    }  
+    
+    unset ($lval);
+    unset ($rval);
+    return $out;
+  }
+  
+  /**
+   * reduces a string-concat operation
+   *
+   * @param  Node  $node
+   * @param  Value $lval
+   * @param  Value $rval
+   * @return Value
+   */
+  protected function reduce_concat_op($node, $lval, $rval)
+  {
+    $lval = clone $lval;
+    $rval = clone $rval;
+    
+    $out = Value::$UNDEF;
+    
+    if ($this->convert_to_str($lval) &&
+        $this->convert_to_str($rval))
+      $out = new Value(VAL_KIND_STR, $lval->data . $rval->data);
+    
+    unset ($lval);
+    unset ($rval);
+    return $out;
+  } 
+  
+  /**
+   * reduces a check_expr
+   *
+   * @param Node $node
+   */
+  public function reduce_check_expr($n) {}
+  
+  /**
+   * reduces a cast_expr
+   *
+   * @param Node $node
+   */
+  public function reduce_cast_expr($n) {}
+  
+  /**
+   * reduces a update_expr
+   *
+   * @param Node $node
+   */
+  public function reduce_update_expr($n) {}
+  
+  /**
+   * reduces a assign_expr
+   *
+   * @param Node $node
+   */
+  public function reduce_assign_expr($n) {}
+  
+  /**
+   * reduces a member_expr
+   *
+   * @param Node $node
+   */
+  public function reduce_member_expr($n) {}
+  
+  /**
+   * reduces a offset_expr
+   *
+   * @param Node $node
+   */
+  public function reduce_offset_expr($node) 
+  {
+    $obj = $this->lookup_value($node->object);
+    $off = $this->lookup_value($node->offset);
+    
+    if ($obj->kind === VAL_KIND_UNDEF ||
+        $off->kind === VAL_KIND_UNDEF)
+      $node->value = Value::$UNDEF;
+    else
+      // check object
+      if ($obj->kind !== VAL_KIND_LIST &&
+          $obj->kind !== VAL_KIND_TUPLE &&
+          $obj->kind !== VAL_KIND_STR) {
+        Logger::error_at($node->object->loc, 'illegal offset left-hand-side');
+        $node->value = Value::$UNDEF;
+        
+      // check offset
+      } elseif ($off->kind !== VAL_KIND_INT) {
+        Logger::error_at($node->offset->loc, 'illegal offset type');
+        $node->value = Value::$UNDEF;
+      
+      // reduce
+      } else 
+        $node->value = $obj->data[$off->data];  
+  }
+  
+  /**
+   * reduces a cond_expr
+   *
+   * @param Node $node
+   */
+  public function reduce_cond_expr($n) {}
+  
+  /**
+   * reduces a call_expr
+   *
+   * @param Node $node
+   */
+  public function reduce_call_expr($n) {}
+  
+  /**
+   * reduces a yield_expr
+   *
+   * @param Node $node
+   */
+  public function reduce_yield_expr($n) {}
+  
+  /**
+   * reduces a unary_expr
+   *
+   * @param Node $node
+   */
+  public function reduce_unary_expr($n) {}
+  
+  /**
+   * reduces a new_expr
+   *
+   * @param Node $node
+   */
+  public function reduce_new_expr($n) {}
+  
+  /**
+   * reduces a del_expr
+   *
+   * @param Node $node
+   */
+  public function reduce_del_expr($node) 
+  {
+    // unset() in PHP does not return anything (not a expression)
+    // (unset)$foo returns NULL ...
+    // we return <nothing> here
+    $node->value = Value::$NONE;
+  }
+  
+  /**
+   * reduces a lnum_lit
+   *
+   * @param Node $node
+   */
+  public function reduce_lnum_lit($node) 
+  {
+    $node->value = new Value(VAL_KIND_INT, $node->data);
+  }
+  
+  /**
+   * reduces a dnum_lit
+   *
+   * @param Node $node
+   */
+  public function reduce_dnum_lit($node) 
+  {
+    $node->value = new Value(VAL_KIND_FLOAT, $node->data);
+  }
+  
+  /**
+   * reduces a snum_lit
+   *
+   * @param Node $node
+   */
+  public function reduce_snum_lit($n) {}
+  
+  /**
+   * reduces a regexp_lit
+   *
+   * @param Node $node
+   */
+  public function reduce_regexp_lit($n) {}
+  
+  /**
+   * reduces a arr_gen
+   *
+   * @param Node $node
+   */
+  public function reduce_arr_gen($node) 
+  {
+    $node->value = Value::$UNDEF;
+  }
+  
+  /**
+   * reduces a arr_lit
+   *
+   * @param Node $node
+   */
+  public function reduce_arr_lit($node) 
+  {
+    if (!$node->items)
+      $node->value = new Value(VAL_KIND_LIST, new BuiltInList);
     else {
-      // TODO: node should be replaced then!
+      $okay = true;
+      $node->value = Value::$UNDEF;
       
-      $this->convert_to_bool($test);
+      foreach ($node->items as $item)
+        if ($this->lookup_value($item)->kind === VAL_KIND_UNDEF) {
+          $okay = false;
+          break;
+        }
+        
+      if ($okay) {
+        $list = new BuiltInList;
+        
+        foreach ($node->items as $item)
+          $list[] = $this->lookup_value($item);
+        
+        $node->value = new Value(VAL_KIND_LIST, $list);
+      }
+    }  
+  }
+  
+  /**
+   * reduces a obj_lit
+   *
+   * @param Node $node
+   */
+  public function reduce_obj_lit($n) {}
+  
+  /**
+   * reduces a name
+   *
+   * @param Node $node
+   */
+  public function reduce_name($node) 
+  {
+    $this->lookup_name($node);
+  }
+  
+  /**
+   * reduces a ident
+   *
+   * @param Node $node
+   */
+  public function reduce_ident($node) 
+  {
+    $this->lookup_ident($node);
+  }
+  
+  /**
+   * reduces a this_expr
+   *
+   * @param Node $node
+   */
+  public function reduce_this_expr($n) {}
+  
+  /**
+   * reduces a super_expr
+   *
+   * @param Node $node
+   */
+  public function reduce_super_expr($n) {}
+  
+  /**
+   * reduces a null_lit
+   *
+   * @param Node $node
+   */
+  public function reduce_null_lit($node) 
+  {
+    $node->value = new Value(VAL_KIND_NULL);
+  }
+  
+  /**
+   * reduces a true_lit
+   *
+   * @param Node $node
+   */
+  public function reduce_true_lit($node) 
+  {
+    $node->value = new Value(VAL_KIND_BOOL, true);
+  }
+  
+  /**
+   * reduces a false_lit
+   *
+   * @param Node $node
+   */
+  public function reduce_false_lit($node) 
+  {
+    $node->value = new Value(VAL_KIND_BOOL, false);
+  }
+  
+  /**
+   * reduces a engine_const
+   *
+   * @param Node $node
+   */
+  public function reduce_engine_const($n) {}
+  
+  /**
+   * reduces a str_lit
+   *
+   * @param Node $node
+   */
+  public function reduce_str_lit($node) 
+  {
+    if (empty ($node->parts)) {
+      $out = new Value(VAL_KIND_STR, $node->data);
+      goto out;
+    }
+    
+    $hcf = $node->flag === 'c';
+    $lst = [ $node->data ];
+    $lhs = 0;
+    
+    $out = Value::$UNDEF;
+    $okay = true;
+    $part = null;
+    
+    foreach ($node->parts as $idx => &$part) {
+      if ($idx & 1) {
+        if ($lhs === -1) {
+          $lhs = array_push($lst, $part->data) - 1;
+          continue;
+        }
+        
+        $lst[$lhs] .= $part->data;
+        $part = null;
+        continue;
+      }
       
-      if ($test->data === true) 
-        $this->value = $this->reduce_expr($node->then);
-      else
-        $this->value = $this->reduce_expr($node->els);
-    }
-  }
-  
-  /**
-   * Visitor#visit_call_expr()
-   *
-   * @param  Node $n
-   * @return void
-   */
-  public function visit_call_expr($node) 
-  {
-    // calls are not possible during compile
-    $this->value = new Value(VAL_KIND_UNDEF);  
-  }
-  
-  /**
-   * Visitor#visit_yield_expr()
-   *
-   * @param  Node $node
-   * @return void
-   */
-  public function visit_yield_expr($node) 
-  {
-    // yield is runtime-only
-    $this->value = new Value(VAL_KIND_UNDEF);  
-  }
-  
-  /**
-   * Visitor#visit_unary_expr()
-   *
-   * @param  Node $node
-   * @return void
-   */
-  public function visit_unary_expr($node) 
-  {
-    $rhs = $this->reduce_expr($node->expr);
-    
-    if ($rhs->kind === VAL_KIND_UNDEF)
-      goto err;
-    
-    $rdup = clone $rhs;
-    $stat = false;
-    
-    switch ($node->op) {
-      case '-':
-      case '+':
-        $stat = $this->convert_to_num($rdup);
-        break;
-      case '~':
-        $stat = $this->convert_to_int($rdup);
-        break;
-      case '!':
-        $stat = $this->convert_to_bool($rdup);
-        break;
-      default: assert(0);
-    } 
-    
-    if (!$stat) goto err;
-    
-    $data = $rdup->data;
-    
-    switch ($node->op) {
-      case '-': $data = -$data; break;
-      case '+': $data = +$data; break;
-      case '~': $data = ~$data; break;
-      case '!': $data = !$data; break;
-      default: assert(0);
+      $val = $this->lookup_value($part);
+      
+      if ($val->kind === VAL_KIND_UNDEF)
+        goto nxt;
+      
+      $val = clone $val;
+        
+      if ($this->convert_to_str($val)) {
+        $lst[$lhs] .= $rhs->data;
+        unset ($val);
+        continue;
+      }
+        
+      unset ($val);
+      
+      nxt:
+      if ($hcf) goto err;
+      
+      array_push($lst, $part);
+      $lhs = -1;
     }
     
-    $rdup->data = $data;
-    $this->value = $rdup;
+    $node->data = array_shift($lst);
+    $node->parts = $lst;
+      
+    if (empty ($node->parts)) {
+      $node->parts = null;
+      $out = new Value(VAL_KIND_STR, $node->data);
+    }
     
     goto out;
     
     err:
-    $this->value = new Value(VAL_KIND_UNDEF);
+    Logger::error_at($part->loc, 'constant string-substitution must be convertable to a string value');
     
     out:
-    return;
+    $node->value = $out;
   }
   
-  public function visit_new_expr($n) {}
-  public function visit_del_expr($n) {}
-  public function visit_lnum_lit($n) {}
-  public function visit_dnum_lit($n) {}
-  public function visit_snum_lit($n) {}
-  public function visit_regexp_lit($n) {}
-  public function visit_arr_lit($n) {}
-  public function visit_obj_lit($n) {}
-  public function visit_this_expr($n) {}
-  public function visit_super_expr($n) {}
-  public function visit_null_lit($n) {}
-  public function visit_true_lit($n) {}
-  public function visit_false_lit($n) {}
-  public function visit_engine_const($n) {}
-  public function visit_str_lit($n) {}
-  public function visit_type_id($n) {}
+  /**
+   * reduces a kstr_lit
+   *
+   * @param Node $node
+   */
+  public function reduce_kstr_lit($node) 
+  {
+    $node->value = new Value(VAL_KIND_STR, $node->data);
+  }
+  
+  /**
+   * reduces a type_id
+   *
+   * @param Node $node
+   */
+  public function reduce_type_id($n) {} 
 }
