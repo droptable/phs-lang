@@ -788,17 +788,22 @@ class Lexer
     
     $tok = null;
     
-    if (preg_match($re_dnum, $sub))
+    if (preg_match($re_base, $sub)) {
+      $prf = substr($sub, 0, 2);
+      if ($prf === '0x' || $prf === '0X')
+        $num = hexdec(substr($sub, 2));
+      else
+        $num = bindec(substr($sub, 2));
+      $tok = $this->token(T_LNUM, $num);
+      $tok->suffix = null;
+    } elseif (preg_match($re_dnum, $sub)) {
       // double
       $tok = $this->token(T_DNUM, $sub);
-    else if (preg_match($re_lnum, $sub, $m)) {
+    } elseif (preg_match($re_lnum, $sub, $m)) {
       // integer (with optional suffix)
       $tid = !empty($m[2]) ? T_SNUM : T_LNUM; 
       $tok = $this->token($tid, $m[1]);
       $tok->suffix = $tid === T_SNUM ? $m[2] : null;
-    } elseif (preg_match($re_base, $sub)) {
-      $tok = $this->token(T_LNUM, $sub);
-      $tok->suffix = null;
     } elseif (preg_match($re_aref, $sub)) {
       // LALR generator would be able to handle <left '=' '&' right> in the grammar.
       // this little "hack" reduces the parser-table sizes a bit

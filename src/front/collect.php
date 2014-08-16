@@ -56,17 +56,18 @@ class UnitCollector extends Visitor
   /**
    * collect type-symbols from a node/node-list
    * 
-   * @param  Node|array $some
-   * @param  Scope $scope
+   * @param  Unit $unit
    */
-  public function collect(UnitScope $scope, Unit $unit)
+  public function collect(Unit $unit)
   {
-    $this->scope = $scope;
+    $this->scope = new UnitScope($unit);
     $this->sroot = $this->scope;
     
+    $this->scope->enter();
     $this->visit($unit);
+    $this->scope->leave();
     
-    return $this->scope;
+    $unit->scope = $this->scope;
   }
   
   /* ------------------------------------ */
@@ -124,12 +125,12 @@ class UnitCollector extends Visitor
       // switch to global scope
       $this->scope = $this->sroot;
     
-    // save scope-information on the ast-node.
-    // TODO: remove scope-ref from ast!
     $node->scope = $this->scope;
     
     // walk module-body
+    $this->scope->enter();
     $this->visit($node->body);
+    $this->scope->leave();
     $this->scope = $prev;
   }
   
@@ -252,7 +253,9 @@ abstract class MemberCollector extends Visitor
   {
     $this->scope = new MemberScope($prev);
     
+    $this->scope->enter();
     $this->visit($decl->members);
+    $this->scope->leave();
     
     return $this->scope;
   }

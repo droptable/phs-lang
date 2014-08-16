@@ -12,9 +12,15 @@ use phs\front\ast\Expr;
 use phs\front\ast\Name;
 use phs\front\ast\Ident;
 
+use phs\lang\BuiltInList;
+use phs\lang\BuiltInDict;
+
 /** lookup trait */
 trait Lookup
 {
+  abstract public function get_scope();
+  abstract public function get_sroot();
+  
   /**
    * lookup a value from a expression or symbol
    *
@@ -39,9 +45,9 @@ trait Lookup
    * @param  Node $node
    * @return void
    */
-  private function lookup_name($node)
+  private function lookup_name($node, $acc)
   {
-    $this->lookup_path($node, $node->root, name_to_arr($node));
+    $this->lookup_path($node, $acc, $node->root, name_to_arr($node));
   }
   
   /**
@@ -50,9 +56,9 @@ trait Lookup
    * @param  Node $node
    * @return void
    */
-  private function lookup_ident($node)
+  private function lookup_ident($node, $acc)
   {
-    $this->lookup_path($node, false, [ ident_to_str($node) ]);
+    $this->lookup_path($node, $acc, false, [ ident_to_str($node) ]);
   }
   
   /**
@@ -63,21 +69,21 @@ trait Lookup
    * @param  array $path
    * @return void
    */
-  private function lookup_path($node, $root, $path)
+  private function lookup_path($node, $acc, $root, $path)
   {
     assert(!empty ($path));
-    
-    $scope = $this->scope;
-    
+        
     if ($root === true)
-      $scope = $this->sroot;
+      $scope = $this->get_sroot();
+    else
+      $scope = $this->get_scope();
     
     $len = count($path);
     $sym = null;
-    $ref = end($path);
+    $ref = implode('::', $path);
     
     if ($len === 1) 
-      $sym = $scope->get($path[0]);
+      $sym = $scope->get($node, $path[0]);
     else {
       $mod = $scope;
       
@@ -103,9 +109,13 @@ trait Lookup
     if ($sym === null)
       Logger::error_at($node->loc, 'reference to undefined symbol `%s`', $ref);
     
+    // check if we triggered the "private symbol" trap
+    elseif ($sym->kind === PRIVATE_TRAP)
+      Logger::error_at($node->loc, 'access to private symbol `%s` from invalid context', $ref);
+    
     // check access
-    elseif ($this->acc === ACC_READ && $sym->kind === SYM_KIND_VAR && 
-            (!$sym->value || $sym->value->kind === VAL_KIND_NONE))
+    elseif ($acc === ACC_READ && $sym->kind === SYM_KIND_VAR &&
+            (!$sym->value || $sym->value->kind  === VAL_KIND_NONE))
       Logger::warn_at($node->loc, 'reading uninitialized value of `%s`', $ref);
        
     $node->symbol = $sym;
@@ -133,6 +143,7 @@ trait Convert
       case VAL_KIND_STRING:
       case VAL_KIND_LIST:
       case VAL_KIND_DICT:
+      case VAL_KIND_INT:
         $data = (string) $data;
         break;
         
@@ -831,20 +842,22 @@ trait Reduce
    * reduces a name
    *
    * @param Node $node
+   * @param int  $acc
    */
-  public function reduce_name($node) 
+  public function reduce_name($node, $acc) 
   {
-    $this->lookup_name($node);
+    $this->lookup_name($node, $acc);
   }
   
   /**
    * reduces a ident
    *
    * @param Node $node
+   * @param int  $acc
    */
-  public function reduce_ident($node) 
+  public function reduce_ident($node, $acc) 
   {
-    $this->lookup_ident($node);
+    $this->lookup_ident($node, $acc);
   }
   
   /**
@@ -938,7 +951,7 @@ trait Reduce
       $val = clone $val;
         
       if ($this->convert_to_str($val)) {
-        $lst[$lhs] .= $rhs->data;
+        $lst[$lhs] .= $val->data;
         unset ($val);
         continue;
       }

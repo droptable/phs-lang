@@ -7,6 +7,7 @@ require_once 'visitor.php';
 require_once 'symbols.php';
 require_once 'values.php';
 require_once 'scope.php';
+require_once 'branch.php';
 require_once 'reduce.php';
 
 use phs\Logger;
@@ -54,9 +55,6 @@ class UnitResolver extends Visitor
   
   // @var Scope
   private $sroot;
-  
-  // @var Reducer
-  private $redc;
     
   // @var int
   private $acc = ACC_READ;
@@ -75,16 +73,39 @@ class UnitResolver extends Visitor
   /**
    * resolver
    *
-   * @param  UnitScope $scope
    * @param  Unit      $unit 
    * @return void
    */
-  public function resolve(UnitScope $scope, Unit $unit)
+  public function resolve(Unit $unit)
   {
-    $this->scope = new UnitBranch($scope);
+    $this->scope = new UnitBranch($unit->scope);
     $this->sroot = $this->scope;
     
+    $this->scope->enter();
     $this->visit($unit);
+    $this->scope->leave();
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * used to decouple properties in traits
+   *
+   * @return Scope
+   */
+  public function get_scope()
+  {
+    return $this->scope;
+  }
+  
+  /**
+   * used to decouple properties in traits
+   *
+   * @return Scope
+   */
+  public function get_sroot()
+  {
+    return $this->sroot;
   }
   
   /* ------------------------------------ */
@@ -98,9 +119,20 @@ class UnitResolver extends Visitor
   public function visit_module($node) 
   { 
     $prev = $this->scope;
+    
+    if ($this->scope instanceof ModuleBranch)
+      // leave previous module-scope
+      $this->scope->leave();
+    
     $this->scope = new ModuleBranch($node->scope);
+    $this->scope->enter();
     $this->visit($node->body);
+    $this->scope->leave();
     $this->scope = $prev;
+    
+    if ($this->scope instanceof ModuleBranch)
+      // re-enter previous module-scope
+      $this->scope->enter();
   }
    
   /**
@@ -111,13 +143,12 @@ class UnitResolver extends Visitor
    */
   public function visit_block($node) 
   { 
-    // block gets a own scope for functions and enums
-    if (!$node->scope)
-      $node->scope = new Scope($this->scope);
-    
+    $node->scope = new Scope($this->scope);
     $prev = $this->scope;
     $this->scope = new Branch($node->scope);
+    $this->scope->enter();
     $this->visit($node->body);
+    $this->scope->leave();
     $this->scope = $prev;
   }
   
@@ -209,12 +240,12 @@ class UnitResolver extends Visitor
    */
   public function visit_fn_decl($node) 
   {
-    if (!$node->scope)
-      $node->scope = new Scope($this->scope);
-    
+    $node->scope = new Scope($this->scope);
     $prev = $this->scope;
     $this->scope = new Branch($node->scope);
+    $this->scope->enter();
     $this->visit($node->body);
+    $this->scope->leave();
     $this->scope = $prev;
   }
   
@@ -876,7 +907,7 @@ class UnitResolver extends Visitor
    */
   public function visit_name($node) 
   {
-    $this->reduce_name($node); 
+    $this->reduce_name($node, $this->acc); 
   }
   
   /**
@@ -887,7 +918,7 @@ class UnitResolver extends Visitor
    */
   public function visit_ident($node) 
   {
-    $this->reduce_ident($node);  
+    $this->reduce_ident($node, $this->acc);  
   }
   
   /**

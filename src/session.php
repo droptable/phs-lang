@@ -180,19 +180,15 @@ class Session
         
     // parse all sources
     while ($src = $this->queue->shift()) {
-      $tree = $this->parse($src);
+      $unit = $this->parse($src);
       
-      if ($tree) {
-        $unit = $anl->analyze($tree);
-        
-        if ($unit) {
-          $this->units->add($unit);
+      if ($unit && $anl->analyze($unit)) {
+        $this->units->add($unit);
           
-          echo "\n";
-          $unit->dump('');
-          echo "\n\n";
-          echo $fmt->format($tree);
-        }
+        echo "\n";
+        $unit->scope->dump('');
+        echo "\n\n";
+        echo $fmt->format($unit);
       }
       
       // ignore result and continue parsing to 

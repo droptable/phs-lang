@@ -15,6 +15,9 @@ use phs\util\Entry;
 use phs\front\ast\Node;
 use phs\front\ast\Unit;
 
+// magic number ... gets returned if a requested symbol was "private"
+const PRIVATE_TRAP = 0x42;
+
 /** scope */
 class Scope extends SymbolMap
 {
@@ -51,8 +54,21 @@ class Scope extends SymbolMap
     $this->uid = self::$uidcnt++;
     $this->capt = new SymbolSet;
     $this->prev = $prev;
-    $this->root = $prev === null; // <- no parent scope
   }
+  
+  /**
+   * gets called if this scope is the current scope
+   *
+   * @return void
+   */
+  public function enter() {}
+  
+  /**
+   * gets called if this scope is no longer the current scope
+   *
+   * @return void
+   */
+  public function leave() {}
   
   /**
    * returns a symbol
@@ -84,7 +100,6 @@ class Scope extends SymbolMap
    */
   public function add(Symbol $sym)
   {
-    Logger::debug_at($sym->loc, 'adding symbol "%s"', $sym->id);
     $prv = $this->get($sym->id, $sym->ns);
     
     if ($prv !== null) {
@@ -161,16 +176,98 @@ class Scope extends SymbolMap
   }
 }
 
-/** root-scope: common class for scopes with (sub-)modules and/or usage */
+/** root-scope: common class for scopes 
+    with (sub-)modules and/or private symbols */
 abstract class RootScope extends Scope
 {
   // @var ModuleMap (sub-)modules
   public $mmap;
   
+  // @var Scope inner scope (for private symbols)
+  public $inner;
+  
+  // @var boolean  whenever this scope is active
+  public $active = false;
+  
+  // @var Symbol  private trap
+  public /* const */ static $trap;
+  
+  /**
+   * constructor
+   *
+   * @param Scope $prev
+   */
   public function __construct(Scope $prev = null)
   {
     parent::__construct($prev);
     $this->mmap = new ModuleMap;
+    $this->inner = new Scope;
+  }
+  
+  /**
+   * "enter" scope
+   *
+   * @return void
+   */
+  public function enter()
+  {
+    $this->active = true;
+  }
+  
+  /**
+   * "leave" scope
+   *
+   * @return void
+   */
+  public function leave()
+  {
+    $this->active = false;
+  }
+  
+  /**
+   * @see Scope#get()
+   * @param  string  $id
+   * @param  integer $ns
+   * @return Symbol
+   */
+  public function get($id, $ns = -1)
+  {
+    // try public scope first
+    $sym = parent::get($id, $ns);
+    
+    if (!$sym) {
+      // try private scope
+      if ($this->active)
+        $sym = $this->inner->get($id, $ns);
+      
+      // return "trap" if symbol is private but 
+      // this scope is not active
+      elseif ($this->inner->has($id, $ns))
+        $sym = self::$trap;
+    }
+  
+    return $sym;
+  }
+  
+  /**
+   * @see Scope#add()
+   * @param Symbol $sym
+   */
+  public function add(Symbol $sym)
+  {
+    // TODO: this is pretty inefficient
+    
+    if (parent::add($sym)) {
+      if ($sym->flags & SYM_FLAG_PRIVATE) {
+        // move it to the inner scope
+        $this->delete($sym->id, $sym->ns);
+        return $this->inner->add($sym);
+      }
+      
+      return true;
+    }
+    
+    return false;
   }
   
   /* ------------------------------------ */
@@ -189,9 +286,26 @@ abstract class RootScope extends Scope
       $mod->dump($tab . '  ');
     
     // symbols
+    $this->inner->dump($tab);
     parent::dump($tab);
   }
 }
+
+/** used to "trap" access to private symbol from an invalid context */
+class _PrivateSymbol extends Symbol
+{
+  public $kind = PRIVATE_TRAP;
+  
+  /**
+   * does not initialize the symbol.
+   * $id, $loc, $node ... are undefined
+   *
+   */
+  public function __construct() {}  
+}
+
+// store it
+RootScope::$trap = new _PrivateSymbol;
 
 /** unit scope */
 class UnitScope extends RootScope
@@ -329,7 +443,8 @@ class ModuleScopeMap extends Map
   }
 }
 
-class_alias(__NAMESPACE__ . '\\ModuleScopeMap', __NAMESPACE__ . '\\ModuleMap');
+class_alias(__NAMESPACE__ . '\\ModuleScopeMap', 
+            __NAMESPACE__ . '\\ModuleMap');
 
 /** member scope */
 class MemberScope extends Scope
@@ -343,110 +458,5 @@ class MemberScope extends Scope
   {
     parent::__construct($prev);
     $this->sealed = true;
-  }
-}
-
-/* ------------------------------------ */
-
-/** branch scope */
-class Branch extends Scope
-{
-  // @var Scope original scope
-  public $orig;
-  
-  /**
-   * constructor
-   *
-   * @param Scope $orig
-   */
-  public function __construct(Scope $orig)
-  {
-    parent::__construct(null);
-    $this->orig = $orig;
-  }
-  
-  /**
-   * fetch a symbol
-   *
-   * @param  string  $key
-   * @param  integer $ns 
-   * @return Symbol
-   */
-  public function get($key, $ns = -1)
-  {
-    $sym = parent::get($key, $ns);
-    
-    if (!$sym) {
-      // move symbol from orig scope to branch
-      $sym = $this->orig->get($key, $ns);
-      
-      if (!$sym) return null;
-      
-      $sym = clone $sym;
-      $this->put($sym);
-    }
-    
-    return $sym;
-  }
-}
-
-abstract class RootBranch extends Branch
-{
-  // @var ModuleMap (sub-)modules reference
-  public $mmap;
-  
-  public function __construct(RootScope $orig)
-  {
-    parent::__construct($orig);
-    $this->mmap = &$orig->mmap;
-  }
-}
-
-class UnitBranch extends RootBranch
-{  
-  // @var Unit  the unit reference
-  public $unit;
-  
-  // @var string  file-path reference
-  public $file;
-  
-  /**
-   * constructor
-   *    
-   */
-  public function __construct(UnitScope $orig)
-  {
-    parent::__construct($orig);
-    $this->unit = &$orig->unit;
-    $this->file = &$orig->file;
-  }
-}
-
-/** module scope */
-class ModuleBranch extends RootScope
-{
-  // @var string  module-id reference
-  public $id;
-  
-  /**
-   * constructor
-   * 
-   * @param string    $id 
-   * @param RootScope $prev
-   */
-  public function __construct(RootScope $orig)
-  {
-    parent::__construct($orig);
-    $this->id = &$orig->id;
-  }
-  
-  /**
-   * delegates to the original module
-   * 
-   * @return array
-   */
-  public function path()
-  {
-    return $this->orig->path();
   }
 }

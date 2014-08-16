@@ -57,9 +57,7 @@ class Analyzer
   {    
     // 1. desugar unit
     $this->desugar_unit($unit);
-    
-    $this->scope = new UnitScope($unit);
-     
+         
     // 2. collect classes, interfaces and traits
     // 3. collect functions
     // 4. collect class, interface and trait-members
@@ -76,7 +74,7 @@ class Analyzer
       goto err;
     
     // 7. validate
-    $this->validate_unit($unit);
+    #$this->validate_unit($unit);
     
     // 8. collect variables / branches
     // TODO:
@@ -84,13 +82,15 @@ class Analyzer
     if ($this->sess->aborted)
       goto err;
     
-    out:
-    return $this->scope;
+    goto out;
     
     err:
-    unset ($this->scope);
+    unset ($unit->scope);
     gc_collect_cycles();
-    return null;
+    return false;
+    
+    out:
+    return true;
   }
   
   protected function validate_unit(Unit $unit)
@@ -120,7 +120,7 @@ class Analyzer
   protected function collect_unit(Unit $unit)
   {
     $ucol = new UnitCollector($this->sess);
-    $ucol->collect($this->scope, $unit);
+    $ucol->collect($unit);
   }
   
   /**
@@ -132,7 +132,7 @@ class Analyzer
   protected function resolve_unit(Unit $unit)
   {
     $ures = new UnitResolver($this->sess);
-    $ures->resolve($this->scope, $unit);
+    $ures->resolve($unit);
   }
   
   /**
