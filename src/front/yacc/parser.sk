@@ -32,6 +32,7 @@ require_once 'lexer.php';
 
 use phs\Logger;
 use phs\Source;
+use phs\Session;
 
 use phs\front\ast;
 use phs\front\ast\Node;
@@ -50,6 +51,9 @@ class #(-p)
   const YYINTERRTOK  = #(YYINTERRTOK);
   const YYUNEXPECTED = #(YYUNEXPECTED);
   const YYDEFAULT    = #(YYDEFAULT);
+  
+  // @var Session
+  private $sess;
 
   /* @var array Map of token ids to their respective names */
   private static $terminals = [
@@ -108,6 +112,18 @@ class #(-p)
   ];
 #endif
     
+  private static $yytokformat = [
+    'T_IDENT' => 'identifier',
+    'T_LNUM' => 'integer',
+    'T_DNUM' => 'floating-point number',
+    'T_SNUM' => 'number with suffix',
+    'T_STRING' => 'string',
+    'T_REGEXP' => 'regular expression',
+    'T_TRUE' => '`true`',
+    'T_FALSE' => '`false`',
+    'T_NULL' => '`null`'
+  ];
+    
   private $yyval;
   private $yyastk;
   private $yysstk;
@@ -118,8 +134,19 @@ class #(-p)
   private $lex;
   private $invalid = false;
   
-  // current directory and filename
-  private $cdir, $cfile;
+  // current directory, filename and line
+  private $cdir;
+  private $cfile;
+  
+  /**
+   * constructor
+   *
+   * @param Session $sess
+   */
+  public function __construct(Session $sess)
+  {
+    $this->sess = $sess;
+  }
   
   /**
    * returns the current location (last scanned token)
@@ -179,6 +206,49 @@ class #(-p)
   }
   
   /**
+   * reports an error
+   *
+   * @param  Location $loc
+   * @param  string   $tok  error token
+   * @param  int   $num  number of expected tokens
+   * @param  array   $arr expected tokens
+   */
+  private function report_error(Location $loc, $tok, $num, $arr) 
+  {
+    $fmt = 'unexpected %s';
+    
+    if ($num > 0) {
+      // filter out T_IDENT, T_GET and T_SET
+      $hid = false;
+      $tmp = [];
+      
+      foreach ($arr as $exp) {
+        if ($hid && ($exp === 'T_GET' || $exp === 'T_SET')) {
+          --$num;
+          continue;
+        }
+        
+        $hid = $exp === 'T_IDENT';
+        $tmp[] = $exp;
+      }
+      
+      $arr = $tmp;
+      $fmt .= ', expected ';
+      
+      if ($num > 1) {
+        $fmt .= rtrim(str_repeat('%s, ', $num - 1), ', ');
+        $fmt .= ' or ';
+      }
+                      
+      $fmt .= '%s';
+    }
+    
+    $var = $arr ?: [];
+    array_unshift($var, $tok);
+    Logger::vlog_at($loc, \phs\LOG_LEVEL_ERROR, $fmt, $var);       
+  }
+  
+  /**
    * parse function
    * 
    * @param  mixed  $lex
@@ -196,7 +266,7 @@ class #(-p)
     
     $this->lex = $lex;
     
-    $file = $this->lex->get_info()['file'];
+    $file = $this->lex->get_file();
     $this->cdir = dirname($file);
     $this->cfile = $file;
     
@@ -357,10 +427,7 @@ class #(-p)
           $this->invalid = true;
                     
           switch ($yyerrflag) {
-            case 0:
-              // let the lexer know
-              $this->lex->sync = true;
-              
+            case 0:              
               $expa = [];
               $expn = 0;
               $base = self::$yybase[$yystate];
@@ -386,27 +453,7 @@ class #(-p)
                 }
               }
 
-              $exps = 'unexpected ' . strtr(self::$terminals[$tokid], [ '%' => '%%' ]);
-              
-              if ($expn > 0) {
-                $last = array_pop($expa);
-                $exps .= ', expected ';
-                
-                if ($expn > 1) {
-                  foreach ($expa as $expi) {
-                    $exps .= strtr($expi, [ '%' => '%%' ]);
-                    $exps .= ', ';
-                  }
-                  
-                  $exps = rtrim($exps, ', ');
-                  $exps .= ' or ';
-                }
-                                
-                $exps .= $last;
-                unset ($expa, $last);
-              }
-              
-              Logger::error_at($this->yyloc, $exps);              
+              $this->report_error($this->yyloc, self::$terminals[$tokid], $expn, $expa);       
             case 1:
             case 2:
               $yyerrflag = 3;  

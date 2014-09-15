@@ -7,16 +7,17 @@ require_once 'visitor.php';
 require_once 'symbols.php';
 require_once 'values.php';
 require_once 'scope.php';
-require_once 'branch.php';
-require_once 'reduce.php';
+require_once 'lookup.php';
 
 use phs\Logger;
 use phs\Session;
+use phs\FileSource;
 
 use phs\util\Set;
 use phs\util\Map;
 use phs\util\Cell;
 use phs\util\Entry;
+use phs\util\Table;
 
 use phs\front\ast\Node;
 use phs\front\ast\Unit;
@@ -26,38 +27,58 @@ use phs\front\ast\Name;
 use phs\front\ast\Ident;
 use phs\front\ast\UseAlias;
 use phs\front\ast\UseUnpack;
+use phs\front\ast\Param;
+use phs\front\ast\ThisParam;
+use phs\front\ast\RestParam;
+use phs\front\ast\ClassDecl;
+use phs\front\ast\IfaceDecl;
+use phs\front\ast\TraitDecl;
 
 use phs\lang\BuiltInList;
 use phs\lang\BuiltInDict;
 
-const
-  ACC_READ = 1,
-  ACC_WRITE = 2
-;
-
 /** 
  * unit resolver
  * 
- * - folds constant expressions (without optimizations)
  * - executes <require>
  * - executes <use>
+ * - checks reachability
  */
-class UnitResolver extends Visitor
-{
-  // mixin reduce, convert and lookup-methods
-  use Reduce;
+class UnitResolver extends AutoVisitor
+{  
+  // mixin lookup-methods
+  use Lookup;
   
   // @var Session
   private $sess;
   
+  // @var string  root path
+  private $rpath;
+  
+  // @var string  current unit path
+  private $upath;
+  
   // @var Scope
   private $scope;
   
-  // @var Scope
-  private $sroot;
-    
-  // @var int
-  private $acc = ACC_READ;
+  // @var UnitScope
+  private $sunit;
+  
+  // @var GlobScope
+  private $sglob;
+  
+  // @var array<FnSymbol>
+  // for __fn__ and __method__
+  private $fnstk = [];
+  
+  // @var ClassSymbol 
+  // for __class__, __method__, `this` and `super` (early binding)
+  private $cclass;
+  
+  // @var TraitSymbol
+  // for __trait__
+  // and __class__, __method__, `this` and `super` (late binding)
+  private $ctrait;
   
   /**
    * constructor
@@ -68,6 +89,8 @@ class UnitResolver extends Visitor
   {
     parent::__construct();
     $this->sess = $sess;
+    $this->rpath = $sess->rpath;
+    $this->sglob = $sess->scope;
   }
   
   /**
@@ -78,949 +101,616 @@ class UnitResolver extends Visitor
    */
   public function resolve(Unit $unit)
   {
-    $this->scope = new UnitBranch($unit->scope);
-    $this->sroot = $this->scope;
+    $this->upath = dirname($unit->loc->file);
+    $this->sunit = $unit->scope; 
     
-    $this->scope->enter();
-    $this->visit($unit);
-    $this->scope->leave();
+    $this->enter($this->sunit, $unit);
   }
   
   /* ------------------------------------ */
   
   /**
-   * used to decouple properties in traits
+   * enters a scope
    *
-   * @return Scope
+   * @param  Scope $next
+   * @param  Node|array $node
    */
-  public function get_scope()
+  private function enter(Scope $next, $node)
   {
-    return $this->scope;
+    $prev = $this->scope;
+    $this->scope = $next;
+    
+    $this->scope->enter();
+    
+    // resolve classes, interfaces and traits first
+    $this->resolve_types();
+    
+    $this->visit($node);
+    $this->scope->leave();
+    
+    $this->scope = $prev;
   }
   
   /**
-   * used to decouple properties in traits
+   * enters a function
    *
-   * @return Scope
+   * @param  FnDecl|FnExpr|CtorDecl|DtorDecl|GetterDecl|SetterDecl $node
    */
-  public function get_sroot()
+  private function enter_fn($node)
   {
-    return $this->sroot;
+    $prev = $this->scope;
+    $this->scope = $node->scope;
+    
+    $this->scope->enter();
+    $this->visit_fn_params($node->params);
+    $this->visit($node->body);
+    $this->scope->leave();
+    
+    $this->scope = $prev;
   }
   
   /* ------------------------------------ */
-  
-  /**
-   * Visitor#visit_module()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_module($node) 
-  { 
-    $prev = $this->scope;
     
-    if ($this->scope instanceof ModuleBranch)
-      // leave previous module-scope
-      $this->scope->leave();
+  /**
+   * processes a require-declaration
+   *
+   * @param  string $path
+   * @param  boolean $php
+   * @param  Location $loc
+   */
+  private function process_require($path, $php, $loc)
+  {
+    static $re_abs = null;
+    static $re_ext = '/\.ph[sp]$/';
     
-    $this->scope = new ModuleBranch($node->scope);
-    $this->scope->enter();
-    $this->visit($node->body);
-    $this->scope->leave();
-    $this->scope = $prev;
-    
-    if ($this->scope instanceof ModuleBranch)
-      // re-enter previous module-scope
-      $this->scope->enter();
-  }
-   
-  /**
-   * Visitor#visit_block()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_block($node) 
-  { 
-    $node->scope = new Scope($this->scope);
-    $prev = $this->scope;
-    $this->scope = new Branch($node->scope);
-    $this->scope->enter();
-    $this->visit($node->body);
-    $this->scope->leave();
-    $this->scope = $prev;
-  }
-  
-  /**
-   * Visitor#visit_enum_decl()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_enum_decl($n) {}
-  
-  /**
-   * Visitor#visit_class_decl()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_class_decl($n) {}
-  
-  /**
-   * Visitor#visit_nested_mods()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_nested_mods($node) 
-  {
-    // all nested-mods should be gone after the desugarer
-    assert(0);
-  }
-  
-  /**
-   * Visitor#visit_ctor_decl()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_ctor_decl($n) {}
-  
-  /**
-   * Visitor#visit_dtor_decl()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_dtor_decl($n) {}
-  
-  /**
-   * Visitor#visit_getter_decl()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_getter_decl($n) {}
-  /**
-   * Visitor#visit_setter_decl()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_setter_decl($n) {}
-  /**
-   * Visitor#visit_member_attr()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_member_attr($n) {}  
-  /**
-   * Visitor#visit_trait_decl()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_trait_decl($n) {}
-  /**
-   * Visitor#visit_iface_decl()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_iface_decl($n) {}
-  
-  /**
-   * Visitor#visit_fn_decl()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_fn_decl($node) 
-  {
-    $node->scope = new Scope($this->scope);
-    $prev = $this->scope;
-    $this->scope = new Branch($node->scope);
-    $this->scope->enter();
-    $this->visit($node->body);
-    $this->scope->leave();
-    $this->scope = $prev;
-  }
-  
-  /**
-   * Visitor#visit_attr_decl()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_attr_decl($node) 
-  {
-    // TODO
-  }
-  
-  /**
-   * Visitor#visit_topex_attr()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_topex_attr($node) 
-  {
-    $this->visit($node->topex); 
-  }
-  
-  /**
-   * Visitor#visit_comp_attr()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_comp_attr($node) 
-  {
-    $this->visit($node->comp);
-  }
-  
-  /**
-   * Visitor#visit_var_decl()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_var_decl($node) 
-  {
-    $flags = mods_to_sym_flags($node->mods);
-    
-    foreach ($node->vars as $var) {
-      $sym = VarSymbol::from($var, $flags);
+    if ($re_abs === null) {
+      $re_abs = '/^(?:\\/';
       
-      if ($var->init) {
-        $this->visit($var->init);
-        $val = $this->lookup_value($var->init);
-        
-        if ($flags & SYM_FLAG_CONST && (!$val || $val->kind === VAL_KIND_UNDEF))
-          Logger::error_at($var->loc, 'constant variable initializer must be reducible to a constant value');
-        
-        $sym->value = $val;
-      } else
-        $sym->value = Value::$NONE;
+      // allow '/' and '\' on windows
+      if (PHP_OS === 'WINNT')
+        $re_abs .= '|\\\\';
       
-      $this->scope->add($sym);
-    }  
-  }
-  
-  /**
-   * Visitor#visit_use_decl()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_use_decl($node) 
-  {
-    // TODO
-  }
-  
-  /**
-   * Visitor#visit_require_decl()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_require_decl($node) 
-  {
-    $this->visit($node->expr);
-    $this->reduce_require_decl($node);
-  }
-  
-  /**
-   * Visitor#visit_label_decl()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_label_decl($node) 
-  {
-    $this->visit($node->stmt); 
-  }
-  
-  /**
-   * Visitor#visit_alias_decl()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_alias_decl($node) 
-  {
-    // TODO
-  }
-  
-  /**
-   * Visitor#visit_do_stmt()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_do_stmt($node) 
-  {
-    $this->visit($node->stmt);
-    $this->visit($node->test);
-  }
-  
-  /**
-   * Visitor#visit_if_stmt()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_if_stmt($node) 
-  {
-    $this->visit($node->test);
-    $this->visit($node->stmt);
+      $re_abs .= ')/';
+    } 
     
-    if ($node->elsifs) {
-      foreach ($node->elsifs as $elsif) {
-        $this->inject_block($elsif);
-        $this->visit($elsif->test);
-        $this->visit($elsif->stmt);
+    // 1. replace slashes 
+    $path = str_replace([ '\\', '/' ], DIRECTORY_SEPARATOR, $path);
+      
+    // 2.1. make path absolute
+    if (!preg_match($re_abs, $path))
+      $path = $this->upath . DIRECTORY_SEPARATOR . $path;
+    
+    // 2.2. make absolute path relative to root-unit
+    else
+      $path = $this->rpath . $path;
+    
+    // 3. add extension if necessary
+    if (!preg_match($re_ext, $path))
+      $path .= $php ? '.php' : '.phs';
+    
+    //                       dest--v     v--is_php
+    $fsrc = new FileSource($path, null, false, $loc);
+    $this->sess->add_source($fsrc);
+  }
+    
+  /**
+   * handles a lookup result
+   *
+   * @param  Node  $node
+   * @param  string $sid
+   * @param  ScResult $res
+   * @return boolean
+   */
+  private function process_lookup($node, $res)
+  {
+    $ref = null;
+    
+    if ($node instanceof Name)
+      $ref = name_to_str($node);
+    elseif ($node instanceof Ident)
+      $ref = ident_to_str($node);
+    else
+      assert(0);
+    
+    // no symbol found
+    if ($res->is_none()) {  
+      switch ($ref) {
+        // produce a warning
+        case '__fn__':
+        case '__class__':
+        case '__trait__':
+        case '__module__':
+        case '__method__':
+          Logger::warn_at($node->loc, 'special constant `%s` \\', $ref);
+          Logger::warn('is not defined in this scope');
+          break;
+        
+        // produce an error
+        default:
+          Logger::error_at($node->loc, 'access to undefined symbol `%s`', $ref);
       }
     }
     
-    if ($node->els) {
-      $this->inject_block($node->els);
-      $this->visit($node->els->stmt);
+    // private symbol "trap"
+    elseif ($res->is_priv()) {
+      $sym = &$res->unwrap();
+      Logger::error_at($node->loc, 'access to private %s \\', $sym);
+      Logger::error('from invalid context');
+      Logger::error_at($sym->loc, 'declaration was here');
+    }
+    
+    // error
+    elseif ($res->is_error()) {
+      Logger::error_at($node->loc, '[bug] error while looking up `%s`', $ref);
+    }
+    
+    // yay!
+    else {
+      $sym = &$res->unwrap();
+      
+      if (!$sym->reachable) {
+        // nay ...
+        Logger::error_at($node->loc, 'access to undefined symbol `%s`', $ref);
+        Logger::info_at($sym->loc, 'a variable with the name `%s` \\', $ref);
+        Logger::info('gets defined here but is not yet accessible');
+        Logger::info('try to move variable-declarations at the top of \\');
+        Logger::info('the file or blocks {...} to avoid errors like this');
+      } elseif (($sym->flags & SYM_FLAG_INCOMPLETE) && 
+                !($sym->flags & SYM_FLAG_EXTERN)) {
+        // nay ...
+        Logger::error_at($node->loc, 'access to incomplete %s', $sym);
+        Logger::info_at($sym->loc, 'incomplete declaration was here');
+        Logger::info('each incomplete declaration requires a \\');
+        Logger::info('definition somewhere in the same unit');
+      } else {
+        $node->symbol = $sym;
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  /**
+   * resolves all types in the current scope
+   *
+   */
+  private function resolve_types()
+  {
+    foreach ($this->scope->iter(SYM_NS2) as $sym) {
+      if (($sym->flags & SYM_FLAG_INCOMPLETE) &&
+          !($sym->flags & SYM_FLAG_EXTERN)) {
+        Logger::error_at($sym->loc, '%s declared incomplete \\', $sym);
+        Logger::error('and never fully defined');
+        Logger::info('each incomplete declaration requires a \\');
+        Logger::info('definition somewhere in the same unit');
+      } else      
+        switch ($sym->kind) {
+          case SYM_KIND_CLASS:
+            $this->resolve_class($sym);
+            break;
+          case SYM_KIND_TRAIT:
+            $this->resolve_trait($sym);
+            break;
+          case SYM_KIND_IFACE:
+            $this->resolve_iface($sym);
+            break;
+          default:
+            assert(0);
+        }
     }
   }
   
   /**
-   * Visitor#visit_for_stmt()
+   * resolves a class symbol
    *
-   * @param  Node  $node
-   * @return void
+   * @param  ClassSymbol $sym
    */
-  public function visit_for_stmt($node) 
+  public function resolve_class($sym)
   {
+    if ($sym->resolved) return;
+    $this->resolve_super($sym);
+    $this->resolve_ifaces($sym);
+    $this->resolve_traits($sym);
+    
+    // mark class itself as abstract if 
+    // one (or more) methods are abstract
+    foreach ($sym->members->iter(SYM_FN_NS) as $fn) {
+      if ($fn->flags & SYM_FLAG_ABSTRACT) {
+        $sym->flags |= SYM_FLAG_ABSTRACT;
+        break;
+      }
+    }
+    
+    $sym->resolved = true;
+  }
+  
+  /**
+   * resolves a trait symbol
+   *
+   * @param  TraitSymbol $sym
+   */
+  public function resolve_trait($sym)
+  {
+    if ($sym->resolved) return;
+    $this->resolve_traits($sym);
+    $sym->resolved = true;
+  }
+  
+  /**
+   * resolves a interface symbol
+   *
+   * @param  IfaceSymbol $sym
+   */
+  public function resolve_iface($sym)
+  {
+    if ($sym->resolved) return;
+    $this->resolve_ifaces($sym);
+    $sym->resolved = true;
+  }
+  
+  /**
+   * resolve a super-class
+   *
+   * @param  ClassSymbol $csym
+   */
+  private function resolve_super($csym) 
+  {
+    if (!$csym->super) return;
+    
+    $sup = $csym->super;
+    $res = $this->lookup_name($sup, SYM_CLASS_NS);
+    
+    if ($this->process_lookup($sup, $res)) {
+      $sym = &$res->unwrap();
+      
+      if ($sym->kind !== SYM_KIND_CLASS) {
+        Logger::error_at($sup->loc, 'super-class `%s` \\', name_to_str($sup));
+        Logger::error('does not resolve to a class-symbol');
+      } else {
+        $csym->super->symbol = $sym;
+        
+        if ($sym->resolved === false)
+          $this->resolve_class($sym);
+      }
+    }
+  }
+  
+  /**
+   * resolves interfaces
+   *
+   * @param  IfaceSymbol|ClassSymbol $csym
+   */
+  private function resolve_ifaces($csym)
+  {
+    if (!$csym->ifaces) return;
+    
+    foreach ($csym->ifaces as $iface) {
+      $res = $this->lookup_name($iface, SYM_IFACE_NS);
+      
+      if ($this->process_lookup($iface, $res)) {
+        $sym = &$res->unwrap();
+        
+        if ($sym->kind !== SYM_KIND_IFACE) {
+          Logger::error_at($iface->loc, 'implementation `%s` \\', name_to_str($iface));
+          Logger::error('does not resolve to a interface');
+        } else {
+          $iface->symbol = $sym;
+          
+          if ($sym->resolved === false)
+            $this->resolve_iface($sym);
+        }
+      }
+    }
+  }
+  
+  /**
+   * resolves trait-usage
+   *
+   * @param  TraitSymbol|ClassSymbol $csym
+   */
+  private function resolve_traits($csym)
+  {
+    if (!$csym->traits) return;
+    
+    $okay = [];
+    foreach ($csym->traits as $trait) {
+      // TODO: multiple usage should not be resolved every time
+      $use = $trait->trait;
+      $res = $this->lookup_name($use, SYM_TRAIT_NS);
+      
+      if ($this->process_lookup($use, $res)) {
+        $sym = &$res->unwrap();
+        
+        if ($sym->kind !== SYM_KIND_TRAIT) {
+          Logger::error_at($use->loc, 'trait-usage `%s` \\', name_to_str($use));
+          Logger::error('does not resolve to a trait-symbol');
+        } else {
+          $use->symbol = $sym;
+          
+          if ($sym->resolved === false)
+            $this->resolve_trait($sym);
+          
+          $okay[] = $trait;
+        }
+      }
+    }
+    
+    $this->resolve_trait_usage($csym, $okay);
+  }
+  
+  
+  /**
+   * resolves usage from traits
+   *
+   * @param  TraitSymbol|ClassSymbol $csym
+   * @param  array  $traits
+   */
+  private function resolve_trait_usage($csym, array $traits)
+  {
+    foreach ($traits as $trait) {
+      $use = $trait->trait->symbol;
+      
+      if ($trait->orig) {
+        // use one item
+        $res = $use->members->get($trait->orig);
+        
+        if (!$res->is_some()) {
+          Logger::error_at($trait->loc, 'trait `%s` has \\', $use->id);
+          Logger::error('has no member called `%s`', $trait->orig);
+        } else {          
+          $sym = &$res->unwrap();
+          
+          if ($this->lookup_member($csym, $trait->dest ?: $sym->id, $sym->ns))
+            continue;
+          
+          $dup = clone $sym;
+          
+          if ($trait->flags !== SYM_FLAG_NONE)
+            $dup->flags = $trait->flags;
+          
+          if ($trait->dest)
+            $dup->id = $trait->dest;
+          
+          $csym->members->add($dup);
+        }
+      } else {
+        // use all items
+        foreach ($use->members->iter() as $sym) {
+          if ($this->lookup_member($csym, $sym->id, $sym->ns))
+            continue;
+          
+          $dup = clone $sym;
+          
+          // save origin for proper error-reporting
+          if ($dup->origin === null)
+            $dup->origin = $use;
+            
+          $csym->members->add($dup);
+        }
+      }
+    }
+  }
+    
+  /* ------------------------------------ */
+  
+  public function visit_module($node)
+  {
+    // leave module, but not the unit
+    if ($this->scope instanceof ModuleScope)
+      $this->scope->leave();
+    
+    assert($node->scope !== null);
+    
+    $this->enter($node->scope, $node->body);
+    
+    // re-enter previous module or unit
+    $this->scope->enter();
+  }
+  
+  public function visit_block($node)
+  {
+    assert($node->scope);
+    $this->enter($node->scope, $node->body);
+  }
+  
+  public function visit_class_decl($node)
+  {
+    $this->cclass = $node->symbol;
+    parent::visit_class_decl($node);
+    $this->cclass = null;
+  }
+  
+  public function visit_trait_decl($node)
+  {
+    $this->ctrait = $node->symbol;
+    parent::visit_trait_decl($node);
+    $this->ctrait = null;
+  }
+    
+  public function visit_fn_decl($node)
+  {
+    assert($node->scope !== null);
+    assert($node->symbol !== null);
+    
+    // push current function onto the stack
+    array_push($this->fnstk, $node->symbol);
+    
+    $this->enter_fn($node);
+    
+    // pop current function of the stack
+    array_pop($this->fnstk);
+  }
+  
+  public function visit_fn_expr($node)
+  {
+    assert($node->scope !== null);
+    
+    if ($node->id !== null) {
+      assert($node->symbol !== null);
+      // push symbol onto the stack
+      array_push($this->fnstk, $node->symbol);
+    } else
+      // push NULL onto the stack.
+      // __fn__ will be a empty string
+      array_push($this->fnstk, null);
+      
+    
+    $this->enter_fn($node);
+    
+    array_pop($this->fnstk);
+  }
+  
+  public function visit_fn_params($params)
+  {
+    if (!$params) return;
+    
+    foreach ($params as $param) {
+      assert(!($param instanceof ThisParam));
+      
+      if ($param->hint)
+        $this->visit($param->hint);
+      
+      $sid = ident_to_str($param->id);
+      $res = $this->scope->get($sid);
+      assert($res->is_some());
+      $res->unwrap()->reachable = true;
+    }
+  }
+  
+  public function visit_var_decl($node)
+  {
+    foreach ($node->vars as $var) {
+      if ($var->init)
+        $this->visit($var->init);
+      
+      // mark variable as reachable
+      $sid = ident_to_str($var->id);
+      $res = $this->scope->get($sid, SYM_VAR_NS);
+      
+      // this must be true, because the symbol must be assigned 
+      // before from this node (see UnitCollector)
+      assert($res->is_some());
+      
+      $res->unwrap()->reachable = true;
+    }
+  }
+  
+  public function visit_enum_decl($node)
+  {
+    foreach ($node->vars as $var) {
+      if ($var->init)
+        $this->visit($var->init);
+      
+      // mark variable as reachable
+      $sid = ident_to_str($var->id);
+      $res = $this->scope->get($sid, SYM_VAR_NS);
+      assert($res->is_some());
+      $res->unwrap()->reachable = true;
+    }
+  }
+  
+  public function visit_require_decl($node)
+  {
+    $this->visit($node->expr);
+    $path = $node->expr->value;
+    
+    if (!$path || $path->kind !== VAL_KIND_STR) {
+      Logger::error_at($node->loc, 'require path does not reduce \\');
+      Logger::error('to a constant string');
+    } else
+      $this->process_require($path->data, $node->php, $node->loc);
+  }
+  
+  public function visit_for_in_stmt($node)
+  {
+    $prev = $this->scope;
+    $this->scope = $node->scope;
+    $this->scope->enter();
+    
+    $vars = [];
+    
+    if ($node->lhs->key)
+      $vars[] = $node->lhs->key;
+    
+    if ($node->lhs->arg)
+      $vars[] = $node->lhs->arg;
+    
+    foreach ($vars as $var) {
+      $sid = ident_to_str($var);
+      $res = $this->scope->get($sid, SYM_VAR_NS);
+      assert($res->is_some());
+      $res->unwrap()->reachable = true;
+    }
+    
+    $this->visit($node->rhs);
+    $this->visit($node->stmt);
+    
+    $this->scope->leave();
+    $this->scope = $prev;
+  }
+  
+  public function visit_for_stmt($node)
+  {
+    $prev = $this->scope;
+    $this->scope = $node->scope;
+    $this->scope->enter();
+    
     $this->visit($node->init);
     $this->visit($node->test);
     $this->visit($node->each);
     $this->visit($node->stmt);
-  }
-  
-  /**
-   * Visitor#visit_for_in_stmt()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_for_in_stmt($node) 
-  {
-    // TODO: key:value must be added as variables
-    $this->visit($node->rhs);
-    $this->visit($node->stmt);
-  }
-  
-  /**
-   * Visitor#visit_try_stmt()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_try_stmt($node) 
-  {
-    $this->visit($node->body);
     
-    if ($node->catches)
-      foreach ($node->catches as $catch)
-        $this->visit($catch->body);  
-    
-    if ($node->finalizer)
-      $this->visit($node->finalizer->body);
+    $this->scope->leave();
+    $this->scope = $prev;
   }
   
-  /**
-   * Visitor#visit_php_stmt()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_php_stmt($node) 
+  public function visit_new_expr($node)
   {
-    // TODO
-  }
-  
-  /**
-   * Visitor#visit_goto_stmt()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_goto_stmt($node) 
-  {
-    // noop
-  }
-  
-  /**
-   * Visitor#visit_test_stmt()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_test_stmt($node) 
-  {
-    $this->visit($node->block);
-  }
-  
-  /**
-   * Visitor#visit_break_stmt()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_break_stmt($node) 
-  {
-    // noop
-  }
-  
-  /**
-   * Visitor#visit_continue_stmt()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_continue_stmt($node) 
-  {
-    // noop
-  }
-  
-  /**
-   * Visitor#visit_print_stmt()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_print_stmt($node) 
-  {
-    $this->visit($node->expr);
-  }
-  
-  /**
-   * Visitor#visit_throw_stmt()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_throw_stmt($node) 
-  {
-    $this->visit($node->expr);
-  }
-  
-  /**
-   * Visitor#visit_while_stmt()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_while_stmt($node) 
-  {
-    $this->visit($node->test);
-    $this->visit($node->stmt);
-  }
-  
-  /**
-   * Visitor#visit_assert_stmt()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_assert_stmt($node) 
-  {
-    $this->visit($node->expr);  
-    
-    if ($node->message)
-      $this->visit($node->message);
-  }
-  
-  /**
-   * Visitor#visit_switch_stmt()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_switch_stmt($node) 
-  {
-    $this->visit($node->test);
-    
-    foreach ($node->cases as $case) {
-      foreach ($case->labels as $idx => $label)
-        if ($label->expr)
-          $this->visit($label->expr);
+    $expr = $node->name;
+    if ($expr instanceof Name) {
+      $res = $this->lookup_name($expr);
       
-      $this->visit($case->body);
+      if ($this->process_lookup($expr, $res)) {
+        $sym = &$res->unwrap();
+        
+        if (!($sym instanceof VarSymbol) && 
+            !($sym instanceof ClassSymbol)) {
+          Logger::error_at($expr->loc, 'cannot use %s \\', $sym);
+          Logger::error('in new-expression');
+        }  
+      }
     }
   }
   
-  /**
-   * Visitor#visit_return_stmt()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_return_stmt($node) 
-  {
-    if ($node->expr)
-      $this->visit($node->expr);
-  }
-  
-  /**
-   * Visitor#visit_expr_stmt()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_expr_stmt($node) 
-  {
-    $this->visit($node->expr);
-  }
-  
-  /**
-   * Visitor#visit_paren_expr()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_paren_expr($node) 
-  {
-    $this->visit($node->expr);
-    $this->reduce_paren_expr($node);
-  }
-  
-  /**
-   * Visitor#visit_tuple_expr()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_tuple_expr($node) 
-  {
-    foreach ($node->seq as $expr)
-      $this->visit($expr);
-    
-    $this->reduce_tuple_expr($node);
-  }
-  
-  /**
-   * Visitor#visit_fn_expr()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_fn_expr($node) 
-  {
-    $prev = $this->scope;
-    $this->scope = new Branch($node->scope);
-    $this->visit($node->body);
-    $this->scope = $prev;
-    
-    $this->reduce_fn_expr($node);
-  }
-  
-  /**
-   * Visitor#visit_bin_expr()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_bin_expr($node) 
-  {
-    $this->visit($node->left);
-    $this->visit($node->right);  
-    $this->reduce_bin_expr($node);
-  }
-  
-  /**
-   * Visitor#visit_check_expr()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_check_expr($node) 
-  {
-    $this->visit($node->left);
-    $this->reduce_check_expr($node);
-  }
-  
-  /**
-   * Visitor#visit_cast_expr()
-   *
-   * @param  Node  $node
-   * @return void
-   */
   public function visit_cast_expr($node) 
   {
     $this->visit($node->expr);
-    $this->reduce_cast_expr($node);
-  }
-  
-  /**
-   * Visitor#visit_update_expr()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_update_expr($node) 
-  {
-    $this->visit($node->expr);
-    $this->reduce_update_expr($node);
-  }
-  
-  /**
-   * Visitor#visit_assign_expr()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_assign_expr($node) 
-  {
-    $this->visit($node->left);
-    $this->visit($node->right);
-    $this->reduce_assign_expr($node);
-  }
-  
-  /**
-   * Visitor#visit_member_expr()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_member_expr($node) 
-  {
-    $this->visit($node->object);
+    $type = $node->type;
     
-    if ($node->computed)
-      $this->visit($node->member);
-    
-    $this->reduce_member_expr($node);
-  }
-  
-  /**
-   * Visitor#visit_offset_expr()
-   *
-   * @param  Node $node
-   * @return void
-   */
-  public function visit_offset_expr($node)
-  {
-    $this->visit($node->object);
-    $this->visit($node->offset);
-    $this->reduce_offset_expr($node);
-  }
-  
-  /**
-   * Visitor#visit_cond_expr()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_cond_expr($node) 
-  {
-    $this->visit($node->test);
-    
-    if ($node->then)
-      $this->visit($node->then);
-    
-    $this->visit($node->els);
-    $this->reduce_cond_expr($node);  
-  }
-  
-  /**
-   * Visitor#visit_call_expr()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_call_expr($node) 
-  {
-    $this->visit($node->callee);
-    
-    if ($node->args)
-      foreach ($node->args as $arg)
-        $this->visit($arg); 
-    
-    $this->reduce_call_expr($node);
-  }
-  
-  /**
-   * Visitor#visit_yield_expr()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_yield_expr($node) 
-  {
-    if ($node->key) 
-      $this->visit($node->key);
-    
-    $this->visit($node->value);
-    $this->reduce_yield_expr($node);
-  }
-  
-  /**
-   * Visitor#visit_unary_expr()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_unary_expr($node) 
-  {
-    $this->visit($node->expr);
-    $this->reduce_unary_expr($node);  
-  }
-  
-  /**
-   * Visitor#visit_new_expr()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_new_expr($node) 
-  {
-    $this->visit($node->name);
-    
-    if ($node->args)
-      foreach ($node->args as $arg)
-        $this->visit($arg);
-    
-    $this->reduce_new_expr($node);
-  }
-  
-  /**
-   * Visitor#visit_del_expr()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_del_expr($node) 
-  {
-    $this->visit($node->expr);
-    $this->reduce_del_expr($node);  
-  }
-  
-  /**
-   * Visitor#visit_lnum_lit()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_lnum_lit($node) 
-  {
-    $this->reduce_lnum_lit($node);
-  }
-  
-  /**
-   * Visitor#visit_dnum_lit()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_dnum_lit($node) 
-  {
-    $this->reduce_dnum_lit($node);
-  }
-  
-  /**
-   * Visitor#visit_snum_lit()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_snum_lit($node) 
-  {
-    throw new \RuntimeException('found a snum_lit');  
-  }
-  
-  /**
-   * Visitor#visit_regexp_lit()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_regexp_lit($node) 
-  {
-    $this->reduce_regexp_lit($node);
-  }
-  
-  /**
-   * Visitor#visit_arr_gen()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_arr_gen($node) 
-  {
-    $this->visit($node->expr);
-    $this->visit($node->init);
-    $this->visit($node->each);
-    $this->reduce_arr_gen($node);
-  }
-  
-  /**
-   * Visitor#visit_arr_lit()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_arr_lit($node) 
-  {
-    if ($node->items)
-      foreach ($node->items as $item)
-        $this->visit($item);
+    if ($type instanceof Name) {
+      $res = $this->lookup_name($type);
+      
+      if ($this->process_lookup($type, $res)) {
+        $sym = &$res->unwrap();
         
-    $this->reduce_arr_lit($node);  
-  }
-  
-  /**
-   * Visitor#visit_obj_lit()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_obj_lit($node) 
-  {
-    if ($node->pairs)
-      foreach ($node->pairs as $pair) {
-        if ($pair->key instanceof ObjKey)
-          $this->visit($pair->key->expr);
-        else
-          $this->visit($pair->key);
-        
-        $this->visit($pair->value);
+        if (!($sym instanceof ClassSymbol)) {
+          Logger::error_at($type->loc, 'cannot use %s \\', $sym);
+          Logger::error('as type-cast');
+        }
       }
-      
-    $this->reduce_obj_lit($node);  
+    }
   }
   
-  /**
-   * Visitor#visit_name()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_name($node) 
+  public function visit_name($node)
   {
-    $this->reduce_name($node, $this->acc); 
+    $res = $this->lookup_name($node);
+    $this->process_lookup($node, $res);    
   }
   
-  /**
-   * Visitor#visit_ident()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_ident($node) 
+  public function visit_ident($node)
   {
-    $this->reduce_ident($node, $this->acc);  
-  }
-  
-  /**
-   * Visitor#visit_this_expr()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_this_expr($node) 
-  {
-    // TODO
-  }
-  
-  /**
-   * Visitor#visit_super_expr()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_super_expr($node) 
-  {
-    // TODO  
-  }
-  
-  /**
-   * Visitor#visit_null_lit()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_null_lit($node) 
-  {
-    $this->reduce_null_lit($node);
-  }
-  
-  /**
-   * Visitor#visit_true_lit()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_true_lit($node) 
-  {
-    $this->reduce_true_lit($node); 
-  }
-  
-  /**
-   * Visitor#visit_false_lit()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_false_lit($node) 
-  {
-    $this->reduce_false_lit($node); 
-  }
-  
-  /**
-   * Visitor#visit_engine_const()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_engine_const($node) 
-  {
-    // TODO
-  }
-  
-  /**
-   * Visitor#visit_str_lit()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_str_lit($node) 
-  {    
-    if ($node->parts)
-      foreach ($node->parts as $idx => $part)
-        if ((~$idx) & 1) $this->visit($part);
-      
-    $this->reduce_str_lit($node);
-  }
-  
-  /**
-   * Visitor#visit_kstr_lit()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_kstr_lit($node) 
-  {
-    $this->reduce_kstr_lit($node);
-  }
-  
-  /**
-   * Visitor#visit_type_id()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_type_id($node) 
-  {
-    // TODO
+    $res = $this->lookup_ident($node);
+    $this->process_lookup($node, $res);
   }
 }

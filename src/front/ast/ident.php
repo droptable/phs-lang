@@ -4,13 +4,13 @@ namespace phs\front\ast;
 
 class Ident extends Node
 {
-  public $value;
+  public $data;
   
   // symbol lookup cache
   public $symbol;
   
-  public function __construct($value)
+  public function __construct($data)
   {
-    $this->value = $value;
+    $this->data = $data;
   }
 }

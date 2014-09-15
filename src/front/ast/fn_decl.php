@@ -9,8 +9,11 @@ class FnDecl extends Decl
   public $params;
   public $body;
   
-  // gets filled-in by the analyzer
+  // @var Scope
   public $scope;  
+  
+  // @var FnSymbol
+  public $symbol;
   
   public function __construct($mods, $id, $params, $body)
   {

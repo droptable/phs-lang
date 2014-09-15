@@ -87,7 +87,7 @@
     # operators and punctuation
     (?:    
       # basic punctuation
-      [;,{}\(\)\[\]@\#]
+      [;,{}\(\)\[\]\#]
       
       # combinations
       | (?:=>|=\s*&)

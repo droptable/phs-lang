@@ -8,6 +8,8 @@ use \Countable;
 use \ArrayIterator;
 use \IteratorAggregate;
 
+use phs\Logger;
+
 use phs\util\Set;
 use phs\util\Map;
 use phs\util\Entry;
@@ -21,11 +23,16 @@ use phs\front\ast\Name;
 use phs\front\ast\Ident;
 
 use phs\front\ast\FnDecl;
+use phs\front\ast\FnExpr;
 use phs\front\ast\VarDecl;
 use phs\front\ast\VarItem;
 use phs\front\ast\EnumVar;
+use phs\front\ast\Param;
+use phs\front\ast\RestParam;
 use phs\front\ast\CtorDecl;
 use phs\front\ast\DtorDecl;
+use phs\front\ast\GetterDecl;
+use phs\front\ast\SetterDecl;
 
 // kinds
 const
@@ -52,7 +59,8 @@ const
   SYM_FLAG_INLINE     = 0x0100, // symbol is inline (for functions)
   SYM_FLAG_EXTERN     = 0x0200, // symbol is extern
   SYM_FLAG_ABSTRACT   = 0x0400, // symbol is abstract (for classes)
-  SYM_FLAG_INCOMPLETE = 0x0800 // symbol is incomplete
+  SYM_FLAG_INCOMPLETE = 0x0800, // symbol is incomplete
+  SYM_FLAG_PARAM      = 0x1000  // symbol is a parameter
 ;
 
 const SYM_FLAGS_NONE = SYM_FLAG_NONE;
@@ -96,7 +104,7 @@ function get_sym_ns($kind) {
 
 /** symbol base */
 abstract class Symbol
-{
+{  
   // @var int
   public $ns;
   
@@ -111,12 +119,21 @@ abstract class Symbol
   
   // @var int
   public $flags;
-  
+    
   // @var Node  the ast-node which defines this symbol
   public $node = null;
   
   // @var Scope  scope where this symbol was defined in
   public $scope = null;
+  
+  // @var boolean  deoptimized symbol
+  public $deopt = false;
+      
+  // @var boolean  managed symbol (intrinsic)
+  public $managed = false;  
+  
+  // @var boolean  whenever this symbol is reachable
+  public $reachable = true;
   
   /**
    * constructor
@@ -149,6 +166,18 @@ abstract class Symbol
     $this->scope = null;
   }
   
+  /**
+   * returns a label for this symbol.
+   * e.g.: IfaceSymbol -> "iface `$name`" 
+   *
+   * @return string
+   */
+  public function __tostring()
+  {
+    return sym_kind_to_str($this->kind) . 
+      ' `' . $this->id . '`';
+  }
+  
   /* ------------------------------------ */
   
   /**
@@ -166,58 +195,6 @@ abstract class Symbol
     
     if ($mods !== 'none')
       echo ' ~ ', $mods;
-  }
-}
-
-/** symbol ref */
-class SymbolRef
-{
-  // @var Name  the name (path) 
-  public $name;
-  
-  // @var int
-  public $kind;
-  
-  // @var Symbol  the resolved symbol
-  public $symbol = null;
-  
-  // @var boolean  whenever this reference is resolved
-  public $resolved = false;
-  
-  /**
-   * constructor
-   *
-   * @see Symbol#__construct()
-   */
-  public function __construct(Name $name, $kind = SYM_KIND_UNDEF)
-  {
-    $this->name = $name;
-    $this->kind = $kind;
-  }
-}
-
-/** symbol ref set */
-class SymbolRefSet extends Set
-{
-  /**
-   * constructor
-   *
-   */
-  public function __construct()
-  {
-    // super
-    parent::__construct();
-  }
-  
-  /**
-   * typecheck
-   *
-   * @param  mixed $ent
-   * @return boolean
-   */
-  public function check($ent)
-  {
-    return $ent instanceof SymbolRef;
   }
 }
 
@@ -292,10 +269,10 @@ class SymbolMap implements
    * @return Symbol
    */
   public function get($id, $ns = -1)
-  {
+  {    
     if ($ns === -1) {
       // search in all namespaces
-      foreach ($this->mem as $mem)
+      foreach ($this->mem as &$mem)
         if (isset ($mem[$id])) 
           return $mem[$id];
       
@@ -348,7 +325,7 @@ class SymbolMap implements
       // delete in all namespaces
       $fd = false;
       
-      foreach ($this->mem as $mem) 
+      foreach ($this->mem as &$mem) 
         if (isset ($mem[$id])) {
           $fd = true;
           unset ($mem[$id]);
@@ -365,6 +342,24 @@ class SymbolMap implements
     }
     
     return false;
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * iterator support
+   *
+   * @param  integer $ns
+   */
+  public function iter($ns = -1) 
+  {
+    if ($ns > -1)
+      foreach ($this->mem[$ns] as $sym)
+        yield $sym;
+    else
+      foreach ($this->mem as $mem)
+        foreach ($mem as $sym)
+          yield $sym;
   }
   
   /* ------------------------------------ */
@@ -539,7 +534,7 @@ class TraitUsage
   // @var Location
   public $loc; 
   
-  // @var SymbolRef  trait
+  // @var Name  trait
   public $trait;
   
   // @var string  original name
@@ -554,13 +549,13 @@ class TraitUsage
   /**
    * constructor
    *
-   * @param SymbolRef $trait
+   * @param Name $trait
    * @param Location  $loc
    * @param string    $orig
    * @param string    $dest
    * @param int    $flags
    */
-  public function __construct(SymbolRef $trait, Location $loc,
+  public function __construct(Name $trait, Location $loc,
                               $orig, $dest, $flags = SYM_FLAG_NONE)
   {
     $this->trait = $trait;
@@ -571,35 +566,17 @@ class TraitUsage
   }
 }
 
-/** trait usage set */
-class TraitUsageSet extends Set
-{
-  /**
-   * constructor
-   */
-  public function __construct()
-  {
-    parent::__construct();
-  }
-  
-  /**
-   * typecheck
-   * 
-   * @see Set#check()
-   * @param  mixed  $ent
-   * @return boolean
-   */
-  protected function check($ent)
-  {
-    return $ent instanceof TraitUsage;
-  }
-}
-
 /* ------------------------------------ */
 
 /** function symbol */
 class FnSymbol extends Symbol
 {  
+  // @var boolean  this is a function-expression
+  public $expr;
+  
+  // @var TraitSymbol  origin
+  public $origin = null;
+  
   /**
    * constructor
    * 
@@ -615,17 +592,33 @@ class FnSymbol extends Symbol
   
   /* ------------------------------------ */
   
+  public function dump($tab = '')
+  {
+    parent::dump($tab);
+    
+    if ($this->origin !== null)
+      echo ' (& ', $this->origin->id, ')';
+    
+    if (!$this->expr && $this->node->scope)
+      $this->node->scope->dump($tab);
+  }
+  
+  /* ------------------------------------ */
+  
   /**
    * creates a function-symbol from an FnDecl ast-node
    * 
-   * @param  FnDecl|CtorDecl|DtorDecl $node
+   * @param  FnDecl|FnExpr|GetterDecl|SetterDecl|CtorDecl|DtorDecl $node
    * @return FnSymbol
    */
   public static function from($node)
   {
     $id = '<unknown>';
     
-    if ($node instanceof FnDecl)
+    if ($node instanceof FnDecl || 
+        $node instanceof FnExpr || // <- $node->id must be set
+        $node instanceof GetterDecl ||
+        $node instanceof SetterDecl)
       $id = ident_to_str($node->id);
     elseif ($node instanceof CtorDecl)
       $id = '<ctor>';
@@ -634,9 +627,24 @@ class FnSymbol extends Symbol
     else
       assert(0);
     
-    $sym = new FnSymbol($id, $node->loc, mods_to_sym_flags($node->mods));
-    $sym->node = $node;
+    $flags = SYM_FLAG_NONE;
     
+    if ($node instanceof FnDecl ||
+        $node instanceof CtorDecl ||
+        $node instanceof DtorDecl) {
+      $flags = mods_to_sym_flags($node->mods);
+    
+      if (($node instanceof FnDecl ||
+           $node instanceof DtorDecl ||
+           $node instanceof CtorDecl) && 
+          $node->body === null &&
+          !($flags & SYM_FLAG_EXTERN))
+        $flags |= SYM_FLAG_ABSTRACT;
+    }
+    
+    $sym = new FnSymbol($id, $node->loc, $flags);
+    $sym->expr = $node instanceof FnExpr;
+    $sym->node = $node;
     return $sym;
   }
 }
@@ -646,6 +654,9 @@ class VarSymbol extends Symbol
 {  
   // @var Value  whenever a value could be computed during compilation 
   public $value = null;
+  
+  // @var TraitSymbol  origin
+  public $origin = null;
   
   /**
    * constructor
@@ -658,6 +669,7 @@ class VarSymbol extends Symbol
   {
     // init symbol
     parent::__construct($id, SYM_VAR_NS, $loc, SYM_KIND_VAR, $flags);
+    $this->reachable = false;
   }
   
   /**
@@ -668,7 +680,19 @@ class VarSymbol extends Symbol
   public function __clone()
   {
     parent::__clone();
-    $this->value = clone $this->value;
+    
+    if ($this->value !== null)
+      $this->value = clone $this->value;
+  }
+  
+  /* ------------------------------------ */
+  
+  public function dump($tab = '')
+  {
+    parent::dump($tab);
+    
+    if ($this->origin !== null)
+      echo ' (& ', $this->origin->id, ')';
   }
   
   /* ------------------------------------ */
@@ -689,9 +713,48 @@ class VarSymbol extends Symbol
     
     $id = ident_to_str($var->id);
     $flags = is_int($mods) ? $mods : mods_to_sym_flags($mods);
+    
     $sym = new VarSymbol($id, $var->loc, $flags);
     $sym->node = $var;
+    return $sym;
+  }
+}
+
+class ParamSymbol extends VarSymbol
+{
+  // @var SymbolRef|int  hint
+  public $hint;
+  
+  /**
+   * constructor
+   *
+   * @param string   $id
+   * @param Location $loc
+   * @param int   $flags
+   */
+  public function __construct($id, Location $loc, $flags)
+  {
+    // super
+    parent::__construct($id, $loc, $flags | SYM_FLAG_PARAM);
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * param factory
+   *
+   * @param  Param|RestParam $node
+   * @return ParamSymbol
+   */
+  public static function from($node)
+  {
+    $flags = SYM_FLAG_NONE;
     
+    if ($node instanceof Param)
+      $flags = mods_to_sym_flags($node->mods);
+    
+    $sym = new ParamSymbol(ident_to_str($node->id), $node->loc, $flags);
+    $sym->node = $node;    
     return $sym;
   }
 }
@@ -749,23 +812,20 @@ class AliasSymbol extends Symbol
 /** class symbol */
 class ClassSymbol extends Symbol
 {
-  // @var SymbolRef  super class
+  // @var Name  super class
   public $super = null;
   
-  // @var SymbolRefSet  interfaces
+  // @var array  interfaces
   public $ifaces;
   
-  // @var TraitUsageSet  traits
+  // @var array  traits
   public $traits;
   
-  // @var ClassScope  members
+  // @var MemberScope  members
   public $members;
   
-  // @var FnSymbol  constructor
-  public $ctor = null;
-  
-  // @var FnSymbol  destructor
-  public $dtor = null;
+  // @var boolean  whenever this class is resolved
+  public $resolved = false;
   
   /**
    * constructor
@@ -804,17 +864,17 @@ class ClassSymbol extends Symbol
     
     // dump super-class
     if ($this->super)
-      echo "\n", $tab, '  : ', name_to_str($this->super->name);
+      echo "\n", $tab, '  : ', name_to_str($this->super);
         
     // dump interfaces 
     if ($this->ifaces)
       foreach ($this->ifaces as $iface)
-        echo "\n", $tab, '  ~ ', name_to_str($iface->name);
+        echo "\n", $tab, '  ~ ', name_to_str($iface);
     
     // dump traits
     if ($this->traits)
       foreach ($this->traits as $trait) {
-        echo "\n", $tab, '  & ', name_to_str($trait->trait->name);
+        echo "\n", $tab, '  & ', name_to_str($trait->trait);
         
         if ($trait->orig) {
           echo ' + ', $trait->orig;
@@ -827,29 +887,24 @@ class ClassSymbol extends Symbol
         } else
           echo ' * ';
       }
-    
-    // dump constructor if any
-    if ($this->ctor)
-      $this->ctor->dump($tab . '  ');
-    
-    // dump destructor if any
-    if ($this->dtor)
-      $this->dtor->dump($tab . '  ');
-    
+      
     // dump members
-    if ($this->members)
+    if ($this->members && $this->members->count())
       $this->members->dump($tab);
   }
 }
 
 /** trait symbol */
 class TraitSymbol extends Symbol
-{  
+{    
   // @var TraitUsageMap  traits
   public $traits;
   
   // @var SymbolMap  members
   public $members;
+  
+  // @var boolean  whenever this trait is resolved
+  public $resolved = false;
   
   /**
    * constructor
@@ -890,7 +945,7 @@ class TraitSymbol extends Symbol
     // dump traits
     if ($this->traits)
       foreach ($this->traits as $trait) {
-        echo "\n", $tab, '  & ', name_to_str($trait->trait->name);
+        echo "\n", $tab, '  & ', name_to_str($trait->trait);
         
         if ($trait->orig) {
           echo ' + ', $trait->orig;
@@ -918,6 +973,9 @@ class IfaceSymbol extends Symbol
   
   // @var SymbolMap  members
   public $members;
+  
+  // @var boolean  whenever this interface is resolved
+  public $resolved = false;
   
   /**
    * constructor

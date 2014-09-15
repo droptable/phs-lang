@@ -8,8 +8,11 @@ class FnExpr extends Expr
   public $params;
   public $body;
   
-  // gets filled-in by the analyzer
-  public $scope;
+  // @var Scope
+  public $scope;  
+  
+  // @var FnSymbol  only defined if `id` is not null
+  public $symbol;
   
   public function __construct($id, $params, $body)
   {

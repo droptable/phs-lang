@@ -35,6 +35,15 @@ class Logger
   // @var bool  continue-flag
   private static $cont = false;
   
+  // @var bool bail-out flag
+  public static $bail = false;
+  
+  // @var bool log time
+  private static $time = false;
+  
+  // @var float
+  public static $msec;
+  
   // log-level hooks
   private static $hooks = [
     LOG_LEVEL_DEBUG => [],
@@ -61,6 +70,13 @@ class Logger
     
     if ($conf->has('log_level'))
       self::set_level((int)$conf->get('log_level'));
+    
+    if ($conf->get('log_time') === true) {
+      self::$time = true;
+      self::$msec = microtime(true);
+    }
+    
+    Logger::debug('logger initialized');
   }
   
   /* ------------------------------------ */
@@ -132,6 +148,25 @@ class Logger
   public static function get_level()
   {
     return self::$level;
+  }
+  
+  /* ------------------------------------ */
+  
+  private function intersect_root($path)
+  {
+    $root = self::$root;
+    
+    for ($i = 0, $last = ''; 
+         $root && $last !== $root; 
+         $last = $root, $root = dirname($root), ++$i) {
+      $pos = strpos($path, $root);
+      
+      if ($pos === 0) 
+        return str_repeat('..' . DIRECTORY_SEPARATOR, $i) 
+          . substr($path, strlen($root) + 1); 
+    }
+    
+    return $path;
   }
   
   /* ------------------------------------ */
@@ -211,6 +246,9 @@ class Logger
     $std = self::$ostd && self::$ansi;    
     
     if (!self::$cont) {
+      if (self::$time)
+        $out .= sprintf(' +% 6.3fs ', microtime(true) - self::$msec);
+      
       switch ($lvl) {
         case LOG_LEVEL_DEBUG:
           $out .= self::_wrap($std, "\033[1;32m", "[dbg]   ", "\033[0m");
@@ -228,9 +266,7 @@ class Logger
       
       if ($loc !== null) {
         $src = $loc->file;
-        
-        if (strpos($src, self::$root) === 0)
-          $src = substr($src, strlen(self::$root) + 1);
+        $src = self::intersect_root($src);
         
         $out .= self::_wrap($std, "\033[1;37m", 
           "{$src}:{$loc->pos->line}:{$loc->pos->coln}: ", "\033[0m");
@@ -251,15 +287,12 @@ class Logger
         $loop = true;
         fwrite(self::$dest, $out);
         fwrite(self::$dest, array_shift($wrap));
-        
-        if (($size - 1) > 0)
-          fwrite(self::$dest, " ...");
       }
       
       foreach ($wrap as $chnk) {
         if ($loop) $chnk = "... $chnk";
         $loop = true;      
-        fwrite(self::$dest, "\n{$out}$chnk ...");
+        fwrite(self::$dest, "\n{$out}$chnk");
       }
       
       // for the last segment
@@ -270,6 +303,12 @@ class Logger
       fwrite(self::$dest, "\n");
     
     fwrite(self::$dest, "$out$last");
+    
+    if (self::$bail && $lvl === LOG_LEVEL_ERROR && !self::$cont) {
+      echo "\n\n";
+      debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
+      exit;
+    }
   }
   
   /* ------------------------------------ */

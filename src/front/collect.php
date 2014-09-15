@@ -1,23 +1,32 @@
 <?php
 
+// referenzen zu funktionen, klassen (usw) müssen innerhalb der 
+// unit aufgelöst werden (eine extern-deklaration ist zulässig).
+// 
+// referenzen zu variablen sind nicht gestattet.
+
 namespace phs\front;
 
 require_once 'utils.php';
 require_once 'visitor.php';
 require_once 'symbols.php';
 require_once 'scope.php';
+require_once 'branch.php';
+require_once 'usage.php';
 
 use phs\Logger;
-use phs\Origin;
 use phs\Session;
 
 use phs\util\Set;
 use phs\util\Map;
 use phs\util\Cell;
+use phs\util\Dict;
 use phs\util\Entry;
 
 use phs\front\ast\Node;
 use phs\front\ast\Unit;
+
+use phs\front\ast\FnExpr;
 
 use phs\front\ast\Name;
 use phs\front\ast\Ident;
@@ -27,10 +36,19 @@ use phs\front\ast\UseUnpack;
 const DS = DIRECTORY_SEPARATOR;
 
 /** unit collector */
-class UnitCollector extends Visitor
+class UnitCollector extends AutoVisitor
 {  
   // @var Session
   private $sess;
+  
+  // @var UsageMap
+  private $umap;
+  
+  // @var UsageMap nested uses
+  private $unst;
+  
+  // @var array  nested use-stack
+  private $nstk;
   
   // @var Scope  scope
   private $scope;
@@ -38,8 +56,7 @@ class UnitCollector extends Visitor
   // @var Scope  root scope
   private $sroot;
   
-  // @var Walker  walker
-  private $walker;
+  private static $pass = 1;
   
   /**
    * constructor
@@ -60,34 +77,253 @@ class UnitCollector extends Visitor
    */
   public function collect(Unit $unit)
   {
-    $this->scope = new UnitScope($unit);
+    $unit->scope = new UnitScope($this->sess, $unit);
+    $this->scope = $unit->scope;
     $this->sroot = $this->scope;
     
-    $this->scope->enter();
-    $this->visit($unit);
-    $this->scope->leave();
+    $this->umap = &$unit->scope->umap;
+    $this->unst = null;
+    $this->nstk = [];
     
-    $unit->scope = $this->scope;
+    $this->visit($unit);
+  }
+  
+  /* ------------------------------------ */
+    
+  /**
+   * collect a class-super (extend) declaration
+   *
+   * @param  ClassDecl $decl
+   * @return SymbolRef
+   */
+  private function collect_super($decl)
+  {
+    if (!$decl->ext) return null;
+    return $decl->ext;
+  }
+  
+  /**
+   * collect trait-usage
+   *
+   * @param  ClassDecl $decl
+   * @return array
+   */
+  private function collect_traits($decl)
+  {
+    if (!$decl->traits) return null;
+    
+    $tset = [];
+    
+    foreach ($decl->traits as $trait) {
+      $tuse = $trait->name;
+      
+      if ($trait->items === null)
+        // use all members
+        $tset[] = new TraitUsage($tuse, $trait->loc, null, null);
+      else      
+        foreach ($trait->items as $item) {
+          $orig = ident_to_str($item->id);
+          $dest = $orig;
+          
+          if ($item->alias)
+            $dest = ident_to_str($item->alias);
+          
+          $flags = mods_to_sym_flags($item->mods);
+          $tset[] = new TraitUsage($tuse, $item->loc, $orig, $dest, $flags);
+        }
+    }
+    
+    return $tset;
+  }
+  
+  /**
+   * collect implemented interfaces
+   *
+   * @param  ClassDecl $decl
+   * @return array
+   */
+  private function collect_ifaces($decl)
+  {
+    if (!$decl->impl) return null;
+    return $decl->impl;   
+  }
+  
+  /**
+   * collects members
+   *
+   * @param  ClassDecl $sym
+   * @return MemberScope
+   */
+  private function collect_members($decl)
+  {
+    $prev = $this->scope;
+    $mscp = new MemberScope($prev);
+    
+    if ($decl->members) {
+      $this->scope = $mscp;
+      $this->visit($decl->members);
+      $this->scope = $prev;
+    }
+    
+    return $mscp;
+  }
+  
+  /**
+   * collects a use-declaration
+   *
+   * @param  Usage $base
+   * @param  Name|UseAlias|UseUnpack $item
+   */
+  private function collect_use($base, $item)
+  {
+    if ($item instanceof Name)
+      $this->collect_use_name($base, $item);
+    elseif ($item instanceof UseAlias)
+      $this->collect_use_alias($base, $item);
+    elseif ($item instanceof UseUnpack)
+      $this->collect_use_unpack($base, $item);
+    else
+      assert(0);
+  }
+  
+  /**
+   * handles a simple use-import `use foo::bar;`
+   *
+   * @param UseImport $base (optional)
+   * @param Name $item
+   */
+  private function collect_use_name($base, $item)
+  {
+    $base = $this->fetch_use_base($item, $base);
+    $uimp = new Usage($item, $base);
+    
+    $this->add_use_import($uimp);
+  }
+  
+  /**
+   * handles a simple use-import with alias `use foo::bar as baz;`
+   *
+   * @param UseImport $base (optional)
+   * @param UseAlias $item
+   */
+  private function collect_use_alias($base, $item)
+  {
+    $base = $this->fetch_use_base($item->name, $base);
+    $uimp = new Usage($item->name, $base, $item->alias);
+    
+    $this->add_use_import($uimp);
+  }
+  
+  /**
+   * handles complex use-imports
+   *
+   * @param UseImport $base (optional)
+   * @param UseAlias $item
+   */
+  private function collect_use_unpack($base, $item)
+  {
+    if ($item->base !== null) {
+      $base = $this->fetch_use_base($item->base, $base);
+      $base = new Usage($item->base, $base);
+      $base->path[] = $base->orig;
+    }
+    
+    // push nested imports onto the stack and create a new map
+    array_push($this->nstk, $this->unst);
+    $this->unst = new UsageMap;
+    
+    foreach ($item->items as $nimp)
+      $this->collect_use($base, $nimp);
+    
+    // pop previous nested imports of the stack
+    $this->unst = array_pop($this->nstk);
+  }
+  
+  /**
+   * fetches the base import for a name
+   *
+   * @param Name $name
+   * @param Usage $base  fallback
+   * @return Usage or null
+   */
+  private function fetch_use_base(Name $name, Usage $base = null)
+  {    
+    // TODO: this code enables realtive imports.
+    
+    /*
+    $root = ident_to_str($name->base);
+    
+    // check nested imports first
+    if ($this->unst !== null) {
+      if ($this->unst->has($root))
+        $base = $this->unst->get($root);
+    
+    // check global imports
+    } elseif ($this->umap->has($root))
+      $base = $this->umap->get($root);
+    */
+   
+    return $base;
+  }
+  
+  /**
+   * adds a use-import to the map
+   *
+   * @param Usage $uimp
+   */
+  protected function add_use_import(Usage $uimp)
+  {    
+    $key = $uimp->key();
+    
+    if ($this->umap->add($uimp)) {
+      $path = arr_to_path($uimp->path);
+      
+      // add it to the nested map too
+      if ($this->unst) $this->unst->add($uimp);
+      
+      return true;
+    }
+    
+    Logger::error_at($uimp->loc, 'duplicate import of a symbol named `%s`', $key);
+    Logger::error_at($this->umap->get($key)->loc, 'previous import was here');
+    
+    return false;
+  }
+  
+  /**
+   * enters a function-ish node
+   *
+   * @param  FnDecl|FnExpr|GetterDecl|SetterDecl|CtorDecl|DtorDecl $node
+   */
+  protected function enter($node)
+  {
+    $prev = $this->scope;
+    $node->scope = new Scope($prev);
+    $this->scope = $node->scope;
+    
+    if ($node instanceof FnExpr && $node->id) {
+      $sym = $node->symbol = FnSymbol::from($node);
+      $this->scope->add($sym);
+    }
+    
+    if ($node->params)
+      foreach ($node->params as $param) {
+        $sym = $param->symbol = ParamSymbol::from($param);
+        $this->scope->add($sym);
+      }
+    
+    if ($node->body)
+      $this->visit($node->body);
+    
+    $this->scope = $prev;
   }
   
   /* ------------------------------------ */
   
   /**
-   * Visitor#visit_unit()
-   *
-   * @param  Node $node
-   * @return void
-   */
-  public function visit_unit($node)
-  {
-    $this->visit($node->body);
-  }
-  
-  /**
    * Visitor#visit_module()
    *
-   * @param  Node $node
-   * @return void
+   * @param Node $node
    */
   public function visit_module($node)
   {
@@ -126,157 +362,120 @@ class UnitCollector extends Visitor
       $this->scope = $this->sroot;
     
     $node->scope = $this->scope;
+    $this->scope = $node->scope;
     
-    // walk module-body
+    // use module for uses
+    $this->umap = &$this->scope->umap;
+    
+    // walk module body
     $this->scope->enter();
     $this->visit($node->body);
     $this->scope->leave();
-    $this->scope = $prev;
-  }
-  
-  /**
-   * Visitor#visit_content()
-   *
-   * @param  Node $node
-   * @return void
-   */
-  public function visit_content($node) 
-  {
-    // continue walking
-    $this->visit($node->body);
-  }
-  
-  /**
-   * Visitor#visit_fn_decl()
-   *
-   * @param  Node $node
-   * @return void
-   */
-  public function visit_fn_decl($node)
-  {
-    $sym = FnSymbol::from($node);
-    $this->scope->add($sym);
-  }
-  
-  /**
-   * Visitor#visit_enum_decl()
-   *
-   * @param  Node $node
-   * @return void
-   */
-  public function visit_enum_decl($node)
-  {
-    $flags = mods_to_sym_flags($node->mods, SYM_FLAG_CONST);
     
-    foreach ($node->vars as $var) {
-      $sym = VarSymbol::from($var, $flags);
-      $this->scope->add($sym);
-    }
+    $this->scope = $prev;
+    
+    // use prev scope (again) for uses
+    $this->umap = &$this->scope->umap;
+  }
+  
+  public function visit_block($node)
+  {
+    $prev = $this->scope;
+    $node->scope = new Scope($prev);
+    $this->scope = $node->scope;
+    
+    $this->scope->enter();
+    $this->visit($node->body);
+    $this->scope->leave();
+    
+    $this->scope = $prev;
   }
   
   /**
    * Visitor#visit_class_decl()
    *
-   * @param  Node $node
-   * @return void
+   * @param Node $node
    */
   public function visit_class_decl($node)
   {
-    $sym = ClassSymbol::from($node);    
+    $sym = $node->symbol = ClassSymbol::from($node);
+    $sym->super = $this->collect_super($node);
+    $sym->traits = $this->collect_traits($node);
+    $sym->ifaces = $this->collect_ifaces($node);
+    $sym->members = $this->collect_members($node);
+    
+    if ($node->incomp)
+      $sym->flags |= SYM_FLAG_INCOMPLETE;
+    
     $this->scope->add($sym);
-    
-    $col = new ClassCollector($this->sess);
-    $col->collect($this->scope, $sym, $node);
-  }
-  
-  /**
-   * Visitor#visit_iface_decl()
-   *
-   * @param  Node $node
-   * @return void
-   */
-  public function visit_iface_decl($node)
-  {
-    $sym = IfaceSymbol::from($node);    
-    $this->scope->add($sym); 
-    
-    $col = new IfaceCollector($this->sess);
-    $col->collect($this->scope, $sym, $node);
   }
   
   /**
    * Visitor#visit_trait_decl()
    *
-   * @param  Node $node
-   * @return void
+   * @param Node $node
    */
   public function visit_trait_decl($node)
   {
-    $sym = TraitSymbol::from($node);    
-    $this->scope->add($sym); 
+    $sym = $node->symbol = TraitSymbol::from($node);    
+    $sym->traits = $this->collect_traits($node);
+    $sym->members = $this->collect_members($node);
     
-    $col = new TraitCollector($this->sess);
-    $col->collect($this->scope, $sym, $node);
-  }
-}
-
-/** member collector */
-abstract class MemberCollector extends Visitor
-{
-  // @var Session
-  protected $sess;
-  
-  // @var Scope
-  protected $scope;
-  
-  // @var Walker
-  protected $walker;
-  
-  /**
-   * constructor
-   */
-  public function __construct(Session $sess)
-  {
-    // init visitor
-    parent::__construct();
-    $this->sess = $sess;
+    if ($node->incomp)
+      $sym->flags |= SYM_FLAG_INCOMPLETE;
+    
+    $this->scope->add($sym);
   }
   
   /**
-   * collect members
+   * Visitor#visit_iface_decl()
    *
-   * @param  Scope                         $prev
-   * @param  ClassDecl|IfaceDecl|TraitDecl $decl
-   * @return MemberScope
+   * @param Node $node
    */
-  protected function collect_members(Scope $prev, $decl)
+  public function visit_iface_decl($node)
   {
-    $this->scope = new MemberScope($prev);
+    $sym = $node->symbol = IfaceSymbol::from($node);
+    $sym->ifaces = $this->collect_ifaces($node);
+    $sym->members = $this->collect_members($node);
     
-    $this->scope->enter();
-    $this->visit($decl->members);
-    $this->scope->leave();
+    if ($node->incomp)
+      $sym->flags |= SYM_FLAG_INCOMPLETE;
     
-    return $this->scope;
+    $this->scope->add($sym); 
   }
   
   /**
    * Visitor#visit_fn_decl()
    *
-   * @param  Node $node
-   * @return void
+   * @param Node $node
    */
   public function visit_fn_decl($node)
   {
-    $sym = FnSymbol::from($node);
-    $this->scope->add($sym); 
+    $sym = $node->symbol = FnSymbol::from($node);
+    $this->scope->add($sym);
+    
+    $fsym = new VarSymbol('__fn__', $node->loc, SYM_FLAG_CONST|SYM_FLAG_FINAL);
+    $fsym->managed = true; // managed symbol
+    $fsym->reachable = true; // always reachable
+    $this->scope->put($fsym); // no checks, can shadow other __fn__ symbols
+    
+    $this->enter($node);
+  }
+  
+  /**
+   * Visitor#visit_use_decl()
+   *
+   * @param  Node $node
+   */
+  public function visit_use_decl($node) 
+  {
+    $this->collect_use(null, $node->item);
   }
   
   /**
    * Visitor#visit_var_decl()
    *
    * @param  Node $node
-   * @return void
    */
   public function visit_var_decl($node)
   {
@@ -284,6 +483,10 @@ abstract class MemberCollector extends Visitor
     
     foreach ($node->vars as $var) {
       $sym = VarSymbol::from($var, $flags);
+      
+      if ($var->init)
+        $this->visit($var->init);
+      
       $this->scope->add($sym);
     }
   }
@@ -292,7 +495,6 @@ abstract class MemberCollector extends Visitor
    * Visitor#visit_enum_decl()
    *
    * @param  Node $node
-   * @return void
    */
   public function visit_enum_decl($node)
   {
@@ -300,291 +502,132 @@ abstract class MemberCollector extends Visitor
     
     foreach ($node->vars as $var) {
       $sym = VarSymbol::from($var, $flags);
+      
+      if ($var->init)
+        $this->visit($var->init);
+      
       $this->scope->add($sym);
     }
   }
   
   /**
-   * Visitor#visit_alias_decl()
-   *
-   * @param  Node $node
-   * @return void
-   */
-  public function visit_alias_decl($node)
-  {
-    $sym = AliasSymbol::from($node);
-    $this->scope->add($sym);
-  }
-}
-
-/** class collector */
-class ClassCollector extends MemberCollector
-{
-  // @var ClassSymbol
-  protected $sym;
-  
-  /**
-   * constructor
-   *
-   * @param Session $sess
-   */
-  public function __construct(Session $sess)
-  {
-    parent::__construct($sess);
-  }
-  
-  /**
-   * collector 
-   *
-   * @param  ClassSymbol $sym 
-   * @param  Node      $decl
-   * @return void
-   */
-  public function collect(Scope $prev, ClassSymbol &$sym, $decl)
-  {
-    // for ctor/dtor visitors
-    $this->sym = $sym;
-    
-    $sym->super = $this->collect_super($decl);
-    $sym->traits = $this->collect_traits($decl);
-    $sym->ifaces = $this->collect_ifaces($decl);
-    $sym->members = $this->collect_members($prev, $decl);
-  }
-  
-  /**
-   * collect a class-super (extend) declaration
-   *
-   * @param  ClassDecl $decl
-   * @return SymbolRef
-   */
-  protected function collect_super($decl)
-  {
-    if (!$decl->ext) return null;
-    return new SymbolRef($decl->ext, SYM_KIND_CLASS);
-  }
-  
-  /**
-   * collect trait-usage
-   *
-   * @param  ClassDecl $decl
-   * @return TraitUsageSet
-   */
-  protected function collect_traits($decl)
-  {
-    if (!$decl->traits) return null;
-    
-    $tset = new TraitUsageSet;
-    
-    foreach ($decl->traits as $trait) {
-      $tuse = new SymbolRef($trait->name, SYM_KIND_TRAIT);
-      
-      if ($trait->items === null)
-        // use all members
-        $tset->add(new TraitUsage($tuse, $trait->loc, null, null));
-      else      
-        foreach ($trait->items as $item) {
-          $orig = ident_to_str($item->id);
-          $dest = null;
-          
-          if ($item->alias)
-            $dest = ident_to_str($item->alias);
-          
-          $flags = mods_to_sym_flags($item->mods);
-          $tset->add(new TraitUsage($tuse, $item->loc, $orig, $dest, $flags));
-        }
-    }
-    
-    return $tset;
-  }
-  
-  /**
-   * collect implemented interfaces
-   *
-   * @param  ClassDecl $decl
-   * @return SymbolRefSet
-   */
-  protected function collect_ifaces($decl)
-  {
-    if (!$decl->impl) return null;
-    
-    $iset = new SymbolRefSet;
-    
-    foreach ($decl->impl as $impl)
-      $iset->add(new SymbolRef($impl, SYM_KIND_IFACE));
-      
-    return $iset;    
-  }
-  
-  /* ------------------------------------ */
-  
-  /**
    * Visitor#visit_ctor_decl()
    *
    * @param  Node $node
-   * @return void
    */
   public function visit_ctor_decl($node)
   {
-    if ($this->sym->ctor !== null)
-      Logger::error_at($node->loc, 'duplicate constructor declaration');
+    assert($this->scope instanceof MemberScope);
     
-    $this->sym->ctor = FnSymbol::from($node);
+    if ($this->scope->ctor !== null)
+      Logger::warn_at($node->loc, 'duplicate constructor');
+    
+    $this->scope->ctor = FnSymbol::from($node);
+    $this->enter($node);
   }
   
   /**
    * Visitor#visit_dtor_decl()
    *
    * @param  Node $node
-   * @return void
    */
   public function visit_dtor_decl($node)
   {
-    if ($this->sym->dtor !== null)
-      Logger::error_at($node->loc, 'duplicate destructor declaration');
+    assert($this->scope instanceof MemberScope);
     
-    $this->sym->dtor = FnSymbol::from($node);
-  }
-}
-
-/** interface collector */
-class IfaceCollector extends MemberCollector
-{
-  /**
-   * constructor
-   *
-   * @param Session $sess
-   */
-  public function __construct(Session $sess)
-  {
-    parent::__construct($sess);
+    if ($this->scope->dtor !== null)
+      Logger::warn_at($node->loc, 'duplicate destructor');
+    
+    $this->scope->dtor = FnSymbol::from($node);
+    $this->enter($node);
   }
   
   /**
-   * collector
+   * Visitor#visit_getter_decl()
    *
-   * @param  Scope       $prev
-   * @param  IfaceSymbol $sym
-   * @param  Node      $decl
-   * @return void
+   * @param  Node $node
    */
-  public function collect(Scope $prev, IfaceSymbol $sym, $decl)
+  public function visit_getter_decl($node)
   {
-    $sym->ifaces = $this->collect_ifaces($decl);
-    $sym->members = $this->collect_members($prev, $decl);
+    assert($this->scope instanceof MemberScope);
+    
+    $sym = FnSymbol::from($node);
+    $this->scope->getter->add($sym);
+    $this->enter($node);
   }
   
   /**
-   * collect implemented interfaces
+   * Visitor#visit_setter_decl()
    *
-   * @param  ClassDecl $decl
-   * @return SymbolRefSet
+   * @param  Node $node
    */
-  protected function collect_ifaces($decl)
+  public function visit_setter_decl($node)
   {
-    if (!$decl->exts) return null;
+    assert($this->scope instanceof MemberScope);
     
-    $iset = new SymbolRefSet;
+    $sym = FnSymbol::from($node);
+    $this->scope->setter->add($sym);
+    $this->enter($node);
+  }
+  
+  /**
+   * Visitor#visit_fn_expr()
+   *
+   * @param  Node $node
+   */
+  public function visit_fn_expr($node)
+  {
+    $this->enter($node);
+  }
+  
+  /**
+   * Visitor#visit_for_in_stmt()
+   *
+   * @param  Node $node
+   */
+  public function visit_for_in_stmt($node)
+  {
+    $prev = $this->scope;
+    $node->scope = new Scope($prev);
+    $this->scope = $node->scope;
     
-    foreach ($decl->exts as $impl)
-      $iset->add(new SymbolRef($impl, SYM_KIND_IFACE));
+    $vars = [];
+    
+    if ($node->lhs->key)
+      $vars[] = $node->lhs->key;
+    
+    if ($node->lhs->arg)
+      $vars[] = $node->lhs->arg;
       
-    return $iset;    
+    foreach ($vars as $var)   
+      $this->scope->add(new VarSymbol(
+        ident_to_str($var), 
+        $var->loc, 
+        SYM_FLAGS_NONE
+      ));
+        
+    $this->visit($node->rhs);
+    $this->visit($node->stmt);
+    
+    $this->scope = $prev;
   }
   
-  /* ------------------------------------ */
-  
   /**
-   * Visitor#visit_var_decl()
+   * Visitor#visit_for_stmt()
    *
    * @param  Node $node
-   * @return void
    */
-  public function visit_var_decl($node)
+  public function visit_for_stmt($node)
   {
-    Logger::error_at($node->loc, 'variables are not allowed in interfaces');
-  }
-  
-  /**
-   * Visitor#visit_enum_decl()
-   *
-   * @param  Node $node
-   * @return void
-   */
-  public function visit_enum_decl($node)
-  {
-    Logger::error_at($node->loc, 'enumerations are not allowed in interfaces');
-  }
-  
-  /**
-   * Visitor#visit_ctor_decl()
-   *
-   * @param  Node $node
-   * @return void
-   */
-  public function visit_ctor_decl($node)
-  {
-    Logger::error_at($node->loc, 'constructors are not allowed in interfaces');
-  }
-  
-  /**
-   * Visitor#visit_dtor_decl()
-   *
-   * @param  Node $node
-   * @return void
-   */
-  public function visit_dtor_decl($node)
-  {
-    Logger::error_at($node->loc, 'destructors are not allowed in interfaces');
-  }
-}
-
-/** trait collector */
-class TraitCollector extends ClassCollector
-{
-  /**
-   * constructor
-   *
-   * @param Session $sess
-   */
-  public function __construct(Session $sess)
-  {
-    parent::__construct($sess);
-  }
-  
-  /**
-   * collector 
-   *
-   * @param  ClassSymbol $sym 
-   * @param  Node      $decl
-   * @return void
-   */
-  public function collect(Scope $prev, TraitSymbol &$sym, $decl)
-  {
-    $sym->traits = $this->collect_traits($decl);
-    $sym->members = $this->collect_members($prev, $decl);
-  }
-  
-  /* ------------------------------------ */
-  
-  /**
-   * Visitor#visit_ctor_decl()
-   *
-   * @param  Node $node
-   * @return void
-   */
-  public function visit_ctor_decl($node)
-  {
-    Logger::error_at($node->loc, 'constructors are not allowed in traits');
-  }
-  
-  /**
-   * Visitor#visit_dtor_decl()
-   *
-   * @param  Node $node
-   * @return void
-   */
-  public function visit_dtor_decl($node)
-  {
-    Logger::error_at($node->loc, 'destructors are not allowed in traits');
+    $prev = $this->scope;
+    $node->scope = new Scope($prev);
+    $this->scope = $node->scope;
+    
+    $this->visit($node->init);
+    $this->visit($node->test);
+    $this->visit($node->each);
+    $this->visit($node->stmt);
+    
+    $this->scope = $prev;
   }
 }

@@ -3,6 +3,8 @@
 define('PHS_DEBUG', true);
 define('PHS_STDLIB', realpath(__DIR__ . '/../lib'));
 
+chdir(__DIR__);
+
 require_once 'config.php';
 require_once 'logger.php';
 require_once 'source.php';
@@ -27,19 +29,31 @@ assert_options(ASSERT_BAIL, true);
 assert_options(ASSERT_CALLBACK, function($s, $l, $c, $m = null) {
   echo "\nassertion failed", $m ? " with message: $m" : '!', "\n";
   echo "\nfile: $s\nline: $l\n", $c ? "code: $c\n" : ''; 
+  echo "\n";
+  debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
   exit;
 });
 
 function init(Session $sess) {
   $conf = $sess->conf;
+    
+  if ($conf->get('nologo') === false)
+      echo <<<END_LOGO
+     ___  __ ______
+    / _ \/ // / __/
+   / ___/ _  /\ \  
+  /_/  /_//_/___/
   
-  Logger::init($conf, $sess->root, !in_array('--no-colors', $_SERVER['argv']));  
+  Copyright (C) 2014 - The PHS Team.
+  Report bugs to http://ggggg.de/issues
+  
+END_LOGO;
+  
+  Logger::init($conf, $sess->rpath, !in_array('--no-colors', $_SERVER['argv']));  
   Logger::hook(phs\LOG_LEVEL_ERROR, [ $sess, 'abort'] );
   
   if ($conf->get('werror') === true)
-    Logger::hook(phs\LOG_LEVEL_WARNING, [ $sess, 'abort' ]);
-  
-  Logger::debug('initialized');
+    Logger::hook(phs\LOG_LEVEL_WARNING, [ $sess, 'abort' ]);  
 }
 
 function main() {

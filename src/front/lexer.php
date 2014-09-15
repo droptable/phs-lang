@@ -22,6 +22,7 @@ const
   T_BIT_OR = 124,  // '|'
   T_BIT_AND = 38,  // '&'
   T_BIT_XOR = 94,  // '^'
+  T_TREF    = 38,  // '&' 
   T_LPAREN = 40,   // '('
   T_RPAREN = 41,   // ')'
   T_LBRACKET = 91, // '['
@@ -119,17 +120,23 @@ class Lexer
   }
   
   /**
-   * returns informations about the current file
+   * returns the current file
    * 
-   * @return array
+   * @return string
    */
-  public function get_info()
+  public function get_file()
   {
-    return [
-      'line' => $this->line,
-      'coln' => $this->coln,
-      'file' => $this->file
-    ];
+    return $this->file;
+  }
+  
+  /**
+   * returns the current line
+   * 
+   * @return string
+   */
+  public function get_line()
+  {
+    return $this->line;
   }
   
   /**
@@ -157,24 +164,6 @@ class Lexer
     else
       $tok = $this->scan();
     
-    // if the scanner is in sync-mode
-    if ($this->sync && in_array($tok->type, self::$sync_tok)) {
-      $loc = $tok->loc;
-      
-      if (!empty($this->queue)) 
-        array_unshift($this->queue, $tok);
-      else 
-        // token is new - or the queue is empty
-        array_push($this->queue, $tok);
-      
-      $tok = $this->token(T_SYNC, '<synchronizing token>', false);
-      $tok->loc = $loc;
-      
-      // not longer needed
-      $this->sync = false;
-    }
-    
-    #echo "\nnext=", $tok->type, "\n";
     return $tok;
   }
   
@@ -955,17 +944,7 @@ class Lexer
     
     '__php__' => T_PHP,
     '__test__' => T_TEST,
-    
-    '__dir__' => T_CDIR,
-    '__file__' => T_CFILE,
-    '__line__' => T_CLINE,
-    '__coln__' => T_CCOLN,
-    
-    '__fn__' => T_CFN,
-    '__class__' => T_CCLASS,
-    '__method__' => T_CMETHOD,
-    '__module__' => T_CMODULE,
-    
+        
     '__end__' => T_END,
     
     'yield' => T_YIELD,
@@ -986,7 +965,11 @@ class Lexer
     'string' => T_TSTRING,
     'regexp' => T_TREGEXP,
     
-    'alias' => T_ALIAS
+    // hardcoded "special" constants
+    '__dir__'  => T_CDIR,
+    '__file__' => T_CFILE,
+    '__line__' => T_CLINE,
+    '__coln__' => T_CCOLN
   ];
   
   // some tokens are ascii-tokens, see comment at the top of this file

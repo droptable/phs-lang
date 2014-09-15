@@ -6,14 +6,16 @@ class IfaceDecl extends Decl
 {
   public $mods;
   public $id;
-  public $exts;
+  public $impl;
   public $members;
+  public $incomp;
   
-  public function __construct($mods, $id, $exts, $members)
+  public function __construct($mods, $id, $impl, $members, $incomp = false)
   {
     $this->mods = $mods;
     $this->id = $id;
-    $this->exts = $exts;
+    $this->impl = $impl;
     $this->members = $members;
+    $this->incomp = $incomp;
   }
 }

@@ -8,7 +8,7 @@ class ForInStmt extends Stmt
   public $rhs;
   public $stmt;
   
-  public $lexical = false;
+  // @var Scope  own scope
   public $scope;
   
   public function __construct($lhs, $rhs, $stmt)

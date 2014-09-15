@@ -8,6 +8,8 @@ require_once 'symbols.php';
 require_once 'scope.php';
 
 // analyzer components
+require_once 'lexer.php';
+require_once 'parser.php';
 require_once 'validate.php';
 require_once 'desugar.php';
 require_once 'collect.php';
@@ -16,6 +18,7 @@ require_once 'resolve.php';
 
 use phs\Config;
 use phs\Logger;
+use phs\Source;
 use phs\Session;
 use phs\FileSource;
 
@@ -33,8 +36,31 @@ class Analyzer
   // @var Session  session
   private $sess;
   
-  // @var UnitScope
-  private $scope;
+  // ---------------------------------------
+  // components
+  
+  // @var Parser
+  private $psr;
+  
+  // @var UnitDesugarer
+  private $udes;
+  
+  // @var UnitValidator
+  private $uval;
+  
+  // @var UnitCollector
+  private $ucol;
+  
+  // @var UnitReducer
+  private $ured;
+  
+  // @var UnitResolver
+  private $ures;
+  
+  // @var UnitExporter
+  private $uexp;
+  
+  // ---------------------------------------
   
   /**
    * constructor
@@ -45,58 +71,94 @@ class Analyzer
   {
     //
     $this->sess = $sess;
+    
+    // components
+    $this->psr = new Parser($this->sess);
+    $this->udes = new UnitDesugarer($this->sess);
+    $this->uval = new UnitValidator($this->sess);
+    $this->ucol = new UnitCollector($this->sess);
+    $this->ured = new UnitReducer($this->sess);
+    $this->ures = new UnitResolver($this->sess);
+    #$this->uexp = new UnitExporter($this->sess);
   }
   
   /**
    * starts the analyzer
    * 
-   * @param  Unit   $unit
+   * @param  Source $src
    * @return UnitScope
    */
-  public function analyze(Unit $unit)
+  public function analyze(Source $src)
   {    
-    // 1. desugar unit
-    $this->desugar_unit($unit);
-         
-    // 2. collect classes, interfaces and traits
-    // 3. collect functions
-    // 4. collect class, interface and trait-members
-    $this->collect_unit($unit);
+    Logger::debug('analyze file %s', $src->get_path());
+    
+    // 1. parse source
+    $unit = $this->parse_src($src);
     
     if ($this->sess->aborted)
       goto err;
     
-    // 5. reduce constant expressions
-    // 6. resolve usage and imports
-    $this->resolve_unit($unit);
+    $tasks = [
+      // 2. desugar unit
+      function($unit) { $this->desugar_unit($unit); },
+      
+      // 3. validate unit
+      function($unit) { $this->validate_unit($unit); },
+      
+      // 4. collect classes, interfaces and traits
+      // 5. collect functions and variables
+      // 6. collect usage
+      function($unit) { $this->collect_unit($unit); },
+      
+      // 7. reduce constant expressions
+      function($unit) { $this->reduce_unit($unit); },
+            
+      // 8. resolve usage and imports
+      function($unit) { $this->resolve_unit($unit); },
+      
+      // 9. optimize unit
+      // function($unit) { $this->optimize_unit($unit); },
+      
+      // 10. export global symbols
+      #function($unit) { $this->export_unit($unit); },
+    ];
     
-    if ($this->sess->aborted)
-      goto err;
+    foreach ($tasks as $task) {
+      $task($unit);
+      
+      if ($this->sess->aborted)
+        goto err;
+    }
     
-    // 7. validate
-    #$this->validate_unit($unit);
-    
-    // 8. collect variables / branches
-    // TODO:
-    
-    if ($this->sess->aborted)
-      goto err;
-    
-    goto out;
+    // no error
+    return $unit;
     
     err:
-    unset ($unit->scope);
+    unset ($unit);
     gc_collect_cycles();
-    return false;
-    
-    out:
-    return true;
+    return null;
   }
   
+  /**
+   * parses a source
+   *
+   * @param  Source $src
+   * @return Unit
+   */
+  protected function parse_src(Source $src)
+  {
+    return $this->psr->parse($src);
+  }
+  
+  /**
+   * validates a unit
+   *
+   * @param  Unit   $unit
+   * @return void
+   */
   protected function validate_unit(Unit $unit)
   {
-    $uval = new UnitValidator($this->sess);
-    $uval->validate($unit);
+    $this->uval->validate($unit);
   }
   
   /**
@@ -107,8 +169,7 @@ class Analyzer
    */
   protected function desugar_unit(Unit $unit)
   {
-    $desu = new UnitDesugarer($this->sess);
-    $desu->desugar($unit);
+    $this->udes->desugar($unit);
   }
   
   /**
@@ -119,8 +180,7 @@ class Analyzer
    */
   protected function collect_unit(Unit $unit)
   {
-    $ucol = new UnitCollector($this->sess);
-    $ucol->collect($unit);
+    $this->ucol->collect($unit);
   }
   
   /**
@@ -131,88 +191,28 @@ class Analyzer
    */
   protected function resolve_unit(Unit $unit)
   {
-    $ures = new UnitResolver($this->sess);
-    $ures->resolve($unit);
+    $this->ures->resolve($unit);
   }
   
   /**
-   * resolves unit and module-usage (use-delcs)
+   * exports the unit
    *
+   * @param  Unit   $unit
    * @return void
    */
-  protected function resolve_usage()
+  protected function export_unit(Unit $unit)
   {
-    $heap = new Dict;
-    $heap->set('huhu', $unit);
-    
-    // absolute import directory
-    $root = $this->sess->root;
-    $udct = $this->sess->udct;
-    $stdl = PHS_STDLIB;
-    
-    // resolve own usage
-    foreach ($scope->umap as $use) {
-      $path = implode('::', $use->path);
-      $nstd = $use->path[0] !== 'std';
-      
-      if ($this->sess->udct->has($path)) {
-        Logger::debug('import is already resolved (`%s`)', $path);
-        Logger::debug('%s', $this->sess->udct->get($path));
-        continue;
-      }
-            
-      if (($nstd && $this->resolve_import($root, $path, $use)) ||
-                    $this->resolve_import($stdl, $path, $use))
-        Logger::debug('import `%s` resolved to a file', $path);
-    }
-    
-    // resolve usage from sub-modules
-    foreach ($scope->mmap as $sub)
-      $this->resolve_usage($sub);
+    $this->uexp->export($unit);
   }
   
   /**
-   * tries to resolve a import
+   * reduces the unit 
    *
-   * @param  string $root
-   * @param  string $hash
-   * @param  Usage  $use 
-   * @return boolean
+   * @param  Unit   $unit
+   * @return void
    */
-  protected function resolve_import($root, $hash, Usage $use)
-  {    
-    static $ds = DIRECTORY_SEPARATOR;
-    
-    $base = $root . $ds;
-    $path = $use->path;
-    $udct = $this->sess->udct;
-    $find = [];
-    
-    // use foo::bar::baz;
-    // 
-    // -> foo/bar/baz.phs
-    // -> foo/bar.phs
-    // -> foo.phs
-    
-    for (; count($path); array_pop($path))
-      $find[] = $base . implode($ds, $path) . '.phs';
-    
-    foreach ($find as $n => $file) {
-      Logger::debug('try using %s [%d]', $file, $n + 1);
-      
-      if (is_file($file)) {
-        // mark source as `use`
-        $usrc = new FileSource($file);
-        $usrc->origin = $use;
-        
-        // add it to the compiler-queue
-        $this->sess->add_source($usrc);
-        $udct->set($hash, $file);
-        return true;
-      }
-    }
-    
-    $udct->set($hash, '<virtual>');
-    return false;
+  protected function reduce_unit(Unit $unit)
+  {
+    $this->ured->reduce($unit);
   }
 }

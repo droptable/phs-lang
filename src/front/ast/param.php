@@ -11,6 +11,9 @@ class Param extends Node
   public $init;
   public $opt;
   
+  // @var ParamSymbol
+  public $symbol;
+  
   public function __construct($ref, $mods, $hint, $id, $init, $opt)
   {
     $this->ref = $ref;

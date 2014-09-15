@@ -15,14 +15,10 @@ use phs\util\Dict;
 
 require_once 'front/glob.php';
 require_once 'front/ast.php';
-require_once 'front/lexer.php';
-require_once 'front/parser.php';
 require_once 'front/analyze.php';
 require_once 'front/scope.php';
-#require_once 'front/resolve.php';
 require_once 'front/format.php';
 
-use phs\front\Parser;
 use phs\front\Analyzer;
 use phs\front\Resolver;
 use phs\front\Location;
@@ -32,6 +28,7 @@ use phs\front\ast\Node;
 use phs\front\ast\Unit;
 
 use phs\front\Scope;
+use phs\front\GlobScope;
 use phs\front\RootScope;
 use phs\front\UnitScope;
 use phs\front\ModuleScope;
@@ -42,7 +39,7 @@ class Session
   public $conf;
   
   // @var string  the root-directory used to import other files
-  public $root;
+  public $rpath;
   
   // abort flag
   public $aborted;
@@ -57,7 +54,7 @@ class Session
   // includes imports via `use xyz;`
   public $files;
   
-  // global scope
+  // @var Scope  global scope
   public $scope;
   
   // @var SourceSet  assigned sources
@@ -74,10 +71,10 @@ class Session
   public function __construct(Config $conf, $root)
   {
     $this->conf = $conf;
-    $this->root = $root;
+    $this->rpath = $root;
     $this->abort = false;
     
-    $this->scope = new Scope; // global scope
+    $this->scope = new GlobScope; // global scope    
     $this->udct = new Dict; // use-lookup-cache
     $this->queue = new SourceSet; // to-be parsed files
     $this->files = new SourceSet; // already parsed files
@@ -85,15 +82,31 @@ class Session
   }
   
   /**
+   * adds a file
+   *
+   * @param string $path
+   */
+  public function add_file($path)
+  {
+    $this->add_source(new FileSource($path));
+  }
+  
+  /**
    * add a source
    * 
    * @param Source $src
-   * @param Usage $use
    */
   public function add_source(Source $src)
   {
-    if ($this->files->add($src))
-      $this->queue->add($src);
+    if ($src->check() && $this->files->add($src)) {
+      if ($this->started)
+        // in compilation: source may be added from a
+        // require-declaration -> compile it now
+        $this->process($src);
+      else
+        // add file to the compile-queue
+        $this->queue->add($src);
+    }
   }
   
   /**
@@ -110,18 +123,6 @@ class Session
   }
   
   /**
-   * parses a source
-   *
-   * @param  Source $src
-   * @return Unit
-   */
-  public function parse($src)
-  {
-    $psr = new Parser($this);
-    return $psr->parse($src);
-  }
-  
-  /**
    * starts compiling
    *
    * @return void
@@ -130,69 +131,46 @@ class Session
   {
     $this->started = true;
     
-    // phase 1
-    if (!$this->measure('analysis', function() {      
-      $this->parse_queue();
-    })) return;
+    // ---------------------------------------
+    // phase 1: analyze (process) sources
     
-    // phase 2
-    if (!$this->measure('resolving', function() {
-      //$this->resolve_units();
-    })) return;
-      
-    foreach ($this->files as $file) {
-      Logger::debug('using file %s', $file->get_path());
-    }
-  }
-  
-  /**
-   * does a compile-phase callback with timing-measures
-   *
-   * @param  string   $type
-   * @param  callable $func
-   * @return boolean
-   */
-  protected function measure($type, callable $func)
-  {    
-    $time = microtime(true);
-    $func();
-    $done = microtime(true) - $time;
+    while ($src = $this->queue->shift())
+      $this->process($src);
     
-    Logger::debug('%s took %fs', $type, $done);
+    
+    // ---------------------------------------
+    // phase 2: 
+    
     
     if ($this->aborted) {
-      Logger::debug('aborted', $type);
-      return false;
+      Logger::error('compilation aborted due to previous error(s)');
+      return;
     }
     
-    return true;
+    Logger::debug('complete');
+    
+    foreach ($this->files as $file)
+      Logger::debug('using file %s', $file->get_path());
   }
   
   /**
-   * parses all available sources
+   * process a unit
    *
-   * @return void
+   * @param  Source $src
    */
-  protected function parse_queue()
+  protected function process(Source $src)
   {
-    $anl = new Analyzer($this);
-    $fmt = new AstFormatter($this);
-        
-    // parse all sources
-    while ($src = $this->queue->shift()) {
-      $unit = $this->parse($src);
+    $uanl = new Analyzer($this);
+    $afmt = new AstFormatter($this);
+    $unit = $uanl->analyze($src);
+    
+    if ($unit) {
+      $this->units->add($unit);
       
-      if ($unit && $anl->analyze($unit)) {
-        $this->units->add($unit);
-          
-        echo "\n";
-        $unit->scope->dump('');
-        echo "\n\n";
-        echo $fmt->format($unit);
-      }
-      
-      // ignore result and continue parsing to 
-      // report as much errors as possible
+      echo "\n";
+      #$unit->scope->dump('');
+      #echo "\n\n";
+      echo $afmt->format($unit);
     }
   }
 }

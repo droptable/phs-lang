@@ -27,6 +27,8 @@ final class Config extends Dict
   {
     $this->set('log_dest', null);
     $this->set('log_level', LOG_LEVEL_ALL);
+    $this->set('log_time', true);
     $this->set('werror', false);
+    $this->set('nologo', false);
   }
 }

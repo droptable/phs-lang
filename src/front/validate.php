@@ -396,6 +396,23 @@ class UnitValidator extends Visitor
   }
   
   /**
+   * checks if <const> modifier is set
+   *
+   * @param  array  $mods
+   * @return boolean
+   */
+  private function has_const_mod($mods)
+  {
+    if (!$mods) return false;
+    
+    foreach ($mods as $mod)
+      if ($mod->type === T_CONST) 
+        return true;
+    
+    return false;
+  }
+  
+  /**
    * checks if <static> modifier is set
    *
    * @param  array  $mods
@@ -463,7 +480,7 @@ class UnitValidator extends Visitor
           }
           
           if ($member->body !== null)
-            Logger::error_at($member->loc, 'function must not have a body');
+            Logger::error_at($member->loc, 'extern function must not have a body');
         }
       }
     }
@@ -566,12 +583,13 @@ class UnitValidator extends Visitor
   {
     $this->check_mods($node->mods);
     
+    if ($this->has_const_mod($node->mods)) {
+      Logger::info_at($node->loc, '`const` modifier has no effect here');
+      Logger::info_at($node->loc, 'enum items are constant by default');
+    }
+    
     if ($this->within('iface'))
       Logger::error_at($node->loc, 'enum is not allowed inside of iface');
-    
-    foreach ($node->vars as $var)
-      if ($var->init && (!$var->init->value || !$var->init->value->is_primitive()))
-        Logger::error_at($var->loc, 'enum item does not reduce to a constant value');
   }
   
   /**
@@ -584,6 +602,9 @@ class UnitValidator extends Visitor
   {
     $this->check_mods($node->mods);
     $this->enter('class');
+    
+    if ($this->has_const_mod($node->mods))
+      Logger::info_at($node->loc, '`const` modifier has no effect here');
     
     if ($this->has_extern_mod($node->mods))
       $this->check_extern_members($node);
@@ -615,6 +636,9 @@ class UnitValidator extends Visitor
    */
   public function visit_ctor_decl($node) 
   {
+    if (!$this->within('class', [ '*' ]))
+      Logger::error_at($node->loc, 'illegal constructor declaration');
+    
     $this->check_mods($node->mods);
     
     if ($this->has_static_mod($node->mods))
@@ -629,6 +653,9 @@ class UnitValidator extends Visitor
    */
   public function visit_dtor_decl($node) 
   {
+    if (!$this->within('class', [ '*' ]))
+      Logger::error_at($node->loc, 'illegal destructor declaration');
+    
     $this->check_mods($node->mods); 
     
     if ($this->has_static_mod($node->mods))
@@ -679,6 +706,9 @@ class UnitValidator extends Visitor
     $this->check_mods($node->mods);
     $this->enter('trait');  
     
+    if ($this->has_const_mod($node->mods))
+      Logger::info_at($node->loc, '`const` modifier has no effect here');
+    
     if ($this->has_extern_mod($node->mods))
       $this->check_extern_members($node);
     else
@@ -698,9 +728,12 @@ class UnitValidator extends Visitor
     $this->check_mods($node->mods);
     $this->enter('iface');
     
+    if ($this->has_const_mod($node->mods))
+      Logger::info_at($node->loc, '`const` modifier has no effect here');
+    
     if ($this->has_extern_mod($node->mods))
       $this->check_extern_members($node);
-    else 
+    else
       $this->visit($node->members);
     
     $this->leave('iface');
@@ -719,69 +752,58 @@ class UnitValidator extends Visitor
     
     $id = ident_to_str($node->id);
     
-    if ($this->within('iface') && $node->body !== null)
-      Logger::error_at($node->loc, 'iface method `%s` must not have a body', $id);
+    // #1 iface-method-body check
+    if ($this->within('iface') && $node->body !== null) {
+      Logger::error_at($node->loc, 'iface method `%s` \\', $id);
+      Logger::error('must not have a body');
+    }
     
-    // TODO: php allows this
+    // #2 iface-static-method-check
     elseif ($this->within('iface') && $this->has_static_mod($node->mods)) {
+      // TODO: php allows this
       Logger::error_at($node->loc, 'static members inside interfaces are \\ ');
       Logger::error_at($node->loc, 'currently not supported (`%s`)', $id);
     }
     
-    elseif ($this->has_extern_mod($node->mods) && $node->body !== null)
-      Logger::error_at($node->loc, 'extern function `%s` must not have a body', $id);
+    // #3 extern-fn-body check
+    elseif ($this->has_extern_mod($node->mods) && $node->body !== null) {
+      Logger::error_at($node->loc, 'extern function \\');
+      Logger::error('`%s` must not have a body', $id);
+    }
     
+    // #4 non-extern-fn-body check
     elseif (!$this->within('class') && !$this->within('trait') && 
-            !$this->has_extern_mod($node->mods) && $node->body === null)
-      Logger::error_at($node->loc, 'non-extern function `%s` must have a body', $id);
+            !$this->has_extern_mod($node->mods) && $node->body === null) {
+      Logger::error_at($node->loc, 'non-extern function `%s` \\', $id);
+      Logger::error('must have a body');
+    }
     
-    // TODO: php allows this
+    // #5 static-fn-abstract check
     elseif (($this->within('class') || $this->within('trait')) &&
-            $this->has_static_mod($node->mods) && $node->body === null)
-      Logger::error_at($node->loc, 'static method `%s` can not be abstract', $id);
+            $this->has_static_mod($node->mods) && $node->body === null) {
+      // TODO: php allows this
+      Logger::error_at($node->loc, 'static method `%s` \\', $id);
+      Logger::error('can not be abstract');
+    }
     
+    // #6 final-method-abstract check
     elseif (($this->within('class') || $this->within('trait')) &&
-            $this->has_final_mod($node->mods) && $node->body === null)
-      Logger::error_at($node->loc, 'final method `%s` can not be abstract', $id);
+            $this->has_final_mod($node->mods) && $node->body === null) {
+      Logger::error_at($node->loc, 'final method `%s` \\', $id);
+      Logger::error('can not be abstract');
+    }
+    
+    // #7 class-const-method check
+    elseif (($this->within('class') || $this->within('trait') || 
+             $this->within('iface')) && $this->has_const_mod($node->mods)) {
+      Logger::info_at($node->loc, '`const` modifier has no effect here');
+    }
     
     if ($node->body !== null) {
       $this->enter('fn');
       $this->visit($node->body);
       $this->leave('fn');
     }
-  }
-  
-  /**
-   * Visitor#visit_attr_decl()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_attr_decl($node) 
-  {
-    // noop
-  }
-  
-  /**
-   * Visitor#visit_topex_attr()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_topex_attr($node) 
-  {
-    $this->visit($node->topex);
-  }
-  
-  /**
-   * Visitor#visit_comp_attr()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_comp_attr($node) 
-  {
-    $this->visit($node->comp);  
   }
   
   /**
@@ -801,8 +823,10 @@ class UnitValidator extends Visitor
     
     foreach ($node->vars as $var)
       if ($var->init !== null) {
-        if ($extern)
-          Logger::error_at($var->loc, 'extern variable must not have an initializer');
+        if ($extern) {
+          Logger::error_at($var->loc, 'extern variable must \\');
+          Logger::error('not have an initializer');
+        }
         
         $this->visit($var->init);
       }
@@ -829,8 +853,14 @@ class UnitValidator extends Visitor
   {
     $expr = $node->expr;
     
-    if (!$expr->value || $expr->value->kind !== VAL_KIND_STR)
-      Logger::error_at($node->loc, 'require path does not reduce to a constant string'); 
+    if (!($expr instanceof StrLit)) {
+      // this is only a problem if constant-propagation fails to
+      // reduce the given expression to a string.
+      // this gets checked in the resolve-pass (Analyzer->resolve_unit)
+      Logger::warn_at($node->loc, 'require path should be \\');
+      Logger::warn('a constant string value. relying \\');
+      Logger::warn('on constant-folding is not recommended'); 
+    }
   }
   
   /**
@@ -844,7 +874,8 @@ class UnitValidator extends Visitor
     $lid = ident_to_str($node->id);
     
     if (isset ($this->labels[$lid])) {
-      Logger::error_at($node->loc, 'there is already a label with name `%s` in this scope', $lid);
+      Logger::error_at($node->loc, 'there is already a label with name \\'); 
+      Logger::error('`%s` in this scope', $lid);
       Logger::info_at($this->labels[$lid]->loc, 'previous label was here');    
     }
     

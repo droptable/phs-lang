@@ -2,100 +2,102 @@
 
 namespace phs\front;
 
-/**
- * a branch is a scope for temporary symbols
- * inside a 'real' scope.
- * 
- * e.g.
- * 
- * let bar = 1;        <- saved to unit-branch
- * fn foo()            <- function creates a scope
- * {                   <- block creates a branch
- *   bar = 2;          <- bar gets copied to this branch
- * }                   <- branch gets removed
- * 
- */
+use phs\Logger;
 
 /** branch scope */
 class Branch extends Scope
-{
-  // @var Scope original scope
+{  
+  // @var Scope  original scope
   public $orig;
   
   /**
    * constructor
    *
-   * @param Scope $orig
+   * @param Scope $prev
    */
-  public function __construct(Scope $orig)
+  public function __construct(Scope $orig, Branch $prev = null)
   {
-    parent::__construct(null);
+    // super
+    parent::__construct($prev);
     $this->orig = $orig;
   }
-  
-  /**
-   * @see Scope#enter() 
-   * @return void
-   */
+    
+  // forward enter() to the original scope
   public function enter()
   {
     $this->orig->enter();
   }
   
-  /**
-   * @see Scope#leave()
-   * @return void
-   */
+  // forward leave() to the original scope
   public function leave()
   {
     $this->orig->leave();
   }
-  
+    
   /**
    * @see Scope#add()
-   * @param Symbol $sym
+   * @param  Symbol $sym
+   * @return boolean
    */
   public function add(Symbol $sym)
   {
-    // TODO: this is pretty inefficient
-    
-    if ($this->orig->add($sym)) {
-      // move symbol from orig scope to branch
-      $this->orig->delete($sym->id, $sym->ns);
-      return parent::add($sym);
-    }
-    
+    Logger::error('[bug] can not add symbols to a branch');
+    Logger::info('symbol name was `%s`', $sym->id);
+    assert(0);
     return false;
   }
   
   /**
-   * fetch a symbol
-   *
-   * @param  string  $key
+   * @see Scope#get()
+   * @param  string  $id
    * @param  integer $ns
-   * @return Symbol
+   * @return ScResult
    */
-  public function get($key, $ns = -1)
+  public function get($id, $ns = -1)
   {
-    $sym = parent::get($key, $ns);
+    $res = parent::get($id, $ns);
     
-    if (!$sym) {
-      // move symbol from orig scope to branch
-      $sym = $this->orig->get($key, $ns);
+    // copy the symbol if its a var
+    if ($res->is_some()) {
+      $sym = $res->unwrap();
       
-      if (!$sym) return null;
+      // do not copy symbol if it was deoptimized
+      // or has the constant-flag
+      if ($sym->deopt || $sym->flags & SYM_FLAG_CONST) 
+        return $res;
       
-      $sym = clone $sym;
-      $this->put($sym);
+      $dup = clone $sym;
+      $this->put($dup);
+      
+      return ScResult::Some($dup);
     }
+      
+    if ($res->is_priv())
+      return $res;
     
-    return $sym;
+    // delegate to original scope
+    return $this->orig->get($id, $ns);
+  }
+  
+  /**
+   * @see Scope#has()
+   * @param  string  $id
+   * @param  integer $ns
+   * @return boolean
+   */
+  public function has($id, $ns = -1)
+  {
+    return parent::has($id, $ns) || 
+      $this->orig->has($id, $ns);
   }
 }
 
 /** root branch */
 abstract class RootBranch extends Branch
 {
+  // @var UsageMap
+  public $umap;
+  
   // @var ModuleMap (sub-)modules reference
   public $mmap;
   
@@ -110,6 +112,7 @@ abstract class RootBranch extends Branch
   public function __construct(RootScope $orig)
   {
     parent::__construct($orig);
+    $this->umap = &$orig->umap;
     $this->mmap = &$orig->mmap;
     $this->active = &$orig->active;
   }
@@ -138,7 +141,7 @@ class UnitBranch extends RootBranch
 }
 
 /** module branch */
-class ModuleBranch extends RootScope
+class ModuleBranch extends RootBranch
 {
   // @var string  module-id reference
   public $id;
@@ -163,5 +166,44 @@ class ModuleBranch extends RootScope
   public function path()
   {
     return $this->orig->path();
+  }
+}
+
+/** conditional branch (used for loops/switch and if/elsif) */
+class CondBranch extends Branch 
+{
+  /**
+   * @see Branch#get()
+   * @param  string  $id
+   * @param  integer $ns
+   * @return ScResult
+   */
+  public function get($id, $ns = -1)
+  {
+    $res = parent::get($id, $ns);
+    
+    // all symbols get copied to the conditional branch
+    // and the original symbols lose their value used to 
+    // fold/reduce constant expressions
+    
+    if ($res->is_some()) {
+      $sym = $res->unwrap();
+      
+      if ($sym->kind === SYM_KIND_VAR && 
+          //$sym->scope !== $this && 
+          $sym->deopt !== true) {
+        
+        $dup = clone $sym;
+        $this->put($dup);
+        $res = ScResult::Some($dup);
+        
+        // mark original value as "unknown" 
+        // and deoptimize the symbol
+        $sym->value = Value::$UNDEF;
+        $sym->deopt = true;
+      }
+    }
+    
+    return $res;
   }
 }

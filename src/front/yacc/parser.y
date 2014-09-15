@@ -33,13 +33,13 @@
 %left T_SL T_SR
 %left '+' '-' '~'
 %left '*' '/' '%'
-%right T_POW
 %right T_AS 
 %right T_REST
 %right T_DEL
 %right T_INC T_DEC
 %right '!' 
-%right T_NEW
+%right T_POW
+%nonassoc T_NEW
 %left '.' '[' ']'
 %nonassoc '(' ')'
 %nonassoc T_DDDOT
@@ -101,20 +101,8 @@
 %token T_SEALED
 %token T_INLINE
 
-%token T_ALIAS
-
 %token T_PHP
 %token T_TEST
-
-%token T_CDIR
-%token T_CFILE
-%token T_CLINE
-%token T_CCOLN
-
-%token T_CFN
-%token T_CCLASS
-%token T_CMETHOD
-%token T_CMODULE
 
 /* gets produced from the lexer if a '@' was scanned before */
 %token T_NL
@@ -130,6 +118,12 @@
 %token T_TSTRING  /* string */
 %token T_TREGEXP  /* regexp */
 
+/* parse-time constants */
+%token T_CDIR
+%token T_CFILE
+%token T_CLINE
+%token T_CCOLN
+
 /* error token gets produced from the lexer if a regexp 
    was requested but the scan failed */
 %token T_INVL
@@ -137,14 +131,10 @@
 /* end-token */
 %token T_END
 
-/* synchronizing token (not a real token, just for "smarter" error-recovery) */
-%token T_SYNC
-
 %%
 
 start
-  : /* empty */ { $$ = null; }
-  | unit        { $$ = $1; }
+  : unit { $$ = $1; }
   ;
   
 unit
@@ -157,6 +147,11 @@ unit
     { 
       $$ = @Unit($1); 
       $this->eat_end(); 
+    }
+  | /* empty */
+    {
+      $$ = @Unit(null);
+      $this->eat_end();
     }
   ;
   
@@ -179,21 +174,16 @@ toplvl
  
 topex
   : module_nst     { $$ = $1; }
-  | '@' error T_NL { $$ = null; }
   | use_decl       { $$ = $1; }
-  | attr_decl      { $$ = $1; }
   | enum_decl      { $$ = $1; }
   | class_decl     { $$ = $1; }
   | trait_decl     { $$ = $1; }
   | iface_decl     { $$ = $1; }
-  | topex_attr     { $$ = $1; }
   | fn_decl        { $$ = $1; }
   | var_decl       { $$ = $1; }
   | require_decl   { $$ = $1; }
-  | error T_SYNC   { $$ = null; }
   | T_END          { $$ = null; }
   | label_decl     { $$ = $1; }
-  | alias_decl     { $$ = $1; }
   | stmt           { $$ = $1; }
   ;
    
@@ -222,10 +212,6 @@ use_name
   
 label_decl
   : ident ':' comp { $$ = @LabelDecl($1, $3); }
-  ;
-
-alias_decl
-  : T_ALIAS ident '=' name ';' { $$ = @AliasDecl($2, $4); }
   ;
 
 require_decl
@@ -262,42 +248,6 @@ module_nst
       $$ = @Module(null, $3); 
       $this->eat_semis(); 
     }
-  ;
-
-attr_decl
-  : '@' attr_def ';' T_NL 
-    { 
-      $$ = @AttrDecl($2); 
-      $this->eat_semis(); 
-    }
-  ;
-
-comp_attr
-  : '@' attr_def T_NL comp { $$ = @CompAttr($2, $4); }
-  ;
-  
-topex_attr
-  : '@' attr_def T_NL topex { $$ = @TopexAttr($2, $4); }
-  ;
-  
-attr_def
-  : attr_items comma_opt { $$ = @AttrDef($1); }
-  ;
-  
-attr_items
-  : attr_item                { $$ = [ $1 ]; }
-  | attr_items ',' attr_item { $1[] = $3; $$ = $1; }
-  ;
-  
-attr_item
-  : ident                  { $$ = @AttrItem($1, null); }
-  | ident '(' attr_val ')' { $$ = @AttrItem($1, $3); }
-  ;
-  
-attr_val
-  : ident                  { $$ = @AttrVal($1, null); }
-  | ident '=' lit          { $$ = @AttrVal($1, $3); }
-  | ident '(' attr_val ')' { $$ = @AttrVal($1, $3); }
   ;
 
 mods_opt
@@ -349,7 +299,7 @@ class_decl
     }
   | mods_opt T_CLASS ident ext_opt impl_opt ';'               
     { 
-      $$ = @ClassDecl($1, $3, $4, $5, null, null); 
+      $$ = @ClassDecl($1, $3, $4, $5, null, null, true); 
       $this->eat_semis(); 
     }
   ;
@@ -448,8 +398,6 @@ member
   : fn_decl                            { $$ = $1; }
   | var_decl                           { $$ = $1; }
   | enum_decl                          { $$ = $1; }
-  | alias_decl                         { $$ = $1; }
-  | member_attr                        { $$ = $1; }
   | mods_opt T_NEW pparams ';'         
     { 
       $$ = @CtorDecl($1, $3, null); 
@@ -476,11 +424,6 @@ member
     }
   | mods '{' members_opt '}'           { $$ = @NestedMods($1, $3); }
   ;
-
-member_attr
-  : '@' attr_def T_NL fn_decl  { $$ = @MemberAttr($2, $4); }
-  | '@' attr_def T_NL var_decl { $$ = @MemberAttr($2, $4); }
-  ;
   
 trait_decl
   : mods_opt T_TRAIT ident '{' trait_uses_opt members_opt '}' 
@@ -490,7 +433,7 @@ trait_decl
     }
   | mods_opt T_TRAIT ident ';'  /* allowed? */
     { 
-      $$ = @TraitDecl($1, $3, null); 
+      $$ = @TraitDecl($1, $3, null, null, true); 
       $this->eat_semis(); 
     }
   ;
@@ -503,7 +446,7 @@ iface_decl
     }
   | mods_opt T_IFACE ident exts_opt ';' /* allowed? */                
     { 
-      $$ = @IfaceDecl($1, $3, $4, null); 
+      $$ = @IfaceDecl($1, $3, $4, null, true); 
       $this->eat_semis(); 
     } 
   ;
@@ -539,10 +482,7 @@ comp
   : fn_decl        { $$ = $1; }
   | var_decl       { $$ = $1; }
   | label_decl     { $$ = $1; }
-  | comp_attr      { $$ = $1; }
   | stmt           { $$ = $1; }
-  | '@' error T_NL { $$ = null; }
-  | error T_SYNC   { $$ = null; }
   ;
 
 var_decl
@@ -1095,7 +1035,7 @@ tup
   : '(' rseq comma_opt ')' 
     { 
       if ($2 === null || (count($2) === 1 && $3 === null))
-        $$ = @ParenExpr($2);
+        $$ = @ParenExpr($2[0]);
       else
         $$ = @TupleExpr($2);
     }
@@ -1141,12 +1081,8 @@ kwc
   | T_FALSE   { $$ = @FalseLit; }
   | T_CDIR    { $$ = @KStrLit($this->cdir); }
   | T_CFILE   { $$ = @KStrLit($this->cfile); }
-  | T_CLINE   { $$ = @KStrLit($1->loc->pos->line); }
-  | T_CCOLN   { $$ = @KStrLit($1->loc->pos->coln); }
-  | T_CFN     { $$ = @EngineConst($1->type); }
-  | T_CCLASS  { $$ = @EngineConst($1->type); }
-  | T_CMETHOD { $$ = @EngineConst($1->type); }
-  | T_CMODULE { $$ = @EngineConst($1->type); }
+  | T_CLINE   { $$ = @LNumLit($1->loc->pos->line); }
+  | T_CCOLN   { $$ = @LNumLit($1->loc->pos->coln); }
   ;
   
 str
@@ -1159,16 +1095,6 @@ num
   : T_LNUM { $$ = @LNumLit($1->value); }
   | T_DNUM { $$ = @DNumLit($1->value); }
   | T_SNUM { $$ = @SNumLit($1->value, $1->suffix); }
-  ;
-
-lit
-  : str   { $$ = $1; }
-  | num   { $$ = $1; }
-  | reg   { $$ = $1; }
-  | arr   { $$ = $1; }
-  | obj   { $$ = $1; }
-  | kwc   { $$ = $1; }
-  | ident { $$ = $1; }
   ;
 
 arr
@@ -1273,14 +1199,6 @@ rid
   | T_GLOBAL    { $$ = $1; }
   | T_PHP       { $$ = $1; }
   | T_TEST      { $$ = $1; }
-  | T_CDIR      { $$ = $1; }
-  | T_CFILE     { $$ = $1; }
-  | T_CLINE     { $$ = $1; }
-  | T_CCOLN     { $$ = $1; }
-  | T_CFN       { $$ = $1; }
-  | T_CCLASS    { $$ = $1; }
-  | T_CMETHOD   { $$ = $1; }
-  | T_CMODULE   { $$ = $1; }
   | T_YIELD     { $$ = $1; }
   | T_NEW       { $$ = $1; }
   | T_DEL       { $$ = $1; }
@@ -1292,7 +1210,6 @@ rid
   | T_TFLOAT    { $$ = $1; }
   | T_TSTRING   { $$ = $1; }
   | T_TREGEXP   { $$ = $1; }
-  | T_ALIAS     { $$ = $1; }
   ;
   
 %%

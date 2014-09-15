@@ -2,11 +2,14 @@
 
 namespace phs\front;
 
+use phs\Logger;
+
 use phs\front\ast\Name;
 use phs\front\ast\Ident;
 
 require_once __DIR__ . '/../util/map.php';
 require_once __DIR__ . '/../util/set.php';
+require_once __DIR__ . '/../util/result.php';
 
 require_once 'symbols.php';
 
@@ -19,13 +22,11 @@ function var_dump_into($var, $file) {
 function ident_to_str($id) {
   if (!($id instanceof Ident))
     throw new \RuntimeException;
-  return $id->value;
+  return $id->data;
 }
 
 function name_to_str(Name $name, $sep = '::') {
-  $res = implode($sep, name_to_arr($name));
-  if ($name->root) $res = "::$res";
-  return $res;
+  return arr_to_path(name_to_arr($name), $name->root, $sep);
 }
 
 function name_to_arr(Name $name) {
@@ -36,11 +37,20 @@ function name_to_arr(Name $name) {
   return $items;
 }
 
-function array_copy_push(array $arr) { 
-  // $arr is passed by value, so we have a copy
-  for ($i = 1, $l = func_num_args(); $i < $l; ++$i)
-    $arr[] = func_get_arg($i);
-  return $arr;
+function arr_to_path(array $arr, $root = false, $sep = '::') {
+  $res = implode($sep, $arr);
+  if ($root) $res = "$sep$res";
+  return $res;
+}
+
+// alias of arr_to_path()
+function arr_to_name(array $a, $r = false, $s = '::') {
+  return arr_to_path($a, $r, $s);
+}
+
+// alias of arr_to_path()
+function path_to_str(array $a, $r = false, $s = '::') {
+  return arr_to_path($a, $r, $s);
 }
 
 function mods_to_arr($mods) {
@@ -102,7 +112,8 @@ function sym_flags_to_arr($flags) {
     SYM_FLAG_INLINE,
     SYM_FLAG_EXTERN,
     SYM_FLAG_ABSTRACT,
-    SYM_FLAG_INCOMPLETE
+    SYM_FLAG_INCOMPLETE,
+    SYM_FLAG_PARAM
   ];
   
   foreach ($check as $flag)
@@ -126,11 +137,12 @@ function sym_flags_to_stra($flags) {
     SYM_FLAG_PUBLIC => 'public',
     SYM_FLAG_PRIVATE => 'private',
     SYM_FLAG_PROTECTED => 'protected',
-    SYM_FLAG_SEALED => '__sealed__',
-    SYM_FLAG_INLINE => '__inline__',
+    SYM_FLAG_SEALED => 'sealed',
+    SYM_FLAG_INLINE => 'inline',
     SYM_FLAG_EXTERN => 'extern',
     SYM_FLAG_ABSTRACT => 'abstract',
-    SYM_FLAG_INCOMPLETE => 'incomplete'
+    SYM_FLAG_INCOMPLETE => 'incomplete',
+    SYM_FLAG_PARAM => 'parameter'
   ];
   
   foreach (sym_flags_to_arr($flags) as $flag)
@@ -141,6 +153,39 @@ function sym_flags_to_stra($flags) {
 
 function sym_flags_to_str($flags) {
   return implode(', ', sym_flags_to_stra($flags));
+}
+
+function sym_flags_diff($a, $b) {
+  static $check = [ 
+    SYM_FLAG_CONST,
+    SYM_FLAG_FINAL,
+    SYM_FLAG_GLOBAL,
+    SYM_FLAG_STATIC,
+    SYM_FLAG_PUBLIC,
+    SYM_FLAG_PRIVATE,
+    SYM_FLAG_PROTECTED,
+    SYM_FLAG_SEALED,
+    SYM_FLAG_INLINE,
+    SYM_FLAG_EXTERN,
+    SYM_FLAG_ABSTRACT,
+    SYM_FLAG_INCOMPLETE,
+    SYM_FLAG_PARAM
+  ];
+  
+  $d = new \stdclass;
+  $d->add = SYM_FLAG_NONE;
+  $d->del = SYM_FLAG_NONE;
+  
+  foreach ($check as $f)
+    if (($a & $f) && !($b & $f))
+      $d->del |= $f;
+    elseif (($b & $f) && !($a & $f))
+      $d->add |= $f;
+    
+  $d->add &= ~SYM_FLAG_INCOMPLETE;
+  $d->del &= ~SYM_FLAG_INCOMPLETE;
+  
+  return $d;
 }
 
 function sym_kind_to_str($kind) {

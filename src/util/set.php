@@ -26,7 +26,7 @@ class Set implements
   }
   
   /**
-   * filess the set with entries
+   * fills the set with entries
    * @param  array<Entry> $ents
    * @return void
    */
@@ -38,7 +38,7 @@ class Set implements
   
   /**
    * add something to the map.
-   * should be overriden for typechecks
+   * should be overridden for typechecks
    * 
    * @param mixed $val
    * @return boolean
@@ -57,7 +57,7 @@ class Set implements
   
   /**
    * check if an item exists
-   * should be overriden for typechecks
+   * should be overridden for typechecks
    * 
    * @param  mixed  $val
    * @return boolean
@@ -69,7 +69,7 @@ class Set implements
   
   /**
    * deletes an item.
-   * should be overriden for typechecks
+   * should be overridden for typechecks
    * 
    * @param  mixed $val
    * @return boolean  true if the the item existed, false otherwise

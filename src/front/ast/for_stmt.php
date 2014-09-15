@@ -9,7 +9,7 @@ class ForStmt extends Stmt
   public $each;
   public $stmt;
   
-  public $lexical = false;
+  // @var Scope own scope
   public $scope;
   
   public function __construct($init, $test, $each, $stmt)

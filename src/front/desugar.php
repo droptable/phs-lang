@@ -84,7 +84,7 @@ class UnitDesugarer extends Visitor
       else
         $body = [ $body ];
       
-      $node->stmt = new Block($body);
+      $node->stmt = $this->mixin_loc(new Block($body));
     }
   }
   
@@ -102,40 +102,7 @@ class UnitDesugarer extends Visitor
     if ($body === null) return;
     
     if (!($body instanceof Block))
-      $node->body = new Block([ new ReturnStmt($body) ]);
-  }
-  
-  /**
-   * handles function parameters
-   *
-   * @param  array $params
-   * @return void
-   */
-  private function handle_params($params)
-  {
-    if (!$params) return;
-    
-    foreach ($params as $param)
-      if ($param instanceof Param && $param->init)
-        $this->visit($param->init);
-  }
-  
-  /**
-   * handles function arguments
-   *
-   * @param  array $args
-   * @return void
-   */
-  private function handle_args($args)
-  {
-    if (!$args) return;
-    
-    foreach ($args as $arg)
-      if ($arg instanceof NamedArg ||
-          $arg instanceof RestArg)
-        $this->visit($arg->expr);
-      else
-        $this->visit($arg);
+      $node->body = $this->mixin_loc(new Block([ new ReturnStmt($body) ]));
   }
   
   /**
@@ -208,6 +175,21 @@ class UnitDesugarer extends Visitor
     }
   }
   
+  /**
+   * gives a node a "location" pointing to a invalid position.
+   * this identifies generated nodes.
+   *
+   * @param  Node $node
+   * @return Node
+   */
+  private function mixin_loc($node) 
+  {
+    $node->loc = new Location('{generated code}',
+      new Position(0, 0));
+    
+    return $node;
+  }
+  
   /* ------------------------------------ */
   
   /**
@@ -252,7 +234,7 @@ class UnitDesugarer extends Visitor
    * @return void
    */
   public function visit_ctor_decl($node) 
-  {
+  {    
     // this-params
     $thps = [];
     $thid = [];
@@ -280,7 +262,7 @@ class UnitDesugarer extends Visitor
       while (null !== $id = array_pop($thid)) {
         // fetch original param
         $param = array_pop($thps);
-        $tmpid = new Ident('__this__' . $param->id->value);
+        $tmpid = new Ident('__this__' . ident_to_str($param->id));
         
         // replace param
         $params[$id] = new Param(
@@ -292,20 +274,24 @@ class UnitDesugarer extends Visitor
           false
         );
         
+        $params[$id]->loc = $param->loc;
+        
         // inject boilerplate
         // `this.XYZ = &XYZ;`
         array_unshift($body, new ExprStmt([ new AssignExpr(
-          new MemberExpr(true, false, new ThisExpr, $param->id),
+          new MemberExpr(new ThisExpr, $param->id),
           new Token(ord('='), '='), 
           new UnaryExpr(
             new Token(ord('&'), '&'),
-            new Name($tmpid, false)
+            // names need a location for the reference collector
+            // we use the "generated-code" location here
+            $this->mixin_loc(new Name($tmpid, false))
           )
         ) ]));
       }
     }
     
-    $this->handle_params($node->params);
+    $this->visit_fn_params($node->params);
     
     out:
     if ($node->body)
@@ -320,7 +306,7 @@ class UnitDesugarer extends Visitor
    */
   public function visit_dtor_decl($node) 
   {
-    $this->handle_params($node->params);
+    $this->visit_fn_params($node->params);
     $this->visit($node->body);
   }
   
@@ -332,7 +318,7 @@ class UnitDesugarer extends Visitor
    */
   public function visit_getter_decl($node) 
   {
-    $this->handle_params($node->params);
+    $this->visit_fn_params($node->params);
     $this->inject_return($node);
     $this->visit($node->body);
   }
@@ -345,7 +331,7 @@ class UnitDesugarer extends Visitor
    */
   public function visit_setter_decl($node) 
   {
-    $this->handle_params($node->params);
+    $this->visit_fn_params($node->params);
     $this->inject_return($node);
     $this->visit($node->body);
   }
@@ -393,7 +379,7 @@ class UnitDesugarer extends Visitor
    */
   public function visit_fn_decl($node) 
   {
-    $this->handle_params($node->params);
+    $this->visit_fn_params($node->params);
     $this->inject_return($node);
     $this->visit($node->body);
   }
@@ -751,7 +737,7 @@ class UnitDesugarer extends Visitor
    */
   public function visit_fn_expr($node) 
   {
-    $this->handle_params($node->params);
+    $this->visit_fn_params($node->params);
     $this->inject_return($node);
     $this->visit($node->body); 
   }
@@ -867,7 +853,7 @@ class UnitDesugarer extends Visitor
   public function visit_call_expr($node) 
   {
     $this->visit($node->callee);
-    $this->handle_args($node->args);  
+    $this->visit_fn_args($node->args);  
   }
   
   /**
@@ -881,7 +867,7 @@ class UnitDesugarer extends Visitor
     if ($node->key)
       $this->visit($node->key);
       
-    $this->visit($node->value);  
+    $this->visit($node->arg);  
   }
   
   /**
@@ -904,7 +890,7 @@ class UnitDesugarer extends Visitor
   public function visit_new_expr($node) 
   {
     $this->visit($node->name);
-    $this->handle_args($node->args);  
+    $this->visit_fn_args($node->args);  
   }
   
   /**

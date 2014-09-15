@@ -2,10 +2,13 @@
 
 namespace phs;
 
-require 'util/set.php';
+require_once 'front/glob.php';
+require_once 'util/set.php';
 
 use phs\util\Set;
 use phs\util\LooseSet;
+
+use phs\front\Location;
 
 interface Origin
 {}
@@ -13,8 +16,18 @@ interface Origin
 /** abstract base class */
 abstract class Source
 {
-  // @var Origin
-  public $origin = null;
+  // @var Location
+  public $loc = null;
+  
+  /**
+   * checks if this source can be used
+   *
+   * @return boolean
+   */
+  public function check()
+  {
+    return true;
+  }
   
   /**
    * should return the name/path of this source
@@ -76,8 +89,9 @@ class TextSource extends Source
    * @param string  $data
    * @param boolean $php  in case this source is already php-code
    */
-  public function __construct($path, $dest, $data, $php = false)
+  public function __construct($path, $dest, $data, $php = false, Location $loc = null)
   {
+    $this->loc = $loc;
     $this->php = $php;
     $this->path = $path;
     $this->dest = $dest;
@@ -130,11 +144,27 @@ class FileSource extends Source
    * @param string  $dest
    * @param boolean $php
    */
-  public function __construct($path, $dest = null, $php = false)
+  public function __construct($path, $dest = null, $php = false, Location $loc = null)
   {
     $this->path = realpath($path) ?: $path;
     $this->dest = $dest;
     $this->php = $php;
+    $this->loc = $loc;
+  }
+  
+  /**
+   * @see Source#check()
+   *
+   * @return boolean
+   */
+  public function check()
+  {
+    if (!is_file($this->path)) {
+      Logger::error_at($this->loc, 'file not found: %s', $this->path);
+      return false;
+    }
+    
+    return true;
   }
   
   /**
@@ -152,7 +182,9 @@ class FileSource extends Source
    */
   public function get_data()
   {
-    // no error-checking here!
+    if (!is_file($this->path))
+      return null;
+    
     return file_get_contents($this->path);
   }
   
