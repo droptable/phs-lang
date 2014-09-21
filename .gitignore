@@ -10,5 +10,4 @@ src/old/
 src/front/yacc/kmyacc.exe
 src/front/yacc/y.output
 test/
-lib/
 out/

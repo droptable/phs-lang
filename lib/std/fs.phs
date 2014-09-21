@@ -1,0 +1,352 @@
+/*!
+ * This file is part of the PHS Standard Library
+ * Copyright (c) 2014 Andre "asc" Schmidt 
+ * 
+ * All rights reserved.
+ * 
+ * This library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published 
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+module std::fs;
+
+use std::io::Stream;
+use std::io::FStream;
+
+public extern __global__ fn basename;
+public extern __global__ fn chgrp;
+public extern __global__ fn chmod;
+public extern __global__ fn chown;
+public extern __global__ fn clearstatcache;
+public extern __global__ fn copy;
+public extern __global__ fn dirname;
+public extern __global__ fn disk_free_space;
+public extern __global__ fn disk_total_space;
+public extern __global__ fn diskfreespace;
+public extern __global__ fn file_exists;
+public extern __global__ fn file_get_contents;
+public extern __global__ fn file_put_contents;
+public extern __global__ fn file;
+public extern __global__ fn fileatime;
+public extern __global__ fn filectime;
+public extern __global__ fn filegroup;
+public extern __global__ fn fileinode;
+public extern __global__ fn filemtime;
+public extern __global__ fn fileowner;
+public extern __global__ fn fileperms;
+public extern __global__ fn filesize;
+public extern __global__ fn filetype;
+public extern __global__ fn fnmatch;
+public extern __global__ fn glob;
+public extern __global__ fn is_dir;
+public extern __global__ fn is_executable;
+public extern __global__ fn is_file;
+public extern __global__ fn is_link;
+public extern __global__ fn is_readable;
+public extern __global__ fn is_uploaded_file;
+public extern __global__ fn is_writable;
+public extern __global__ fn lchgrp;
+public extern __global__ fn lchown;
+public extern __global__ fn link;
+public extern __global__ fn linkinfo;
+public extern __global__ fn lstat;
+public extern __global__ fn mkdir;
+public extern __global__ fn move_uploaded_file;
+public extern __global__ fn parse_ini_file;
+public extern __global__ fn parse_ini_string;
+public extern __global__ fn pathinfo;
+public extern __global__ fn readfile;
+public extern __global__ fn readlink;
+public extern __global__ fn realpath_cache_get;
+public extern __global__ fn realpath_cache_size;
+public extern __global__ fn realpath;
+public extern __global__ fn rename;
+public extern __global__ fn rewind;
+public extern __global__ fn rmdir;
+public extern __global__ fn stat;
+public extern __global__ fn symlink;
+public extern __global__ fn tempnam;
+public extern __global__ fn tmpfile;
+public extern __global__ fn touch;
+public extern __global__ fn umask;
+public extern __global__ fn unlink;
+
+private extern __global__ fn fopen;
+
+extern const DIRECTORY_SEPARATOR;
+private extern __global__ fn implode;
+
+private extern __global__ fn opendir;
+private extern __global__ fn readdir;
+private extern __global__ fn closedir;
+
+/**
+ * join a list of segments using the directory-separator
+ *
+ * @param  ... args
+ * @return string
+ */
+fn join(...args) =>
+  implode(DIRECTORY_SEPARATOR, args);
+
+/**
+ * directory iterator
+ *
+ * @param  string path
+ */
+fn iterdir(path) {
+  let d = opendir(path);
+  
+  if (!d) throw new Error("unable to open dir %s", path);
+  
+  let i;
+  let k = 0;
+  
+  while (false != i = readdir(d))
+    yield (k++): i;
+  
+  closedir(d);
+}
+
+/**
+ * recursive directory iterator
+ *
+ * @param  string path
+ */
+fn iterdir_r(path) {
+  for (i in iterdir(path)) {
+    yield i;
+    if (i != '.' && i != '..') {
+      let a = join(path, i);
+      if (is_dir(a)) iterdir_r(a);
+    }
+  }
+}
+
+/**
+ * returns a list of files/dirs from a path using
+ * the directory-iterator
+ *
+ * @param  string path
+ * @return List
+ */
+fn listdir(path) {
+  let l = [];
+  for (i in iterdir(path))
+    l.push(i);
+  return l;
+}
+
+/**
+ * returns a list of all files/dirs from a path and sub-dirs using
+ * the directory-iterator
+ *
+ * @param  string path
+ * @return List
+ */
+fn listdir_r(path) {
+  let l = [];
+  
+  for (i in iterdir(path)) {
+    l.push(i);
+    if (i != '.' && i != '..') {
+      let a = join(path, i);
+      if (is_dir(a)) 
+        l.push(listdir_r(a));
+    }
+  }
+  
+  return l;
+}
+
+/**
+ * "recursive" directory remove
+ *
+ * @param  string path
+ * @return bool
+ */
+fn rmdir_r(string path) {
+  let q = [ path ];
+  let d = [];
+  
+  while (q.size()) {
+    let p = q.pop();
+    
+    for (f in iterdir(p)) {
+      if (f == '.' || f == '..')
+        continue;
+      
+      let a = join(p, f);
+      
+      if (is_dir(a)) 
+        q.push(a);
+      else 
+        if (!unlink(a)) return false;
+    }
+    
+    d.push(p);
+  }
+  
+  for (p in d.reverse()) 
+    if (!rmdir(p)) return false;
+  return true;
+}
+
+class FsError : Error {}
+
+/**
+ * opens a stream using fopen()
+ *
+ * @param  string path
+ * @param  string mode
+ * @throws FsError
+ * @return resource
+ */
+private fn open(path, mode) {
+  let hnd = fopen(path, mode);
+  if (hnd) return hnd;
+  throw new FsError("unable to open %s with mode %s", path, mode);
+}
+
+/**
+ * file-system stream
+ * basically a FStream with a public constructor 
+ */
+class FsStream : FStream {
+  
+  private path;
+  private mode;
+  
+  /**
+   * constructor
+   * 
+   * @param string path
+   * @param string mode
+   */
+  public new (string this.path, 
+              string this.mode) {
+    super(open(path, mode));
+  }
+  
+  /**
+   * returns the current path
+   *
+   * @return string
+   */
+  public fn get_path() => path;
+  
+  /**
+   * returns the current mode
+   *
+   * @return string
+   */
+  public fn get_mode() => mode;
+  
+  /**
+   * iterator: yields all lines from this file
+   *
+   * @throws FsError
+   */
+  public fn iter() {
+    for {
+      let l = gets();
+      if (l == false) break;
+      yield l;
+    }
+    
+    if (!eof()) 
+      throw new FsError("not at end-of-file");
+  }
+  
+  /**
+   * closes and re-opens the stream
+   *
+   * @param  string mode
+   * @return FsStream
+   */
+  public fn reopen(string mode?) {
+    if (!closed) close();
+    swap(open(path, this.mode = mode ?: this.mode));
+    closed = false;
+    return this;
+  }
+}
+
+/**
+ * basic file
+ */
+class File {  
+  
+  private path;
+  
+  /**
+   * constructor
+   * 
+   * @param string path
+   */
+  public new (string this.path) ;
+  
+  /**
+   * opens the file and returns a FsStream
+   *
+   * @param  string mode
+   * @return FsStream
+   */
+  public fn open(string mode) =>
+    new FsStream(path, mode);
+  
+  /**
+   * opens the file in write-mode
+   *
+   * @return FsStream
+   */
+  public fn create() => open('w+');
+  
+  // WIP
+  public fn is_dir() => ::is_dir(path);
+  public fn is_file() => ::is_file(path);
+  public fn is_readable() => ::is_readable(path);
+  public fn is_writable() => ::is_writable(path);
+   
+  /**
+   * removes the file or directory
+   *
+   * @param  bool   rec   recursive-removal of a directory
+   * @return bool
+   */
+  public fn remove(bool rec = false) =>
+    is_dir() ? rec ? rmdir_r(path) : rmdir(path) : unlink(path);
+   
+  // temp ... makes file-objects work with file-functions
+  public fn __tostring() => path;
+    
+  /**
+   * type-cast handler
+   *
+   * @param  mixed path
+   * @return File
+   * @throws TypeError
+   */
+  public static fn from(path) {
+    if (path is File) 
+      return path;
+    
+    if (path is FsStream) 
+      path = path.get_path();
+    
+    if (path is string) 
+      return new File(path);
+    
+    throw new TypeError("can not create a file-object from %0", path);
+  }
+}

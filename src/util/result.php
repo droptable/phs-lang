@@ -69,7 +69,8 @@ class Result
    */
   public function is_none()
   {
-    return $this->kind === RES_KIND_NONE;
+    return $this->kind === RES_KIND_NONE ||
+           $this->kind === RES_KIND_ERROR;
   }
   
   /**

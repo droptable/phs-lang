@@ -71,6 +71,9 @@ class UnitValidator extends Visitor
   // @var array
   private $stack;
   
+  // @var int
+  private $inmod = 0;
+  
   // @var array
   private $nmods;
   
@@ -573,6 +576,13 @@ class UnitValidator extends Visitor
   
   /* ------------------------------------ */
   
+  public function visit_module($node)
+  {
+    $this->inmod++;
+    $this->visit($node->body);
+    $this->inmod--;
+  }
+  
   /**
    * Visitor#visit_enum_decl()
    *
@@ -773,7 +783,8 @@ class UnitValidator extends Visitor
     
     // #4 non-extern-fn-body check
     elseif (!$this->within('class') && !$this->within('trait') && 
-            !$this->has_extern_mod($node->mods) && $node->body === null) {
+            !$this->within('iface') && !$this->has_extern_mod($node->mods) && 
+            $node->body === null) {
       Logger::error_at($node->loc, 'non-extern function `%s` \\', $id);
       Logger::error('must have a body');
     }

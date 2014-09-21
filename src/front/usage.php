@@ -30,6 +30,9 @@ class Usage implements Entry
   // @var Location  the location where this import was found
   // the location of the given name (or item) is used here
   public $loc;
+  
+  // @var bool
+  public $pub = false;
 
   // @var string  the name of the imported symbol (alias)
   public $item;
@@ -58,18 +61,20 @@ class Usage implements Entry
   /**
    * constructor
    *
+   * @param bool $pub
    * @param Name $name
    * @param Usage $base a other imported symbol for a relative import
    * @param Ident $item a user-defined name (alias)
    */
-  public function __construct(Name $name, Usage $base = null, Ident $item = null)
+  public function __construct($pub, Name $name, Usage $base = null, Ident $item = null)
   {
     $narr = name_to_arr($name);
         
     // replace alias to get the real path
     if ($base && $base->orig !== $base->item)
       array_splice($narr, 0, 1, $base->orig);
-        
+    
+    $this->pub = $pub;
     $this->loc = $item ? $item->loc : $name->loc;
     $this->orig = array_pop($narr);
     $this->item = $item ? ident_to_str($item) : $this->orig;

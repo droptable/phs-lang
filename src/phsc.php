@@ -67,6 +67,7 @@ function main() {
   
   init($sess);
   
+  $sess->add_source(new FileSource(__DIR__ . '/../lib/std.phs'));
   $sess->add_source($path);
   $sess->compile();
 }

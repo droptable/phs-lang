@@ -57,9 +57,6 @@ class Analyzer
   // @var UnitResolver
   private $ures;
   
-  // @var UnitExporter
-  private $uexp;
-  
   // ---------------------------------------
   
   /**
@@ -79,7 +76,6 @@ class Analyzer
     $this->ucol = new UnitCollector($this->sess);
     $this->ured = new UnitReducer($this->sess);
     $this->ures = new UnitResolver($this->sess);
-    #$this->uexp = new UnitExporter($this->sess);
   }
   
   /**
@@ -110,17 +106,17 @@ class Analyzer
       // 6. collect usage
       function($unit) { $this->collect_unit($unit); },
       
-      // 7. reduce constant expressions
+      // 7. export global symbols
+      function($unit) { $this->export_unit($unit); },
+      
+      // 8. reduce constant expressions
       function($unit) { $this->reduce_unit($unit); },
-            
-      // 8. resolve usage and imports
+      
+      // 9. resolve usage and imports
       function($unit) { $this->resolve_unit($unit); },
       
-      // 9. optimize unit
+      // 10. optimize unit
       // function($unit) { $this->optimize_unit($unit); },
-      
-      // 10. export global symbols
-      #function($unit) { $this->export_unit($unit); },
     ];
     
     foreach ($tasks as $task) {
@@ -193,18 +189,7 @@ class Analyzer
   {
     $this->ures->resolve($unit);
   }
-  
-  /**
-   * exports the unit
-   *
-   * @param  Unit   $unit
-   * @return void
-   */
-  protected function export_unit(Unit $unit)
-  {
-    $this->uexp->export($unit);
-  }
-  
+    
   /**
    * reduces the unit 
    *
@@ -214,5 +199,48 @@ class Analyzer
   protected function reduce_unit(Unit $unit)
   {
     $this->ured->reduce($unit);
+  }
+  
+  /**
+   * exports the unit
+   *
+   * @param  Unit   $unit
+   * @return void
+   */
+  protected function export_unit(Unit $unit)
+  {
+    // non-private symbols from the unit-scope are already exported.
+    // this method exports the generated modules to the global-scope
+    
+    $dst = $this->sess->scope;
+    $src = $unit->scope;
+    
+    // move public "usage" to the global-scope
+    foreach ($src->umap as $imp)
+      if ($imp->pub) $dst->umap->add($imp);
+    
+    // merge modules
+    $stk = [[ $src->mmap, $dst ]];
+    
+    while (count($stk)) {
+      list ($src, $dst) = array_pop($stk);
+      
+      foreach ($src as $mod) {
+        if ($dst->mmap->has($mod->id))
+          $dst = $dst->mmap->get($mod->id);
+        else {
+          $dup = new ModuleScope($mod->id, $dst);
+          $dst->mmap->add($dup);
+          $dst = $dup;
+        }
+        
+        $mod->leave();
+        foreach ($mod->iter() as $sym)
+          $dst->add($sym);
+        
+        // merge submodules
+        array_push($stk, [ $mod->mmap, $dst ]);
+      }
+    }
   }
 }

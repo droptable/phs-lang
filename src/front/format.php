@@ -186,7 +186,7 @@ class AstFormatter extends Visitor
     if (!empty($params)) {
       $len = count($params);
       foreach ($params as $idx => $param) {
-        if ($param->mods)
+        if ($param instanceof Param && $param->mods)
           $this->emit_mods($param->mods);
                 
         if ($param->hint) {
@@ -197,11 +197,14 @@ class AstFormatter extends Visitor
         if ($param instanceof ThisParam) {
           if ($param->ref) $this->emit('&');
           $this->emit('this.');
-        } elseif ($param instanceof RestParam)
-          $this->emit('...');
+        }
         
-        if ($param instanceof Param && $param->ref)
+        if (($param instanceof Param ||
+             $param instanceof RestParam) && $param->ref)
           $this->emit('&');
+        
+        if ($param instanceof RestParam)
+            $this->emit('...');
         
         $this->emit(ident_to_str($param->id));
         
@@ -1008,6 +1011,9 @@ class AstFormatter extends Visitor
    */
   public function visit_use_decl($node) 
   {
+    if ($node->pub)
+      $this->emit('public ');
+    
     $this->emit('use ');
     $this->emit_use($node->item);
     $this->buff = rtrim($this->buff);

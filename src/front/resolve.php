@@ -25,6 +25,7 @@ use phs\front\ast\Unit;
 use phs\front\ast\Expr;
 use phs\front\ast\Name;
 use phs\front\ast\Ident;
+use phs\front\ast\TypeId;
 use phs\front\ast\UseAlias;
 use phs\front\ast\UseUnpack;
 use phs\front\ast\Param;
@@ -36,6 +37,14 @@ use phs\front\ast\TraitDecl;
 
 use phs\lang\BuiltInList;
 use phs\lang\BuiltInDict;
+
+// type-context 
+const
+  TYC_ANY  = 1, // no specific context
+  TYC_NEW  = 2, // new-context (new-expression)
+  TYC_HINT = 3, // hint-context (parameter)
+  TYC_CAST = 4  // cast-context (cast-expression) 
+;
 
 /** 
  * unit resolver
@@ -188,8 +197,8 @@ class UnitResolver extends AutoVisitor
     if (!preg_match($re_ext, $path))
       $path .= $php ? '.php' : '.phs';
     
-    //                       dest--v     v--is_php
-    $fsrc = new FileSource($path, null, false, $loc);
+    //                       dest--v
+    $fsrc = new FileSource($path, null, $php, $loc);
     $this->sess->add_source($fsrc);
   }
     
@@ -477,9 +486,10 @@ class UnitResolver extends AutoVisitor
       } else {
         // use all items
         foreach ($use->members->iter() as $sym) {
-          if ($this->lookup_member($csym, $sym->id, $sym->ns))
-            continue;
+          $res = $this->lookup_member($csym, $sym->id, $sym->ns);
           
+          if ($res->is_some()) continue;
+               
           $dup = clone $sym;
           
           // save origin for proper error-reporting
@@ -489,6 +499,64 @@ class UnitResolver extends AutoVisitor
           $csym->members->add($dup);
         }
       }
+    }
+  }
+  
+  /**
+   * resolves a type
+   * 
+   * @param  Node  $node
+   * @param  int   $flag
+   * @return boolean
+   */
+  private function resolve_type($node, $tyc = TYC_ANY)
+  {
+    // typeid is always allowed
+    if ($node instanceof TypeId) return true;
+    
+    if ($node instanceof Name)
+      $res = $this->lookup_name($node);
+    elseif ($node instanceof Ident)
+      $res = $this->lookup_ident($node);
+    else
+      assert(0);
+    
+    if (!$this->process_lookup($node, $res))
+      return false;
+    
+    $sym = &$res->unwrap();
+    
+    // basic test
+    if ($sym->kind !== SYM_KIND_CLASS &&
+        $sym->kind !== SYM_KIND_IFACE)
+      return false;
+    
+    switch ($tyc) {
+      case TYC_ANY:
+      case TYC_HINT:
+        // no special restrictions
+        return true;
+      
+      case TYC_NEW: 
+        // must be a class and not abstract
+        return $sym->kind === SYM_KIND_CLASS &&
+               !($sym->flags & SYM_FLAG_ABSTRACT);
+               
+      case TYC_CAST:
+        // must be a class and must have a static method named "from"
+        if ($sym->kind !== SYM_KIND_CLASS)
+          return false;
+        
+        $from = $this->lookup_member($sym, 'from', SYM_FN_NS);
+        if ($from->is_none()) return false;
+        
+        $fsym = &$from->unwrap();
+        return (bool) (!($fsym->flags & SYM_FLAG_PRIVATE) && 
+                       !($fsym->flags & SYM_FLAG_PROTECTED) &&
+                       $fsym->flags & SYM_FLAG_STATIC);
+      
+      default:
+        assert(0);
     }
   }
     
@@ -569,12 +637,9 @@ class UnitResolver extends AutoVisitor
       assert(!($param instanceof ThisParam));
       
       if ($param->hint)
-        $this->visit($param->hint);
+        $this->resolve_type($param->hint, TYC_HINT);
       
-      $sid = ident_to_str($param->id);
-      $res = $this->scope->get($sid);
-      assert($res->is_some());
-      $res->unwrap()->reachable = true;
+      $param->symbol->reachable = true;
     }
   }
   
@@ -585,14 +650,7 @@ class UnitResolver extends AutoVisitor
         $this->visit($var->init);
       
       // mark variable as reachable
-      $sid = ident_to_str($var->id);
-      $res = $this->scope->get($sid, SYM_VAR_NS);
-      
-      // this must be true, because the symbol must be assigned 
-      // before from this node (see UnitCollector)
-      assert($res->is_some());
-      
-      $res->unwrap()->reachable = true;
+      $var->symbol->reachable = true;
     }
   }
   
@@ -603,10 +661,7 @@ class UnitResolver extends AutoVisitor
         $this->visit($var->init);
       
       // mark variable as reachable
-      $sid = ident_to_str($var->id);
-      $res = $this->scope->get($sid, SYM_VAR_NS);
-      assert($res->is_some());
-      $res->unwrap()->reachable = true;
+      $var->symbol->reachable = true;
     }
   }
   
@@ -636,12 +691,8 @@ class UnitResolver extends AutoVisitor
     if ($node->lhs->arg)
       $vars[] = $node->lhs->arg;
     
-    foreach ($vars as $var) {
-      $sid = ident_to_str($var);
-      $res = $this->scope->get($sid, SYM_VAR_NS);
-      assert($res->is_some());
-      $res->unwrap()->reachable = true;
-    }
+    foreach ($vars as $var)
+      $var->symbol->reachable = true;
     
     $this->visit($node->rhs);
     $this->visit($node->stmt);
@@ -668,18 +719,9 @@ class UnitResolver extends AutoVisitor
   public function visit_new_expr($node)
   {
     $expr = $node->name;
-    if ($expr instanceof Name) {
-      $res = $this->lookup_name($expr);
-      
-      if ($this->process_lookup($expr, $res)) {
-        $sym = &$res->unwrap();
-        
-        if (!($sym instanceof VarSymbol) && 
-            !($sym instanceof ClassSymbol)) {
-          Logger::error_at($expr->loc, 'cannot use %s \\', $sym);
-          Logger::error('in new-expression');
-        }  
-      }
+    
+    if (!$this->resolve_type($expr, TYC_NEW)) {
+      Logger::error_at($expr->loc, 'invalid type-name in new-expression');
     }
   }
   
@@ -688,17 +730,9 @@ class UnitResolver extends AutoVisitor
     $this->visit($node->expr);
     $type = $node->type;
     
-    if ($type instanceof Name) {
-      $res = $this->lookup_name($type);
-      
-      if ($this->process_lookup($type, $res)) {
-        $sym = &$res->unwrap();
-        
-        if (!($sym instanceof ClassSymbol)) {
-          Logger::error_at($type->loc, 'cannot use %s \\', $sym);
-          Logger::error('as type-cast');
-        }
-      }
+    if (!$this->resolve_type($type, TYC_CAST)) {
+      Logger::error_at($type->loc, 'only primitive types and classes with \\');
+      Logger::error('a static `from` method can be used in a type-cast');
     }
   }
   

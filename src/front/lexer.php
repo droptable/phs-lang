@@ -192,11 +192,8 @@ class Lexer
    */
   public function push(Token $t)
   {
-    if (!isset ($this->queue)) {
-      Logger::debug_at($t->loc, '[bug] Lexer#push(): pushing token onto freed queue');
-      Logger::debug_at($t->loc, '[bug] token %d `%s`', $t->type, $t->value);
+    if (!isset ($this->queue))
       return;
-    }
     
     array_push($this->queue, $t);
   }

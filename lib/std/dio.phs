@@ -1,0 +1,42 @@
+/*!
+ * This file is part of the PHS Standard Library
+ * Copyright (c) 2014 Andre "asc" Schmidt 
+ * 
+ * All rights reserved.
+ * 
+ * This library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published 
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+module std::dio;
+
+private extern __global__ fn dio_close;
+private extern __global__ fn dio_fcntl;
+private extern __global__ fn dio_open;
+private extern __global__ fn dio_read;
+private extern __global__ fn dio_seek;
+private extern __global__ fn dio_stat;
+private extern __global__ fn dio_tcsetattr;
+private extern __global__ fn dio_truncate;
+private extern __global__ fn dio_write;
+
+// public alias-exports
+public use dio_close as close;
+public use dio_fcntl as fcntl;
+public use dio_open as open;
+public use dio_read as read;
+public use dio_seek as seek;
+public use dio_stat as stat;
+public use dio_tcsetattr as tcsetattr;
+public use dio_truncate as truncate;
+public use dio_write as write;

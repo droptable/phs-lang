@@ -100,15 +100,11 @@ trait Lookup
     if ($root === false) {
       $scope = $this->scope;
       
-      for (;;) {        
+      for (; $scope; $scope = $scope->prev) {        
         // get nearest root-scope
         while (!($scope instanceof RootScope))
           $scope = $scope->prev;
-        
-        if (!$scope || $scope instanceof UnitScope || 
-                       $scope instanceof GlobScope) 
-          break; // note: unit and global-scope gets checked later
-        
+                
         // check module-map
         if ($scope->mmap->has($base)) {
           $mod = $scope->mmap->get($base);
@@ -120,33 +116,9 @@ trait Lookup
           $imp = $scope->umap->get($base);
           goto imp;
         }
-        
-        // try parent scope
-        $scope = $scope->prev;
       }
     }
-    
-    // check unit-scope module-map
-    if ($this->sunit->mmap->has($base)) {
-      $mod = $this->sunit->mmap->get($base);
-      goto mod;
-    }
-    
-    // check unit-scope usage-map
-    if ($this->sunit->umap->has($base)) {
-      $imp = $this->sunit->umap->get($base);
-      goto imp;
-    }
-    
-    // check global-scope module-map
-    if ($this->sglob->mmap->has($base)) {
-      $mod = $this->sglob->mmap->get($base);
-      goto mod;
-    }
-    
-    // note: global scope does not have a "usage-map"
-    // ... to be honest: it does, but its unused
-    
+       
     // no jump? no symbol was found
     return ScResult::None();
     
@@ -171,19 +143,45 @@ trait Lookup
   {
     $plen = count($path) - 1;
     $pidx = 1; // note: the first part of the path is the module itself
+    $item = end($path);
     
     for (; $pidx < $plen; ++$pidx) {
       $pcur = $path[$pidx];
       
-      if (!$mod->mmap->has($pcur))
-        // sub-module not found, early return here
-        return ScResult::None();
+      if (!$mod->mmap->has($pcur)) {
+        // sub-module not found, check public imports
+        $imp = $mod->umap->get($pcur);
+        
+        if ($imp && $imp->pub)
+          return $this->lookup_import($imp, array_slice($path, $pidx), $ns);
+        
+        // not imported
+        goto err;
+      }
       
       $mod = $mod->mmap->get($pcur);
     }
     
     // return the requested symbol
-    return $mod->get($path[$plen]);
+    $sym = $mod->get($item);
+    
+    if ($sym->is_some() ||
+        $sym->is_priv() ||
+        $sym->is_error())
+      return $sym;
+        
+    // check if the module has a used symbol
+    $imp = $mod->umap->get($item);
+    
+    Logger::debug('%s::%s', path_to_str($mod->path()), $item);
+    var_dump($mod->umap);
+    
+    if ($imp && $imp->pub)
+      return $this->lookup_import($imp, [ $item ], $ns);
+    
+    // otherwise: bail out
+    err:
+    return ScResult::None();
   }
   
   /**
@@ -196,6 +194,9 @@ trait Lookup
    */
   public function lookup_import(Usage $imp, array $path, $ns = -1)
   {
+    Logger::debug('looking up imported symbol `%s` via `%s`', 
+      path_to_str($path), path_to_str($imp->path));
+    
     $root = $this->scope;
     $base = $imp->path[0];
     
@@ -211,6 +212,10 @@ trait Lookup
     // avoid double-lookup in the current unit ...
     // this can lead to a infinite loop
     $unit = false;
+    $glob = false;
+    
+    // resolved symbol
+    $sym = null;
     
     for (; $root; $root = $root->prev) {
       // walk up to the next root-scope
@@ -223,18 +228,26 @@ trait Lookup
       }
       
       if ($root instanceof UnitScope) {
-        // break if we're already looked in the current unit
-        if ($unit === true) break;
+        // we're already looked in the current unit,
+        // switch to the global scope then
+        if ($unit === true)
+          $root = $this->sglob;
         
-        // don't look in the current unit again next time
         $unit = true;
       }
       
+      if ($root instanceof GlobScope) {
+        if ($glob === true)
+          break;
+        
+        $glob = true;
+      }
+            
       // check if current root has a module named $base
       if (!$root->mmap->has($base))
         // use next root
         continue;
-      
+            
       // try to resolve the imported name
       for ($iidx = 0; $iidx < $ilen; ++$iidx) {
         $icur = $imp->path[$iidx];
@@ -247,9 +260,11 @@ trait Lookup
       }
       
       // check if imported name resolves to a symbol
-      if ($plen === 0 && $imp->item === $item)
-        return $root->get($item);
-      
+      if ($plen === 0 && $imp->item === $item) {
+        $sym = $root->get($item);
+        break;
+      }
+            
       // otherwise: imported name must be a module
       if (!$root->mmap->has($imp->orig))
         // use next root
@@ -270,8 +285,15 @@ trait Lookup
       }
       
       // resolve requested symbol
-      if ($root->has($item))
-        return $root->get($item);
+      if ($root->has($item)) {
+        $sym = $root->get($item);
+        break;
+      }
+    }
+    
+    if ($sym !== null) {
+      $imp->symbol = $sym;
+      return $sym;
     }
     
     // no more roots ... lookup failed

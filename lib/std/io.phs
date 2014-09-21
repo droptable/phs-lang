@@ -1,0 +1,582 @@
+/*!
+ * This file is part of the PHS Standard Library
+ * Copyright (c) 2014 Andre "asc" Schmidt 
+ * 
+ * All rights reserved.
+ * 
+ * This library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published 
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+module std::io;
+
+extern __global__ fn stream_bucket_append;
+extern __global__ fn stream_bucket_make_writeable;
+extern __global__ fn stream_bucket_new;
+extern __global__ fn stream_bucket_prepend;
+extern __global__ fn stream_context_create;
+extern __global__ fn stream_context_get_default;
+extern __global__ fn stream_context_get_options;
+extern __global__ fn stream_context_get_params;
+extern __global__ fn stream_context_set_default;
+extern __global__ fn stream_context_set_option;
+extern __global__ fn stream_context_set_params;
+extern __global__ fn stream_copy_to_stream;
+extern __global__ fn stream_encoding;
+extern __global__ fn stream_filter_append;
+extern __global__ fn stream_filter_prepend;
+extern __global__ fn stream_filter_register;
+extern __global__ fn stream_filter_remove;
+extern __global__ fn stream_get_contents;
+extern __global__ fn stream_get_filters;
+extern __global__ fn stream_get_line;
+extern __global__ fn stream_get_meta_data;
+extern __global__ fn stream_get_transports;
+extern __global__ fn stream_get_wrappers;
+extern __global__ fn stream_is_local;
+extern __global__ fn stream_notification_callback;
+extern __global__ fn stream_register_wrapper;
+extern __global__ fn stream_resolve_include_path;
+extern __global__ fn stream_select;
+extern __global__ fn stream_set_blocking;
+extern __global__ fn stream_set_chunk_size;
+extern __global__ fn stream_set_read_buffer;
+extern __global__ fn stream_set_timeout;
+extern __global__ fn stream_set_write_buffer;
+extern __global__ fn stream_socket_accept;
+extern __global__ fn stream_socket_client;
+extern __global__ fn stream_socket_enable_crypto;
+extern __global__ fn stream_socket_get_name;
+extern __global__ fn stream_socket_pair;
+extern __global__ fn stream_socket_recvfrom;
+extern __global__ fn stream_socket_sendto;
+extern __global__ fn stream_socket_server;
+extern __global__ fn stream_socket_shutdown;
+extern __global__ fn stream_supports_lock;
+extern __global__ fn stream_wrapper_register;
+extern __global__ fn stream_wrapper_restore;
+extern __global__ fn stream_wrapper_unregister;
+
+private extern __global__ const PHP_EOL;
+private extern __global__ fn fclose;
+
+private extern __global__ fn is_resource;
+private extern __global__ fn get_resource_type;
+
+/**
+ * implements a static from() method for
+ * type-casts
+ */
+trait From {
+  /**
+   * creates a stream from the given value
+   *
+   * @param  mixed mix
+   * @return Stream
+   * @throws TypeError
+   */
+  public static fn from(mix) {
+    // return if `mix` is a stream
+    if (mix is Stream)
+      return mix;
+    
+    // create a stream from the given value if it
+    // is a php-stream-resource
+    if (is_resource(mix) && get_resource_type(mix) == "stream")
+      return new __class__(mix);
+    
+    // bail out
+    throw TypeError("unable to create a stream from %0", mix);
+  }
+}
+
+/**
+ * Basic stream abstraction.
+ * Base for all other stream-related modules in the stdlib
+ */
+class Stream {
+  
+  use From;
+  
+  // @var resource
+  protected const hnd;
+  
+  // @var whenever close() was called
+  protected closed = false;
+  
+  /**
+   * constructor
+   * 
+   * @param resource hnd  a stream resource
+   */
+  protected new (this.hnd) {
+    if (!hnd) // probably from a failed fopen()
+      throw new TypeError("invalid stream-handle %0", hnd);
+  }
+  
+  /**
+   * replaces the current stream-handle with a new one.
+   * 
+   * this method should be used with caution, because things can 
+   * go really really wrong after calling this function 
+   * without paying attention.
+   * 
+   * this method does not rewind() the given handle nor 
+   * will it close() the current handle before replacing it.
+   * 
+   * if the stream was closed before a Error gets thrown.
+   *
+   * @param  resource hnd
+   * @throws Error
+   */
+  public fn swap(hnd) {
+    if (closed) 
+      throw new Error("can not swap stream-handle in a closed stream");
+    this.hnd = hnd;
+  }
+    
+  /**
+   * closes this stream.
+   *
+   * @return bool
+   */
+  public fn close() {
+    closed = true;
+    return fclose(this.hnd);
+  }
+  
+  /**
+   * copies data from this stream to another
+   *
+   * @param  Stream dest
+   * @param  int    max
+   * @param  int    off
+   * @return int
+   */
+  public fn copy_to_stream(Stream dest, int max = -1, int off = 0) =>
+    stream_copy_to_stream(this.hnd, dest, max, off);
+    
+  /**
+   * set character encoding for this stream
+   *
+   * @param string enc
+   */
+  public fn set_encoding(string enc) =>
+    stream_encoding(this.hnd, enc);
+  
+  /**
+   * reads remainder of this stream into a string
+   *
+   * @param  int    max
+   * @param  int    off
+   * @return string
+   */
+  public fn get_contents(int max = -1, int off = -1) =>
+    stream_get_contents(this.hnd, max, off);
+  
+  /**
+   * gets line from this stream up to a given delimiter
+   *
+   * @param  int    len
+   * @param  string end
+   * @return string
+   */
+  public fn get_line(int len, string end?) =>
+    stream_get_line(this.hnd, len, end ?: PHP_EOL);
+  
+  /**
+   * retrieves header/meta data from this stream
+   *
+   * @return Dict
+   */
+  public fn get_meta_data() =>
+    stream_get_meta_data(this.hnd) as Dict;
+    
+  /**
+   * checks if this stream is a local stream
+   *
+   * @return bool
+   */
+  public fn is_local() =>
+    stream_is_local(this.hnd);
+    
+  /**
+   * set blocking/non-blocking mode on this stream
+   *
+   * @param int mode
+   * @return bool
+   */
+  public fn set_blocking(int mode) =>
+    stream_set_blocking(this.hnd, mode);
+   
+  /**
+   * set the stream chunk size
+   *
+   * @param int cs
+   * @return int
+   */
+  public fn set_chunk_size(int cs) =>
+    stream_set_chunk_size(this.hnd, cs);
+    
+  /**
+   * set read buffering on this stream
+   *
+   * @param int bs
+   * @return int
+   */
+  public fn set_read_buffer(int bs) =>
+    stream_set_read_buffer(this.hnd, bs);
+    
+  /**
+   * set timeout period on this stream
+   *
+   * @param int sec
+   * @param int ms
+   * @return bool
+   */
+  public fn set_timeout(int sec, int ms = 0) =>
+    stream_set_timeout(this.hnd, sec, ms);
+    
+  /**
+   * sets write buffering on this stream
+   *
+   * @param int bs
+   * @return int
+   */
+  public fn set_write_buffer(int bs) =>
+    stream_set_write_buffer(this.hnd, bs);
+  
+  /**
+   * tells whether this stream supports locking
+   *
+   * @return bool
+   */
+  public fn supports_lock() =>
+    stream_supports_lock(this.hnd);
+}
+
+// ---------------------------------------
+// basic stream access
+
+extern __global__ fn feof;
+extern __global__ fn fflush;
+extern __global__ fn fgetc;
+extern __global__ fn fgetcsv;
+extern __global__ fn fgets;
+extern __global__ fn fgetss;
+extern __global__ fn flock;
+extern __global__ fn fopen;
+extern __global__ fn fpassthru;
+extern __global__ fn fputcsv;
+extern __global__ fn fputs;
+extern __global__ fn fread;
+extern __global__ fn fscanf;
+extern __global__ fn fseek;
+extern __global__ fn fstat;
+extern __global__ fn ftell;
+extern __global__ fn ftruncate;
+extern __global__ fn fwrite;
+
+trait Read {
+  /**
+   * reads up to `len` bytes from this stream
+   *
+   * @param  int    len
+   * @return string
+   */
+  public fn read(int len) =>
+    fread(this.hnd, len);
+    
+  /**
+   * reads up to `len` bytes or to a end-of-line character from this stream
+   *
+   * @param  int    len
+   * @return string
+   */
+  public fn readln(int len) =>
+    fgets(this.hnd, len);
+}
+
+trait Write {
+  /**
+   * writes a string to this stream
+   *
+   * @param  string msg
+   * @return int
+   */
+  public fn write(msg) =>
+    fwrite(this.hnd, msg);
+  
+  /**
+   * writes a string followed by a new-line to this stream
+   *
+   * @param  string msg
+   * @return int
+   */
+  public fn writeln(string msg) {
+    let n = 0;
+    
+    n += fwrite(this.hnd, msg);
+    n += fwrite(this.hnd, PHP_EOL);
+    
+    return n;
+  }
+}
+
+// ---------------------------------------
+// ---------------------------------------
+
+// standard input/output streams
+
+/**
+ * input-stream
+ */
+iface IStream {
+  /**
+   * reads up to `len` bytes from this stream
+   *
+   * @param  int    len
+   * @return string
+   */
+  public fn read(int len);
+  
+  /**
+   * reads up to `len` bytes or to a end-of-line character from this stream
+   *
+   * @param  int    len
+   * @return string
+   */
+  public fn readln(int len);
+}
+
+/**
+ * output-stream
+ */
+iface OStream {
+  /**
+   * writes a string to this stream
+   *
+   * @param  string msg
+   * @return int
+   */
+  public fn write(string msg);
+  
+  /**
+   * writes a string followed by a new-line to this stream
+   *
+   * @param  string msg
+   * @return int
+   */
+  public fn writeln(string msg);
+}
+
+/**
+ * Very basic input/output stream implementations.
+ * WIP
+ */
+
+private class IStreamImpl : Stream ~ IStream {
+  
+  use Read;
+  
+  /**
+   * see Stream#new
+   */
+  public new (this.hnd) ; 
+}
+
+private class OStreamImpl : Stream ~ OStream {
+  
+  use Write;
+  
+  /**
+   * see Stream#new
+   */
+  public new (this.hnd) ;
+}
+
+extern __global__ const STDIN;
+extern __global__ const STDOUT;
+extern __global__ const STDERR;
+
+const sin = new IStreamImpl(STDIN);
+const sout = new OStreamImpl(STDOUT);
+const serr = new OStreamImpl(STDERR);
+
+// ---------------------------------------
+// ---------------------------------------
+
+// file stream
+
+extern __global__ const LOCK_SH;
+extern __global__ const LOCK_EX;
+extern __global__ const LOCK_UN;
+
+extern __global__ const SEEK_SET;
+extern __global__ const SEEK_CUR;
+extern __global__ const SEEK_END;
+
+// note: this class is not really limited to files ...
+// more concrete stream-types coming soon
+// note: no public constructor!
+class FStream : Stream ~ IStream, OStream {
+  
+  use From;
+  use Read;
+  use Write;
+  
+  /**
+   * tests for end-of-file on this stream
+   *
+   * @return bool
+   */
+  public fn eof() =>
+    feof(this.hnd);
+   
+  /**
+   * flushes the output
+   *
+   * @return bool
+   */
+  public fn flush() =>
+    fflush(this.hnd);
+    
+  /**
+   * gets character from this stream
+   *
+   * @return string
+   */
+  public fn getc() =>
+    fgetc(this.hnd);
+    
+  /**
+   * gets line from this stream and parse for CSV fields
+   *
+   * @param  int    len
+   * @param  string delim
+   * @param  string encl
+   * @param  string esc
+   * @return List
+   */
+  public fn getcsv(int len = 0, string delim = ',', 
+                                string encl = '"', 
+                                string esc = '\\') =>
+    fgetcsv(this.hnd, len, delim, encl, esc) as List;
+   
+  /**
+   * gets line from this stream
+   *
+   * @param  int len
+   * @return string
+   */
+  public fn gets(...args) =>
+    fgets(this.hnd, ...args);
+    
+  /**
+   * gets line from file pointer and strip HTML tags
+   *
+   * @param  int len
+   * @param  string allowable_tags
+   * @return string
+   */
+  public fn getss(...args) =>
+    fgetss(this.hnd, ...args);
+  
+  /**
+   * portable advisory file locking
+   *
+   * @param  int    op
+   * @return bool
+   */
+  public fn lock(int op) =>
+    flock(this.hnd, op);
+  
+  /**
+   * output all remaining data on this stream
+   *
+   * @return int
+   */
+  public fn passthru() =>
+    fpassthru(this.hnd);
+   
+  /**
+   * format line as CSV and write to file pointer
+   *
+   * @param  List   fields
+   * @param  string delim
+   * @param  string encl
+   * @return int
+   */
+  public fn putcsv(List fields, string delim = ',', 
+                                string encl = '"') =>
+    fputcsv(fields.to_tuple(), delim, encl);
+    
+  /**
+   * writes a string to the stream with the given length.
+   * not an alias of write()
+   *
+   * @param  string msg
+   * @param  int    len
+   * @return int
+   */
+  public fn puts(string msg, int len) =>
+    fwrite(this.hnd, msg, len);
+  
+  /**
+   * parses input from this stream according to a format
+   *
+   * @param  string fmt
+   * @param  ... ptrs
+   * @return List|int
+   */
+  public fn scanf(string fmt, &...ptrs) =>
+    count(ptrs) ? fscanf(this.hnd, fmt, ...ptrs) 
+      : fscanf(this.hnd, fmt) as List;
+   
+  /**
+   * seeks on a stream.
+   * 
+   * @todo maybe move to stream base class?
+   *
+   * @param  int    off
+   * @param  int wh
+   * @return int
+   */
+  public fn seek(int off, int wh = SEEK_SET) =>
+    fseek(this.hnd, off, wh);
+  
+  /**
+   * gets information about the stream
+   *
+   * @return Dict
+   */
+  public fn stat() =>
+    array_splice(fstat(this.hnd), 13) as Dict;
+  
+  /**
+   * returns the current position of the stream
+   *
+   * @return int
+   */
+  public fn tell() =>
+    ftell(this.hnd);
+    
+  /**
+   * truncates a file to a given length
+   *
+   * @param  int    size
+   * @return bool
+   */
+  public fn truncate(int size) =>
+    ftruncate(this.hnd, size);
+}

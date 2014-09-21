@@ -140,15 +140,14 @@ class Session
     
     // ---------------------------------------
     // phase 2: 
-    
-    
+        
     if ($this->aborted) {
       Logger::error('compilation aborted due to previous error(s)');
       return;
     }
     
     Logger::debug('complete');
-    
+        
     foreach ($this->files as $file)
       Logger::debug('using file %s', $file->get_path());
   }
@@ -160,6 +159,9 @@ class Session
    */
   protected function process(Source $src)
   {
+    if ($src->php)
+      return;
+    
     $uanl = new Analyzer($this);
     $afmt = new AstFormatter($this);
     $unit = $uanl->analyze($src);
@@ -167,10 +169,10 @@ class Session
     if ($unit) {
       $this->units->add($unit);
       
-      echo "\n";
+      #echo "\n";
       #$unit->scope->dump('');
       #echo "\n\n";
-      echo $afmt->format($unit);
+      #echo $afmt->format($unit);
     }
   }
 }

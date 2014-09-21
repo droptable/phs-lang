@@ -1,3 +1,4 @@
+#!/usr/bin/php
 <?php
 
 $SRC = realpath(__DIR__ . '/../src');
@@ -38,5 +39,7 @@ $ctx->get_root()->debug();
 
 
 
+
+ 
 
  

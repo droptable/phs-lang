@@ -190,8 +190,13 @@ topex
 use_decl
   : T_USE use_item ';'
     { 
-      $$ = @UseDecl($2); 
+      $$ = @UseDecl($2, false); 
       $this->eat_semis(); 
+    }
+  | T_PUBLIC T_USE use_item ';'
+    {
+      $$ = @UseDecl($3, true);
+      $this->eat_semis();
     }
   ;
   
@@ -575,7 +580,9 @@ param
   | mods hint ident '=' rxpr         { $$ = @Param(false, $1, $2, $3, $5, false); }
   | hint_opt T_THIS '.' aid          { $$ = @ThisParam($1, $4, null, false); }
   | hint_opt T_THIS '.' aid '=' rxpr { $$ = @ThisParam($1, $4, $5, false); }
-  | hint_opt T_REST ident            { $$ = @RestParam($1, $3); }
+  | hint_opt T_REST ident            { $$ = @RestParam($1, $3, false); }
+  | hint '&' T_REST ident            { $$ = @RestParam($1, $4, true); }
+  | '&' T_REST ident                 { $$ = @RestParam(null, $3, true); }
   | '&' ident                        { $$ = @Param(true, null, null, $2, null, false); }
   | hint '&' ident                   { $$ = @Param(true, null, $1, $3, null, false); }
   | mods '&' ident                   { $$ = @Param(true, $1, null, $3, null, false); }

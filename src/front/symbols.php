@@ -313,6 +313,19 @@ class SymbolMap implements
   }
   
   /**
+   * clears a symbol namespace (or all)
+   *
+   * @param  integer $ns
+   */
+  public function clear($ns = -1)
+  {
+    if ($ns === -1) 
+      $this->mem = [ [], [], [], [] ];
+    else
+      $this->mem[$ns] = [];
+  }
+  
+  /**
    * deletes a symbol
    * 
    * @param  string  $id

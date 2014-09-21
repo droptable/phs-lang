@@ -81,7 +81,7 @@ class UnitCollector extends AutoVisitor
     $this->scope = $unit->scope;
     $this->sroot = $this->scope;
     
-    $this->umap = &$unit->scope->umap;
+    $this->umap = $unit->scope->umap;    
     $this->unst = null;
     $this->nstk = [];
     
@@ -173,15 +173,16 @@ class UnitCollector extends AutoVisitor
    *
    * @param  Usage $base
    * @param  Name|UseAlias|UseUnpack $item
+   * @param  bool  $pub
    */
-  private function collect_use($base, $item)
+  private function collect_use($base, $item, $pub)
   {
     if ($item instanceof Name)
-      $this->collect_use_name($base, $item);
+      $this->collect_use_name($base, $item, $pub);
     elseif ($item instanceof UseAlias)
-      $this->collect_use_alias($base, $item);
+      $this->collect_use_alias($base, $item, $pub);
     elseif ($item instanceof UseUnpack)
-      $this->collect_use_unpack($base, $item);
+      $this->collect_use_unpack($base, $item, $pub);
     else
       assert(0);
   }
@@ -191,11 +192,12 @@ class UnitCollector extends AutoVisitor
    *
    * @param UseImport $base (optional)
    * @param Name $item
+   * @param bool  $pub
    */
-  private function collect_use_name($base, $item)
+  private function collect_use_name($base, $item, $pub)
   {
     $base = $this->fetch_use_base($item, $base);
-    $uimp = new Usage($item, $base);
+    $uimp = new Usage($pub, $item, $base);
     
     $this->add_use_import($uimp);
   }
@@ -206,10 +208,10 @@ class UnitCollector extends AutoVisitor
    * @param UseImport $base (optional)
    * @param UseAlias $item
    */
-  private function collect_use_alias($base, $item)
+  private function collect_use_alias($base, $item, $pub)
   {
     $base = $this->fetch_use_base($item->name, $base);
-    $uimp = new Usage($item->name, $base, $item->alias);
+    $uimp = new Usage($pub, $item->name, $base, $item->alias);
     
     $this->add_use_import($uimp);
   }
@@ -220,11 +222,11 @@ class UnitCollector extends AutoVisitor
    * @param UseImport $base (optional)
    * @param UseAlias $item
    */
-  private function collect_use_unpack($base, $item)
+  private function collect_use_unpack($base, $item, $pub)
   {
     if ($item->base !== null) {
       $base = $this->fetch_use_base($item->base, $base);
-      $base = new Usage($item->base, $base);
+      $base = new Usage($pub, $item->base, $base);
       $base->path[] = $base->orig;
     }
     
@@ -233,7 +235,7 @@ class UnitCollector extends AutoVisitor
     $this->unst = new UsageMap;
     
     foreach ($item->items as $nimp)
-      $this->collect_use($base, $nimp);
+      $this->collect_use($base, $nimp, $pub);
     
     // pop previous nested imports of the stack
     $this->unst = array_pop($this->nstk);
@@ -281,6 +283,8 @@ class UnitCollector extends AutoVisitor
       // add it to the nested map too
       if ($this->unst) $this->unst->add($uimp);
       
+      Logger::debug_at($uimp->loc, 'adding import %s (%s) to %s',
+        $uimp->item, path_to_str($uimp->path), $this->scope);
       return true;
     }
     
@@ -365,7 +369,7 @@ class UnitCollector extends AutoVisitor
     $this->scope = $node->scope;
     
     // use module for uses
-    $this->umap = &$this->scope->umap;
+    $this->umap = $this->scope->umap;
     
     // walk module body
     $this->scope->enter();
@@ -375,7 +379,7 @@ class UnitCollector extends AutoVisitor
     $this->scope = $prev;
     
     // use prev scope (again) for uses
-    $this->umap = &$this->scope->umap;
+    $this->umap = $this->scope->umap;
   }
   
   public function visit_block($node)
@@ -453,12 +457,7 @@ class UnitCollector extends AutoVisitor
   {
     $sym = $node->symbol = FnSymbol::from($node);
     $this->scope->add($sym);
-    
-    $fsym = new VarSymbol('__fn__', $node->loc, SYM_FLAG_CONST|SYM_FLAG_FINAL);
-    $fsym->managed = true; // managed symbol
-    $fsym->reachable = true; // always reachable
-    $this->scope->put($fsym); // no checks, can shadow other __fn__ symbols
-    
+        
     $this->enter($node);
   }
   
@@ -469,7 +468,7 @@ class UnitCollector extends AutoVisitor
    */
   public function visit_use_decl($node) 
   {
-    $this->collect_use(null, $node->item);
+    $this->collect_use(null, $node->item, $node->pub);
   }
   
   /**
@@ -482,7 +481,7 @@ class UnitCollector extends AutoVisitor
     $flags = mods_to_sym_flags($node->mods);
     
     foreach ($node->vars as $var) {
-      $sym = VarSymbol::from($var, $flags);
+      $sym = $var->symbol = VarSymbol::from($var, $flags);
       
       if ($var->init)
         $this->visit($var->init);
@@ -501,7 +500,7 @@ class UnitCollector extends AutoVisitor
     $flags = mods_to_sym_flags($node->mods, SYM_FLAG_CONST);
     
     foreach ($node->vars as $var) {
-      $sym = VarSymbol::from($var, $flags);
+      $sym = $var->symbol = VarSymbol::from($var, $flags);
       
       if ($var->init)
         $this->visit($var->init);
@@ -551,7 +550,7 @@ class UnitCollector extends AutoVisitor
   {
     assert($this->scope instanceof MemberScope);
     
-    $sym = FnSymbol::from($node);
+    $sym = $node->symbol = FnSymbol::from($node);
     $this->scope->getter->add($sym);
     $this->enter($node);
   }
@@ -565,7 +564,7 @@ class UnitCollector extends AutoVisitor
   {
     assert($this->scope instanceof MemberScope);
     
-    $sym = FnSymbol::from($node);
+    $sym = $node->symbol = FnSymbol::from($node);
     $this->scope->setter->add($sym);
     $this->enter($node);
   }
@@ -600,7 +599,7 @@ class UnitCollector extends AutoVisitor
       $vars[] = $node->lhs->arg;
       
     foreach ($vars as $var)   
-      $this->scope->add(new VarSymbol(
+      $this->scope->add($var->symbol = new VarSymbol(
         ident_to_str($var), 
         $var->loc, 
         SYM_FLAGS_NONE

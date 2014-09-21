@@ -1,0 +1,106 @@
+/*!
+ * This file is part of the PHS Standard Library
+ * Copyright (c) 2014 Andre "asc" Schmidt 
+ * 
+ * All rights reserved.
+ * 
+ * This library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published 
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+
+// this file is temporary
+
+// all declarations here get removed as soon 
+// the stdlib covers those in a module.
+
+
+extern __global__ fn array_change_key_case;
+extern __global__ fn array_chunk;
+extern __global__ fn array_column;
+extern __global__ fn array_combine;
+extern __global__ fn array_count_values;
+extern __global__ fn array_diff_assoc;
+extern __global__ fn array_diff_key;
+extern __global__ fn array_diff_uassoc;
+extern __global__ fn array_diff_ukey;
+extern __global__ fn array_diff;
+extern __global__ fn array_fill_keys;
+extern __global__ fn array_fill;
+extern __global__ fn array_filter;
+extern __global__ fn array_flip;
+extern __global__ fn array_intersect_assoc;
+extern __global__ fn array_intersect_key;
+extern __global__ fn array_intersect_uassoc;
+extern __global__ fn array_intersect_ukey;
+extern __global__ fn array_intersect;
+extern __global__ fn array_key_exists;
+extern __global__ fn array_keys;
+extern __global__ fn array_map;
+extern __global__ fn array_merge_recursive;
+extern __global__ fn array_merge;
+extern __global__ fn array_multisort;
+extern __global__ fn array_pad;
+extern __global__ fn array_pop;
+extern __global__ fn array_product;
+extern __global__ fn array_push;
+extern __global__ fn array_rand;
+extern __global__ fn array_reduce;
+extern __global__ fn array_replace_recursive;
+extern __global__ fn array_replace;
+extern __global__ fn array_reverse;
+extern __global__ fn array_search;
+extern __global__ fn array_shift;
+extern __global__ fn array_slice;
+extern __global__ fn array_splice;
+extern __global__ fn array_sum;
+extern __global__ fn array_udiff_assoc;
+extern __global__ fn array_udiff_uassoc;
+extern __global__ fn array_udiff;
+extern __global__ fn array_uintersect_assoc;
+extern __global__ fn array_uintersect_uassoc;
+extern __global__ fn array_uintersect;
+extern __global__ fn array_unique;
+extern __global__ fn array_unshift;
+extern __global__ fn array_values;
+extern __global__ fn array_walk_recursive;
+extern __global__ fn array_walk;
+extern __global__ fn array;
+extern __global__ fn arsort;
+extern __global__ fn asort;
+extern __global__ fn compact;
+extern __global__ fn count;
+extern __global__ fn current;
+extern __global__ fn each;
+extern __global__ fn end;
+extern __global__ fn extract;
+extern __global__ fn in_array;
+extern __global__ fn key_exists;
+extern __global__ fn key;
+extern __global__ fn krsort;
+extern __global__ fn ksort;
+extern __global__ fn list;
+extern __global__ fn natcasesort;
+extern __global__ fn natsort;
+extern __global__ fn next;
+extern __global__ fn pos;
+extern __global__ fn prev;
+extern __global__ fn range;
+extern __global__ fn reset;
+extern __global__ fn rsort;
+extern __global__ fn shuffle;
+extern __global__ fn sizeof;
+extern __global__ fn sort;
+extern __global__ fn uasort;
+extern __global__ fn uksort;
+extern __global__ fn usort;

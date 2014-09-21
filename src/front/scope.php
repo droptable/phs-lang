@@ -6,6 +6,9 @@ require_once 'utils.php';
 require_once 'usage.php';
 require_once 'symbols.php';
 
+use \ArrayIterator;
+use \AppendIterator;
+
 use phs\Logger;
 use phs\Session;
 
@@ -158,7 +161,7 @@ class Scope extends SymbolMap
       
       // if found, mark symbol as captured
       if ($res->is_some())
-        $this->capt->add($res->data);
+        $this->capt->add($res->unwrap());
       
     } else
       $res = ScResult::from($sym);
@@ -473,6 +476,23 @@ abstract class RootScope extends Scope
     return $this->inner->has($id, $ns);
   }
   
+  /**
+   * @see SymbolMap#iter()
+   *
+   * @param  integer $ns
+   */
+  public function iter($ns = -1) 
+  {
+    // AppendIterator crashes with generators
+    
+    foreach (parent::iter($ns) as $sym)
+      yield $sym;
+    
+    if ($this->active)
+      foreach ($this->inner->iter($ns) as $sym)
+        yield $sym;
+  }
+  
   /* ------------------------------------ */
   
   /**
@@ -556,10 +576,10 @@ class UnitScope extends RootScope
   {
     $res = parent::add($sym);
     
-    #if ($res && !($sym->flags & SYM_FLAG_PRIVATE))
+    if ($res && !($sym->flags & SYM_FLAG_PRIVATE))
       // move symbol to the global scope
       // but keep a reference for faster lookups
-      #return $this->prev->add($sym);
+      $res = $this->prev->add($sym);
     
     return $res;
   }
@@ -663,7 +683,7 @@ class MemberScope extends Scope
   public function __construct(Scope $prev)
   {
     parent::__construct($prev);
-    $this->sealed = true;
+    #$this->sealed = true;
     $this->getter = new SymbolMap;
     $this->setter = new SymbolMap;
   }
