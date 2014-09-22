@@ -39,6 +39,9 @@ class ScResult extends Result
   // symbol is private
   public $priv = false;
   
+  // symbol path (set by lookup)
+  public $path = null;
+  
   /**
    * returns true if this result failed because the 
    * requested symbol is private
@@ -488,9 +491,8 @@ abstract class RootScope extends Scope
     foreach (parent::iter($ns) as $sym)
       yield $sym;
     
-    if ($this->active)
-      foreach ($this->inner->iter($ns) as $sym)
-        yield $sym;
+    foreach ($this->inner->iter($ns) as $sym)
+      yield $sym;
   }
   
   /* ------------------------------------ */

@@ -222,7 +222,7 @@ class UnitResolver extends AutoVisitor
       assert(0);
     
     // no symbol found
-    if ($res->is_none()) {  
+    if ($res->is_none() && !$res->is_priv()) {  
       switch ($ref) {
         // produce a warning
         case '__fn__':
@@ -245,6 +245,7 @@ class UnitResolver extends AutoVisitor
       $sym = &$res->unwrap();
       Logger::error_at($node->loc, 'access to private %s \\', $sym);
       Logger::error('from invalid context');
+      Logger::error_at($node->loc, 'referenced as %s', $ref);
       Logger::error_at($sym->loc, 'declaration was here');
     }
     
@@ -269,6 +270,7 @@ class UnitResolver extends AutoVisitor
         // nay ...
         Logger::error_at($node->loc, 'access to incomplete %s', $sym);
         Logger::info_at($sym->loc, 'incomplete declaration was here');
+        Logger::error_at($node->loc, 'referenced as %s', $ref);
         Logger::info('each incomplete declaration requires a \\');
         Logger::info('definition somewhere in the same unit');
       } else {

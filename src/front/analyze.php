@@ -217,8 +217,11 @@ class Analyzer
     
     // move public "usage" to the global-scope
     foreach ($src->umap as $imp)
-      if ($imp->pub) $dst->umap->add($imp);
-    
+      if ($imp->pub) {
+        #!dbg Logger::debug('exporting public import %s as %s', path_to_str($imp->path), $imp->item);
+        $dst->umap->add($imp);
+      }
+      
     // merge modules
     $stk = [[ $src->mmap, $dst ]];
     
@@ -234,9 +237,17 @@ class Analyzer
           $dst = $dup;
         }
         
-        $mod->leave();
-        foreach ($mod->iter() as $sym)
+        foreach ($mod->iter() as $sym) {
+          #!dbg Logger::debug('exporting %s from module %s', $sym->id, $mod);
           $dst->add($sym);
+        }
+        
+        // move public "usage" too
+        foreach ($mod->umap as $imp)
+          if ($imp->pub) {
+            #!dbg Logger::debug('exporting public import %s as %s', path_to_str($imp->path), $imp->item);
+            $dst->umap->add($imp);
+          }
         
         // merge submodules
         array_push($stk, [ $mod->mmap, $dst ]);

@@ -283,8 +283,7 @@ class UnitCollector extends AutoVisitor
       // add it to the nested map too
       if ($this->unst) $this->unst->add($uimp);
       
-      Logger::debug_at($uimp->loc, 'adding import %s (%s) to %s',
-        $uimp->item, path_to_str($uimp->path), $this->scope);
+      #!dbg Logger::debug($uimp->loc, 'adding import %s (%s) to %s', $uimp->item, path_to_str($uimp->path), $this->scope);
       return true;
     }
     

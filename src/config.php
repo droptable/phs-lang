@@ -30,5 +30,6 @@ final class Config extends Dict
     $this->set('log_time', true);
     $this->set('werror', false);
     $this->set('nologo', false);
+    $this->set('nostd', false);
   }
 }

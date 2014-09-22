@@ -41,6 +41,9 @@ class Logger
   // @var bool log time
   private static $time = false;
   
+  // @var int  line-width (length)
+  private static $width = 100;
+  
   // @var float
   public static $msec;
   
@@ -75,6 +78,10 @@ class Logger
       self::$time = true;
       self::$msec = microtime(true);
     }
+    
+    if ($conf->has('log_width'))
+      // 250 -> max, 50 -> min 
+      self::$width = max(50, min(250, $conf->get('log_width')|0));
     
     Logger::debug('logger initialized');
   }
@@ -276,7 +283,7 @@ class Logger
     $skip = self::$cont;    
     self::$cont = $cont;
     
-    $text = wordwrap($text, 72); // 80 - 3 [...] - 3 [...] - 2 [space b/a ...]
+    $text = wordwrap($text, self::$width);
     $loop = false;
     $wrap = explode("\n", $text);
     $last = array_pop($wrap);

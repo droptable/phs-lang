@@ -36,6 +36,8 @@ trait Lookup
    */
   public function lookup_name($node, $ns = -1)
   {
+    #!dbg Logger::debug('lookup name %s (ns=%d)', name_to_str($node), $ns);
+    
     // lookup path
     $path = name_to_arr($node);
     return $this->lookup_path($node->root, $path, $ns);
@@ -50,6 +52,8 @@ trait Lookup
    */
   public function lookup_ident($node, $ns = -1)
   {
+    #!dbg Logger::debug('lookup ident %s (ns=%d)', ident_to_str($node), $ns);
+    
     // lookup path
     $path = [ ident_to_str($node) ];
     return $this->lookup_path(false, $path, $ns);
@@ -65,6 +69,8 @@ trait Lookup
    */
   public function lookup_path($root, $path, $ns = -1)
   {
+    #!dbg Logger::debug('lookup path %s (root=%s, ns=%d)', path_to_str($path), $root ? 'true' : 'false', $ns);
+    
     // scopes must be defined
     assert($this->scope);
     assert($this->sunit);
@@ -79,11 +85,13 @@ trait Lookup
     if ($len === 1) {
       $sid = $path[0];
       $res = null;
-            
+        
       if ($root === false)
         $scope = $this->scope;
       else
         $scope = $this->sunit;
+      
+      #!dbg Logger::debug('checking scope %s for a symbol named %s', $scope, $sid);
       
       $res = $scope->get($sid);
         
@@ -96,6 +104,8 @@ trait Lookup
     
     $base = $path[0];
     
+    #!dbg Logger::debug('checking root-scopes for a base-symbol named %s', $base);
+    
     // walk scopes up and check each root-scope 
     if ($root === false) {
       $scope = $this->scope;
@@ -104,12 +114,16 @@ trait Lookup
         // get nearest root-scope
         while (!($scope instanceof RootScope))
           $scope = $scope->prev;
-                
+        
+        #!dbg Logger::debug('checking scope %s for a module named %s', $scope, $base);
+          
         // check module-map
         if ($scope->mmap->has($base)) {
           $mod = $scope->mmap->get($base);
           goto mod;
         }
+        
+        #!dbg Logger::debug('checking scope %s for a import named %s', $scope, $base);
         
         // check usage-map
         if ($scope->umap->has($base)) {
@@ -118,7 +132,9 @@ trait Lookup
         }
       }
     }
-       
+     
+    #!dbg Logger::debug('nothing found for %s', $base); 
+      
     // no jump? no symbol was found
     return ScResult::None();
     
@@ -141,12 +157,16 @@ trait Lookup
    */
   public function lookup_module(Module $mod, array $path, $ns = -1)
   {
+    #!dbg Logger::debug('checking module %s for path %s (ns=%s)', $mod, path_to_str($path), $ns);
+    
     $plen = count($path) - 1;
     $pidx = 1; // note: the first part of the path is the module itself
     $item = end($path);
     
     for (; $pidx < $plen; ++$pidx) {
       $pcur = $path[$pidx];
+      
+      #!dbg Logger::debug('checking module %s for a import %s', $mod, $pcur);
       
       if (!$mod->mmap->has($pcur)) {
         // sub-module not found, check public imports
@@ -159,25 +179,91 @@ trait Lookup
         goto err;
       }
       
+      #!dbg Logger::debug('fetching sub-module %s from %s', $pcur, $mod);
+      
       $mod = $mod->mmap->get($pcur);
+      if (!$mod) goto err;
     }
+    
+    #!dbg Logger::debug('checking module %s for a symbol named %s', $mod, $item);
     
     // return the requested symbol
     $sym = $mod->get($item);
+    
+    if ($sym->is_none())
+      $sym->path = $path;
     
     if ($sym->is_some() ||
         $sym->is_priv() ||
         $sym->is_error())
       return $sym;
         
+    #!dbg Logger::debug('checking module %s for a public import %s', $mod, $item);
+        
     // check if the module has a used symbol
     $imp = $mod->umap->get($item);
+    $org = $imp; // the actual used import
     
-    Logger::debug('%s::%s', path_to_str($mod->path()), $item);
-    var_dump($mod->umap);
-    
-    if ($imp && $imp->pub)
-      return $this->lookup_import($imp, [ $item ], $ns);
+    imp:
+    if ($imp && $imp->pub) {
+      // module-relative aliases are subject to change.
+      // instead a new keyword named "self" will be used in future versions
+      // 
+      // old:
+      // 
+      // module foo {
+      //  fn bar(){}
+      //  public use bar as baz; // relative
+      // }
+      // 
+      // 
+      // new:
+      // 
+      // module foo {
+      //  fn bar(){}
+      //  public use self::bar as baz; // absolute, <self> expands to "::foo"
+      // }
+      // 
+      #!dbg Logger::debug('module %s has a public alias of %s called %s, using that now', $mod, $imp->orig, $imp->item);
+      
+      // resolve $imp->path relative to $mod
+      $plen = count($imp->path) - 1;
+      
+      for ($pidx = 0; $pidx < $plen; ++$pidx) {
+        $pcur = $imp->path[$pidx];
+        
+        #!dbg Logger::debug('checking %s part of alias %s', $pcur, path_to_str($imp->path));
+        
+        if ($mod->mmap->has($pcur)) {
+          $mod = $mod->mmap->get($pcur);
+          #!dbg Logger::debug('%s is an alias of an module, switching scope to', $pcur, $mod);
+        } else {
+          if ($mod->umap->has($pcur)) {
+            $imp = $mod->umap->get($pcur);
+            goto imp;
+          } else
+            goto err;
+        }
+      }
+      
+      // the alias could be an alias of an alias
+      if ($mod->umap->has($imp->orig)) {
+        $imp = $mod->umap->get($imp->orig);
+        goto imp;
+      }
+      
+      // return the symbol
+      #!dbg Logger::debug('looking for %s in %s (ns=%d)', $imp->orig, $mod, $ns);
+      $sym = $mod->get($imp->orig, $ns);
+      
+      if ($sym->is_some()) {
+        $imp->symbol = &$sym->unwrap();
+        $org->symbol = &$sym->unwrap();
+      } else
+        $sym->path = $imp->path;
+      
+      return $sym;
+    }
     
     // otherwise: bail out
     err:
@@ -194,8 +280,7 @@ trait Lookup
    */
   public function lookup_import(Usage $imp, array $path, $ns = -1)
   {
-    Logger::debug('looking up imported symbol `%s` via `%s`', 
-      path_to_str($path), path_to_str($imp->path));
+    #!dbg Logger::debug('looking up imported symbol `%s` via `%s`', path_to_str($path), path_to_str($imp->path));
     
     $root = $this->scope;
     $base = $imp->path[0];
@@ -208,7 +293,7 @@ trait Lookup
     // note: last item of the given path is the requested symbol
     $plen = count($path) - 1;
     $item = end($path);
-    
+        
     // avoid double-lookup in the current unit ...
     // this can lead to a infinite loop
     $unit = false;
@@ -242,7 +327,9 @@ trait Lookup
         
         $glob = true;
       }
-            
+      
+      #!dbg Logger::debug('checking %s for a module %s', $root, $base);
+      
       // check if current root has a module named $base
       if (!$root->mmap->has($base))
         // use next root
@@ -259,16 +346,20 @@ trait Lookup
         $root = $root->mmap->get($icur);
       }
       
+      #!dbg Logger::debug('checking scope %s for %s (plen=%d)', $root, $item, $plen);
+      
       // check if imported name resolves to a symbol
       if ($plen === 0 && $imp->item === $item) {
         $sym = $root->get($item);
         break;
       }
-            
+      
       // otherwise: imported name must be a module
       if (!$root->mmap->has($imp->orig))
         // use next root
         continue;
+      
+      #!dbg Logger::debug('found a possible root %s', $root);
       
       $root = $root->mmap->get($imp->orig);
       
@@ -291,8 +382,8 @@ trait Lookup
       }
     }
     
-    if ($sym !== null) {
-      $imp->symbol = $sym;
+    if ($sym !== null && $sym->is_some()) {
+      $imp->symbol = &$sym->unwrap();
       return $sym;
     }
     
