@@ -340,7 +340,7 @@ class UnitCollector extends AutoVisitor
         $base = $this->sroot; // use unit-scope
       
       $mmap = null;
-      $nmod = $this->sroot;
+      $nmod = $base;
       
       // must be inside a unit or a module
       assert($base instanceof RootScope);
