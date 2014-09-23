@@ -284,6 +284,8 @@ trait Lookup
       } else
         $sym->path = $imp->path;
       
+      #!dbg Logger::debug('is private = %s', $sym->is_priv() ? 'yep' : 'nope');
+            
       return $sym;
     }
     
@@ -418,10 +420,14 @@ trait Lookup
       }
     }
     
-    if ($sym !== null && $sym->is_some()) {
-      $imp->symbol = &$sym->unwrap();
+    if ($sym !== null) {
+      if ($sym->is_some())
+        $imp->symbol = &$sym->unwrap();
+      
       return $sym;
     }
+    
+    #!dbg Logger::debug('lookup import failed');
     
     // no more roots ... lookup failed
     return ScResult::None();

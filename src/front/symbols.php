@@ -174,8 +174,38 @@ abstract class Symbol
    */
   public function __tostring()
   {
-    return sym_kind_to_str($this->kind) . 
-      ' `' . $this->id . '`';
+    $str = sym_kind_to_str($this->kind) . ' ';
+    $abs = [];
+       
+    for ($scp = $this->scope; 
+         $scp !== null; 
+         $scp = $scp->prev) {
+      
+      if ($scp instanceof InnerScope)
+        $scp = $scp->outer;
+      
+      while (!($scp instanceof RootScope)) {
+        if (!$scp->prev) break 2;
+        $scp = $scp->prev;
+      }
+      
+      if ($scp instanceof UnitScope ||
+          $scp instanceof GlobScope)
+        break;
+      
+      if ($scp instanceof ModuleScope)
+        $abs[] = $scp->id;
+    }
+    
+    $str .= '`';
+    $str .= path_to_str(array_reverse($abs));
+    
+    if (!empty ($abs)) $str .= '::';
+     
+    $str .= $this->id;
+    $str .= '`';
+    
+    return $str;
   }
   
   /* ------------------------------------ */

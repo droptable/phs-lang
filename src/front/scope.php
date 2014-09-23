@@ -344,6 +344,19 @@ class Scope extends SymbolMap
   }
 }
 
+/** inner scope */
+class InnerScope extends Scope
+{
+  // @var Scope outer scope
+  public $outer;
+  
+  public function __construct(Scope $outer)
+  {
+    parent::__construct(null); 
+    $this->outer = $outer;
+  }
+}
+
 /** root-scope: common class for scopes 
     with (sub-)modules and/or private symbols */
 abstract class RootScope extends Scope
@@ -373,7 +386,7 @@ abstract class RootScope extends Scope
     parent::__construct($prev);
     $this->umap = new UsageMap;
     $this->mmap = new ModuleMap;
-    $this->inner = new Scope;
+    $this->inner = new InnerScope($this);
   }
   
   /**
