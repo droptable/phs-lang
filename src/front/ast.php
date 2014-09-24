@@ -87,6 +87,7 @@ require_once 'ast/type_id.php';
 require_once 'ast/ident.php';
 require_once 'ast/this_expr.php';
 require_once 'ast/super_expr.php';
+require_once 'ast/self_expr.php';
 require_once 'ast/null_lit.php';
 require_once 'ast/true_lit.php';
 require_once 'ast/false_lit.php';

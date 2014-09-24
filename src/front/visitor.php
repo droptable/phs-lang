@@ -170,6 +170,7 @@ abstract class Visitor
   public function visit_ident($n) {}
   public function visit_this_expr($n) {}
   public function visit_super_expr($n) {}
+  public function visit_self_expr($n) {}
   public function visit_null_lit($n) {}
   public function visit_true_lit($n) {}
   public function visit_false_lit($n) {}

@@ -30,6 +30,7 @@ use phs\front\ast\NullLit;
 use phs\front\ast\ObjKey;
 use phs\front\ast\NamedArg;
 use phs\front\ast\RestArg;
+use phs\front\ast\SelfExpr;
 
 // label
 class Label 
@@ -1280,6 +1281,11 @@ class UnitValidator extends Visitor
    */
   public function visit_offset_expr($node) 
   {
+    if ($node->object instanceof SelfExpr) {
+      Logger::warn_at($node->loc, '`self` used as offset-object might \\');
+      Logger::warn('not do what you expect');
+    }
+    
     $this->visit($node->object);
     $this->visit($node->offset);
   }
@@ -1308,6 +1314,15 @@ class UnitValidator extends Visitor
    */
   public function visit_call_expr($node) 
   {
+    // this is just a typo-prevention.
+    // outside of member-expressions `self` resolves 
+    // to the fully qualified class/trait name (as string).
+    if ($node->callee instanceof SelfExpr) {
+      Logger::warn_at($node->loc, '`self` used as function might \\');
+      Logger::warn('not do what you expect');
+      Logger::info_at($node->loc, ' did you mean `new self(...)` ?');
+    }
+    
     $this->visit($node->callee);
     $this->check_args($node->args);
   }

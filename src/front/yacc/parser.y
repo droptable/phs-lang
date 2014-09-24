@@ -845,6 +845,8 @@ lxpr
   | T_NEW type_id pargs     { $$ = @NewExpr($2, $3); }
   | T_NEW nxpr              { $$ = @NewExpr($2, null); }
   | T_NEW nxpr pargs        { $$ = @NewExpr($2, $3); }
+  | T_NEW T_SELF            { $$ = @NewExpr(null, null); }
+  | T_NEW T_SELF pargs      { $$ = @NewExpr(null, $3); }
   | T_DEL nxpr              { $$ = @DelExpr($2); }
   | atom                    { $$ = $1; }
   ;
@@ -919,6 +921,8 @@ rxpr
   | T_NEW type_id pargs     { $$ = @NewExpr($2, $3); }
   | T_NEW nxpr              { $$ = @NewExpr($2, null); }
   | T_NEW nxpr pargs        { $$ = @NewExpr($2, $3); }
+  | T_NEW T_SELF            { $$ = @NewExpr(null, null); }
+  | T_NEW T_SELF pargs      { $$ = @NewExpr(null, $3); }
   | T_DEL nxpr              { $$ = @DelExpr($2); }
   | atom                    { $$ = $1; }
   | obj                     { $$ = $1; }
@@ -980,8 +984,8 @@ rxpr_noin
   | rxpr_noin '?' rxpr ':' rxpr_noin  { $$ = @CondExpr($1, $3, $5); } 
   | rxpr_noin '?' ':' rxpr_noin       { $$ = @CondExpr($1, null, $4); }
   | rxpr_noin pargs                   { $$ = @CallExpr($1, $2); }
-  | T_YIELD rxpr                      { $$ = @YieldExpr(null, $2); }
-  | T_YIELD rxpr ':' rxpr             { $$ = @YieldExpr($2, $4); }
+  | T_YIELD rxpr_noin                 { $$ = @YieldExpr(null, $2); }
+  | T_YIELD rxpr_noin ':' rxpr_noin   { $$ = @YieldExpr($2, $4); }
   | '-' rxpr_noin %prec '!'           { $$ = @UnaryExpr($1, $2); }
   | '+' rxpr_noin %prec '!'           { $$ = @UnaryExpr($1, $2); }
   | '~' rxpr_noin %prec '!'           { $$ = @UnaryExpr($1, $2); }
@@ -1083,15 +1087,16 @@ ident
   ;
  
 kwc
-  : T_THIS    { $$ = @ThisExpr; }
-  | T_SUPER   { $$ = @SuperExpr; }
-  | T_NULL    { $$ = @NullLit; }
-  | T_TRUE    { $$ = @TrueLit; }
-  | T_FALSE   { $$ = @FalseLit; }
-  | T_CDIR    { $$ = @KStrLit($this->cdir); }
-  | T_CFILE   { $$ = @KStrLit($this->cfile); }
-  | T_CLINE   { $$ = @LNumLit($1->loc->pos->line); }
-  | T_CCOLN   { $$ = @LNumLit($1->loc->pos->coln); }
+  : T_THIS  { $$ = @ThisExpr; }
+  | T_SUPER { $$ = @SuperExpr; }
+  | T_SELF  { $$ = @SelfExpr; }
+  | T_NULL  { $$ = @NullLit; }
+  | T_TRUE  { $$ = @TrueLit; }
+  | T_FALSE { $$ = @FalseLit; }
+  | T_CDIR  { $$ = @KStrLit($this->cdir); }
+  | T_CFILE { $$ = @KStrLit($this->cfile); }
+  | T_CLINE { $$ = @LNumLit($1->loc->pos->line); }
+  | T_CCOLN { $$ = @LNumLit($1->loc->pos->coln); }
   ;
   
 str

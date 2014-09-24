@@ -26,7 +26,7 @@ final class Config extends Dict
   public function set_defaults()
   {
     $this->set('log_dest', null);
-    $this->set('log_level', LOG_LEVEL_ALL);
+    $this->set('log_level', LOG_LEVEL_DEBUG);
     $this->set('log_time', true);
     $this->set('werror', false);
     $this->set('nologo', false);

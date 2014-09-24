@@ -23,6 +23,11 @@ module std::fs;
 use std::io::Stream;
 use std::io::FStream;
 
+module ::std::io {
+  // alias
+  public use std::fs::FsStream;
+}
+
 public extern __global__ fn basename;
 public extern __global__ fn chgrp;
 public extern __global__ fn chmod;

@@ -140,7 +140,8 @@ class Session
     
     // ---------------------------------------
     // phase 2: 
-        
+    
+            
     if ($this->aborted) {
       Logger::error('compilation aborted due to previous error(s)');
       return;

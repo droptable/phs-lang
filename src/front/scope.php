@@ -678,6 +678,9 @@ class_alias('phs\\util\\Map', 'phs\\front\\ModuleMap');
 /** member scope */
 class MemberScope extends Scope
 {    
+  // @var TraitSymbol|ClassSymbol|IfaceSymbol
+  public $host;
+  
   // @var FnSymbol  constructor-symbol
   public $ctor;
   
@@ -695,10 +698,11 @@ class MemberScope extends Scope
    *
    * @param Scope $prev
    */
-  public function __construct(Scope $prev)
+  public function __construct(Symbol $host, Scope $prev)
   {
     parent::__construct($prev);
     #$this->sealed = true;
+    $this->host = $host;
     $this->getter = new SymbolMap;
     $this->setter = new SymbolMap;
   }

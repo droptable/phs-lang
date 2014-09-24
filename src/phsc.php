@@ -36,7 +36,10 @@ assert_options(ASSERT_CALLBACK, function($s, $l, $c, $m = null) {
 
 function init(Session $sess) {
   $conf = $sess->conf;
-    
+  
+  if (in_array('--nologo', $_SERVER['argv']))
+    $conf->set('nologo', true);
+  
   if ($conf->get('nologo') === false)
       echo <<<END_LOGO
      ___  __ ______
@@ -49,7 +52,7 @@ function init(Session $sess) {
   
 END_LOGO;
   
-  Logger::init($conf, $sess->rpath, !in_array('--no-colors', $_SERVER['argv']));  
+  Logger::init($conf, $sess->rpath, !in_array('--nocolors', $_SERVER['argv']));  
   Logger::hook(phs\LOG_LEVEL_ERROR, [ $sess, 'abort'] );
   
   if ($conf->get('werror') === true)

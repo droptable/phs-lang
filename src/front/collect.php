@@ -157,7 +157,7 @@ class UnitCollector extends AutoVisitor
   private function collect_members($decl)
   {
     $prev = $this->scope;
-    $mscp = new MemberScope($prev);
+    $mscp = new MemberScope($decl->symbol, $prev);
     
     if ($decl->members) {
       $this->scope = $mscp;
@@ -336,8 +336,10 @@ class UnitCollector extends AutoVisitor
       $base = $this->scope;
       $name = name_to_arr($node->name);
       
-      if ($node->name->root)
+      if ($node->name->root) {
+        #!dbg Logger::debug('defining module %s in the unit', name_to_str($node->name));
         $base = $this->sroot; // use unit-scope
+      }
       
       $mmap = null;
       $nmod = $base;

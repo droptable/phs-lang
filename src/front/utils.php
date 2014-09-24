@@ -26,7 +26,9 @@ function ident_to_str($id) {
 }
 
 function name_to_str(Name $name, $sep = '::') {
-  return arr_to_path(name_to_arr($name), $name->root, $sep);
+  $path = arr_to_path(name_to_arr($name), $name->root, $sep);
+  if ($name->self) $path = "self::$path";
+  return $path;
 }
 
 function name_to_arr(Name $name) {

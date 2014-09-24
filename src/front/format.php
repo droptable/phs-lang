@@ -1916,6 +1916,17 @@ class AstFormatter extends Visitor
   }
   
   /**
+   * Visitor#visit_self_expr()
+   *
+   * @param  Node  $node
+   * @return void
+   */
+  public function visit_self_expr($node) 
+  {
+    $this->emit('self');  
+  }
+  
+  /**
    * Visitor#visit_null_lit()
    *
    * @param  Node  $node

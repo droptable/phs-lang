@@ -101,20 +101,6 @@ class Usage implements Entry
     static $type = [ '', 'module', 'symbol' ];
     
     echo "\n", $tab, '& ', arr_to_path($this->path), ' -> ', $this->item;
-    
-    // use is resolved
-    if ($this->kind !== USE_KIND_NONE)
-      echo ' (resolved) kind: ', $type[$this->kind];
-    
-    // use has a hint
-    elseif ($this->hint !== USE_HINT_NONE)
-      echo ' (unresolved) hints:', 
-        ' ', $type[$this->hint & USE_HINT_MODULE], 
-        ' ', $type[$this->hint & USE_HINT_SYMBOL];
-    
-    // use is not resolved/hinted
-    else
-      echo ' (unresolved) ';
   }
 }
 
