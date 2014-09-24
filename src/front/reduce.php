@@ -20,10 +20,6 @@ use phs\front\ast\OffsetExpr;
 use phs\front\ast\Param;
 use phs\front\ast\RestParam;
 
-// used to reduce constant lists/dicts
-use phs\lang\BuiltInList;
-use phs\lang\BuiltInDict;
-
 // access flags
 const
   ACC_NONE  = 0, // base flag

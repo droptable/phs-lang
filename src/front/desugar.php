@@ -285,7 +285,7 @@ class UnitDesugarer extends Visitor
             new Token(ord('&'), '&'),
             // names need a location for the reference collector
             // we use the "generated-code" location here
-            $this->mixin_loc(new Name($tmpid, false))
+            $this->mixin_loc(new Name($tmpid, false, false))
           )
         ) ]));
       }

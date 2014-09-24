@@ -902,6 +902,7 @@ class Lexer
     'null' => T_NULL,
     'this' => T_THIS,
     'super' => T_SUPER,
+    'self' => T_SELF,
 
     'get' => T_GET,
     'set' => T_SET,

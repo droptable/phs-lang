@@ -197,7 +197,7 @@ class UnitCollector extends AutoVisitor
   private function collect_use_name($base, $item, $pub)
   {
     $base = $this->fetch_use_base($item, $base);
-    $uimp = new Usage($pub, $item, $base);
+    $uimp = new Usage($this->scope, $pub, $item, $base);
     
     $this->add_use_import($uimp);
   }
@@ -211,7 +211,7 @@ class UnitCollector extends AutoVisitor
   private function collect_use_alias($base, $item, $pub)
   {
     $base = $this->fetch_use_base($item->name, $base);
-    $uimp = new Usage($pub, $item->name, $base, $item->alias);
+    $uimp = new Usage($this->scope, $pub, $item->name, $base, $item->alias);
     
     $this->add_use_import($uimp);
   }
@@ -226,7 +226,7 @@ class UnitCollector extends AutoVisitor
   {
     if ($item->base !== null) {
       $base = $this->fetch_use_base($item->base, $base);
-      $base = new Usage($pub, $item->base, $base);
+      $base = new Usage($this->scope, $pub, $item->base, $base);
       $base->path[] = $base->orig;
     }
     
@@ -249,7 +249,7 @@ class UnitCollector extends AutoVisitor
    * @return Usage or null
    */
   private function fetch_use_base(Name $name, Usage $base = null)
-  {    
+  {        
     // TODO: this code enables realtive imports.
     
     /*

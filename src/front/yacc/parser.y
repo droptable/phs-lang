@@ -65,6 +65,7 @@
 %token T_NULL
 %token T_THIS
 %token T_SUPER
+%token T_SELF
 
 %token T_GET
 %token T_SET
@@ -1056,9 +1057,10 @@ reg
   ;
   
 name
-  : ident            { $$ = @Name($1, false); }
-  | T_DDDOT aid      { $$ = @Name($2, true); }
-  | name T_DDDOT aid { $1->add($3); $$ = $1; }
+  : ident               { $$ = @Name($1, false, false); }
+  | T_SELF T_DDDOT aid  { $$ = @Name($3, false, true); }
+  | T_DDDOT aid         { $$ = @Name($2, true, false); }
+  | name T_DDDOT aid    { $1->add($3); $$ = $1; }
   ;
 
 type_name
@@ -1175,6 +1177,7 @@ rid
   | T_NULL      { $$ = $1; }
   | T_THIS      { $$ = $1; }
   | T_SUPER     { $$ = $1; }
+  | T_SELF      { $$ = $1; }
   | T_DO        { $$ = $1; }
   | T_IF        { $$ = $1; }
   | T_ELSIF     { $$ = $1; }

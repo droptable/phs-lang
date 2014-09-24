@@ -33,6 +33,9 @@ class Usage implements Entry
   
   // @var bool
   public $pub = false;
+  
+  // @var bool  relative to current module
+  public $self = false;
 
   // @var string  the name of the imported symbol (alias)
   public $item;
@@ -43,30 +46,19 @@ class Usage implements Entry
   // @var array  the path of the imported symbol
   public $path;
   
-  // hint for the resolver
-  public $hint = USE_HINT_NONE;
+  // @var array  origin
+  public $root;
   
-  // location of the hint
-  public $hint_loc;
-  
-  // resolved kind
-  public $kind = USE_KIND_NONE;
-  
-  // resolved module
-  public $rmod;
-  
-  // resolved symbol
-  public $rsym;
-
   /**
    * constructor
    *
+   * @param RootScope $root
    * @param bool $pub
    * @param Name $name
    * @param Usage $base a other imported symbol for a relative import
    * @param Ident $item a user-defined name (alias)
    */
-  public function __construct($pub, Name $name, Usage $base = null, Ident $item = null)
+  public function __construct(RootScope $root, $pub, Name $name, Usage $base = null, Ident $item = null)
   {
     $narr = name_to_arr($name);
         
@@ -76,6 +68,8 @@ class Usage implements Entry
     
     $this->pub = $pub;
     $this->loc = $item ? $item->loc : $name->loc;
+    $this->self = $name->self;
+    $this->root = $root;
     $this->orig = array_pop($narr);
     $this->item = $item ? ident_to_str($item) : $this->orig;
     $this->path = $base ? $base->path : [];

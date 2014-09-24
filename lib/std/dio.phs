@@ -31,12 +31,12 @@ extern __global__ fn dio_truncate;
 extern __global__ fn dio_write;
 
 // public alias-exports
-public use dio_close as close;
-public use dio_fcntl as fcntl;
-public use dio_open as open;
-public use dio_read as read;
-public use dio_seek as seek;
-public use dio_stat as stat;
-public use dio_tcsetattr as tcsetattr;
-public use dio_truncate as truncate;
-public use dio_write as write;
+public use self::dio_close as close;
+public use self::dio_fcntl as fcntl;
+public use self::dio_open as open;
+public use self::dio_read as read;
+public use self::dio_seek as seek;
+public use self::dio_stat as stat;
+public use self::dio_tcsetattr as tcsetattr;
+public use self::dio_truncate as truncate;
+public use self::dio_write as write;
