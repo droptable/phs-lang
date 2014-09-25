@@ -40,12 +40,15 @@ function init(Session $sess) {
   if (in_array('--nologo', $_SERVER['argv']))
     $conf->set('nologo', true);
   
+  if (in_array('--nostd', $_SERVER['argv']))
+    $conf->set('nostd', true);
+  
   if ($conf->get('nologo') === false)
       echo <<<END_LOGO
      ___  __ ______
     / _ \/ // / __/
    / ___/ _  /\ \  
-  /_/  /_//_/___/
+  /_/  /_//_/___/   Version 0.1a1
   
   Copyright (C) 2014 - The PHS Team.
   Report bugs to http://ggggg.de/issues
@@ -60,7 +63,6 @@ END_LOGO;
 }
 
 function main() {
-  
   $path = new FileSource(__DIR__ . '/test/test.phs');
   $root = dirname($path->get_path());
   
@@ -69,6 +71,12 @@ function main() {
   $sess = new Session($conf, $root);
   
   init($sess);
+  
+  if (in_array('-v', $_SERVER['argv'])) {
+    if ($conf->get('nologo'))
+      print "PHS 0.1a1 (c) 2014 - The PHS Team";
+    exit; 
+  }
   
   if (!$conf->get('nostd'))
     $sess->add_source(new FileSource(__DIR__ . '/../lib/std.phs'));

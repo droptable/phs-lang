@@ -1118,15 +1118,20 @@ class AstFormatter extends Visitor
   {
     $this->emit('for (');
       
-    if ($node->init)
-      $this->visit($node->init->expr);
+    if ($node->init) {
+      $this->visit($node->init);
+      $this->buff = rtrim($this->buff, "\n ");
+      $this->emit(' ');
+    } else
+      $this->emit('; ');
     
-    $this->emit('; ');
+    if ($node->test) {
+      $this->visit($node->test);
+      $this->buff = rtrim($this->buff, "\n ");
+      $this->emit(' ');
+    } else
+      $this->emit('; ');
     
-    if ($node->test)
-      $this->visit($node->test->expr);
-    
-    $this->emit('; ');
     $this->visit($node->each);
     $this->emit(') ');
     $this->visit($node->stmt);

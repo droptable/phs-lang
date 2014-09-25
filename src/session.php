@@ -170,10 +170,12 @@ class Session
     if ($unit) {
       $this->units->add($unit);
       
-      #echo "\n";
-      #$unit->scope->dump('');
-      #echo "\n\n";
-      #echo $afmt->format($unit);
+      if (false && basename($unit->loc->file) === 'test.phs') {
+        echo "\n";
+        $unit->scope->dump('');
+        echo "\n\n";
+        echo $afmt->format($unit);
+      }
     }
   }
 }

@@ -28,6 +28,18 @@ module ::std::io {
   public use std::fs::FsStream;
 }
 
+extern __global__ const FILE_USE_INCLUDE_PATH;
+extern __global__ const FILE_NO_DEFAULT_CONTEXT;
+extern __global__ const FILE_APPEND;
+extern __global__ const FILE_IGNORE_NEW_LINES ;
+extern __global__ const FILE_SKIP_EMPTY_LINES;
+extern __global__ const FILE_BINARY;
+extern __global__ const FILE_TEXT;
+
+extern __global__ const FNM_NOESCAPE;
+extern __global__ const FNM_PERIOD;
+extern __global__ const FNM_CASEFOLD;
+
 public extern __global__ fn basename;
 public extern __global__ fn chgrp;
 public extern __global__ fn chmod;
@@ -52,7 +64,7 @@ public extern __global__ fn fileperms;
 public extern __global__ fn filesize;
 public extern __global__ fn filetype;
 public extern __global__ fn fnmatch;
-public extern __global__ fn glob;
+
 public extern __global__ fn is_dir;
 public extern __global__ fn is_executable;
 public extern __global__ fn is_file;
@@ -67,9 +79,13 @@ public extern __global__ fn linkinfo;
 public extern __global__ fn lstat;
 public extern __global__ fn mkdir;
 public extern __global__ fn move_uploaded_file;
+
+extern __global__ const INI_SCANNER_NORMAL;
+extern __global__ const INI_SCANNER_RAW;
+    
 public extern __global__ fn parse_ini_file;
 public extern __global__ fn parse_ini_string;
-public extern __global__ fn pathinfo;
+
 public extern __global__ fn readfile;
 public extern __global__ fn readlink;
 public extern __global__ fn realpath_cache_get;
@@ -86,9 +102,28 @@ public extern __global__ fn touch;
 public extern __global__ fn umask;
 public extern __global__ fn unlink;
 
+extern __global__ const GLOB_BRACE;
+extern __global__ const GLOB_ONLYDIR;
+extern __global__ const GLOB_MARK;
+extern __global__ const GLOB_NOSORT;
+extern __global__ const GLOB_NOCHECK;
+extern __global__ const GLOB_NOESCAPE;
+extern __global__ const GLOB_AVAILABLE_FLAGS;
+
+public extern __global__ fn glob;
+
+extern __global__ const PATHINFO_DIRNAME;
+extern __global__ const PATHINFO_BASENAME;
+extern __global__ const PATHINFO_EXTENSION;
+extern __global__ const PATHINFO_FILENAME;
+
+public extern __global__ fn pathinfo;
+
+// ---------------------------------------
+
 private extern __global__ fn fopen;
 
-extern const DIRECTORY_SEPARATOR;
+extern __global__ const DIRECTORY_SEPARATOR;
 private extern __global__ fn implode;
 
 private extern __global__ fn opendir;
@@ -155,6 +190,24 @@ fn listdir(path) {
 /**
  * returns a list of all files/dirs from a path and sub-dirs using
  * the directory-iterator
+ * 
+ * this function returns a nested list
+ * 
+ * example:
+ *   [
+ *     "foo",
+ *     [
+ *       "foo/bar",
+ *       [
+ *         "foo/bar/baz.dat"
+ *       ]
+ *     ]
+ *   ]
+ *   
+ * for the directory:
+ *   foo/
+ *   foo/bar/
+ *   foo/bar/baz.dat
  *
  * @param  string path
  * @return List

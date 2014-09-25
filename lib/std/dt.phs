@@ -1,0 +1,5 @@
+module std::dt;
+
+extern __global__ fn microtime;
+
+fn mstime() => microtime(true) / 1000;

@@ -73,7 +73,7 @@ class Scope extends SymbolMap
   public $uid;
   
   // @var boolean
-  public $root;
+  public $root = false;
   
   // @var Scope  parent scope
   public $prev;
@@ -220,7 +220,7 @@ class Scope extends SymbolMap
    * @return int
    */
   public function check(Symbol $sym, $rant = true)
-  {      
+  {    
     $res = $this->get($sym->id, $sym->ns);
     
     if ($res->is_some()) {
@@ -284,7 +284,7 @@ class Scope extends SymbolMap
       }
       
       // override check
-      if ($prv->scope === $this) {
+      if (self::in_same_scope($prv, $this)) {
         if ($rant === true) {
           Logger::error_at($sym->loc, 'cannot define %s in this scope', $sym);
           Logger::error_at($prv->loc, '%s (same name) already defined here', $prv);
@@ -331,6 +331,22 @@ class Scope extends SymbolMap
       return $this->prev->has($id, $ns);
     
     return false;
+  }
+  
+  /* ------------------------------------ */
+  
+  public static function in_same_scope(Symbol $sym, Scope $scp)
+  {
+    // same scope
+    if ($sym->scope === $scp)
+      return true;
+    
+    // symbol is in the global scope and
+    // the given scope refers to a unit, 
+    // which delegates to the global scope.
+    // those two scopes are considered "same"
+    return $sym->scope->root && 
+           $scp instanceof UnitScope;
   }
   
   /* ------------------------------------ */
@@ -591,10 +607,12 @@ class UnitScope extends RootScope
   {
     $res = parent::add($sym);
     
-    if ($res && !($sym->flags & SYM_FLAG_PRIVATE))
+    if ($res && !($sym->flags & SYM_FLAG_PRIVATE)) {
       // move symbol to the global scope
       // but keep a reference for faster lookups
       $res = $this->prev->add($sym);
+      $sym->scope = $this;
+    }
     
     return $res;
   }

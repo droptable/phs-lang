@@ -1,0 +1,373 @@
+/*!
+ * This file is part of the PHS Standard Library
+ * Copyright (c) 2014 Andre "asc" Schmidt 
+ * 
+ * All rights reserved.
+ * 
+ * This library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published 
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+module std::curl;
+
+extern __global__ fn curl_strerror;
+extern __global__ fn curl_version;
+
+public use self::curl_strerror as strerror;
+public use self::curl_version as version;
+
+extern __global__ fn curl_close;
+extern __global__ fn curl_copy_handle;
+extern __global__ fn curl_errno;
+extern __global__ fn curl_error;
+extern __global__ fn curl_escape;
+extern __global__ fn curl_exec;
+extern __global__ fn curl_file_create;
+extern __global__ fn curl_getinfo;
+extern __global__ fn curl_init;
+extern __global__ fn curl_pause;
+extern __global__ fn curl_reset;
+extern __global__ fn curl_setopt_array;
+extern __global__ fn curl_setopt;
+extern __global__ fn curl_unescape;
+
+public use self::curl_close as close;
+public use self::curl_copy_handle as copy_handle;
+public use self::curl_errno as errno;
+public use self::curl_error as error;
+public use self::curl_escape as escape;
+public use self::curl_exec as exec;
+public use self::curl_file_create as file_create;
+public use self::curl_getinfo as getinfo;
+public use self::curl_init as init;
+public use self::curl_pause as pause;
+public use self::curl_reset as reset;
+public use self::curl_setopt_array as setopt_array;
+public use self::curl_setopt as setopt;
+public use self::curl_unescape as unescape;
+
+/**
+ * cURL Easy Interface (aliases)
+ * TODO make this module mandatory?
+ */
+module easy {
+  public use std::curl::close;
+  public use std::curl::copy_handle;
+  public use std::curl::errno;
+  public use std::curl::error;
+  public use std::curl::escape;
+  public use std::curl::exec;
+  public use std::curl::file_create;
+  public use std::curl::getinfo;
+  public use std::curl::init;
+  public use std::curl::pause;
+  public use std::curl::reset;
+  public use std::curl::setopt_array;
+  public use std::curl::setopt;
+  public use std::curl::unescape;
+}
+
+/**
+ * cURL Multi Interface
+ */
+module multi {
+  extern __global__ fn curl_multi_add_handle;
+  extern __global__ fn curl_multi_close;
+  extern __global__ fn curl_multi_exec;
+  extern __global__ fn curl_multi_getcontent;
+  extern __global__ fn curl_multi_info_read;
+  extern __global__ fn curl_multi_init;
+  extern __global__ fn curl_multi_remove_handle;
+  extern __global__ fn curl_multi_select;
+  extern __global__ fn curl_multi_setopt;
+  extern __global__ fn curl_multi_strerror;
+
+  public use self::curl_multi_add_handle as add_handle;
+  public use self::curl_multi_close as close;
+  public use self::curl_multi_exec as exec;
+  public use self::curl_multi_getcontent as getcontent;
+  public use self::curl_multi_info_read as info_read;
+  public use self::curl_multi_init as init;
+  public use self::curl_multi_remove_handle as remove_handle;
+  public use self::curl_multi_select as select;
+  public use self::curl_multi_setopt as setopt;
+  public use self::curl_multi_strerror as strerror;
+}
+
+/**
+ * cURL Share Interface
+ */
+module share {
+  extern __global__ fn curl_share_close;
+  extern __global__ fn curl_share_init;
+  extern __global__ fn curl_share_setopt;
+  
+  public use self::curl_share_close as close;
+  public use self::curl_share_init as init;
+  public use self::curl_share_setopt as setopt;
+}
+
+// global constants
+extern __global__ const CURLOPT_AUTOREFERER;
+extern __global__ const CURLOPT_COOKIESESSION;
+extern __global__ const CURLOPT_DNS_USE_GLOBAL_CACHE;
+extern __global__ const CURLOPT_DNS_CACHE_TIMEOUT;
+extern __global__ const CURLOPT_FTP_SSL;
+extern __global__ const CURLFTPSSL_TRY;
+extern __global__ const CURLFTPSSL_ALL;
+extern __global__ const CURLFTPSSL_CONTROL;
+extern __global__ const CURLFTPSSL_NONE;
+extern __global__ const CURLOPT_PRIVATE;
+extern __global__ const CURLOPT_FTPSSLAUTH;
+extern __global__ const CURLOPT_PORT;
+extern __global__ const CURLOPT_FILE;
+extern __global__ const CURLOPT_INFILE;
+extern __global__ const CURLOPT_INFILESIZE;
+extern __global__ const CURLOPT_URL;
+extern __global__ const CURLOPT_PROXY;
+extern __global__ const CURLOPT_VERBOSE;
+extern __global__ const CURLOPT_HEADER;
+extern __global__ const CURLOPT_HTTPHEADER;
+extern __global__ const CURLOPT_NOPROGRESS;
+extern __global__ const CURLOPT_NOBODY;
+extern __global__ const CURLOPT_FAILONERROR;
+extern __global__ const CURLOPT_UPLOAD;
+extern __global__ const CURLOPT_POST;
+extern __global__ const CURLOPT_FTPLISTONLY;
+extern __global__ const CURLOPT_FTPAPPEND;
+extern __global__ const CURLOPT_FTP_CREATE_MISSING_DIRS;
+extern __global__ const CURLOPT_NETRC;
+extern __global__ const CURLOPT_FOLLOWLOCATION;
+extern __global__ const CURLOPT_FTPASCII;
+extern __global__ const CURLOPT_PUT;
+extern __global__ const CURLOPT_MUTE;
+extern __global__ const CURLOPT_USERPWD;
+extern __global__ const CURLOPT_PROXYUSERPWD;
+extern __global__ const CURLOPT_RANGE;
+extern __global__ const CURLOPT_TIMEOUT;
+extern __global__ const CURLOPT_TIMEOUT_MS;
+extern __global__ const CURLOPT_TCP_NODELAY;
+extern __global__ const CURLOPT_POSTFIELDS;
+extern __global__ const CURLOPT_PROGRESSFUNCTION;
+extern __global__ const CURLOPT_REFERER;
+extern __global__ const CURLOPT_USERAGENT;
+extern __global__ const CURLOPT_FTPPORT;
+extern __global__ const CURLOPT_FTP_USE_EPSV;
+extern __global__ const CURLOPT_LOW_SPEED_LIMIT;
+extern __global__ const CURLOPT_LOW_SPEED_TIME;
+extern __global__ const CURLOPT_RESUME_FROM;
+extern __global__ const CURLOPT_COOKIE;
+extern __global__ const CURLOPT_SSLCERT;
+extern __global__ const CURLOPT_SSLCERTPASSWD;
+extern __global__ const CURLOPT_WRITEHEADER;
+extern __global__ const CURLOPT_SSL_VERIFYHOST;
+extern __global__ const CURLOPT_COOKIEFILE;
+extern __global__ const CURLOPT_SSLVERSION;
+extern __global__ const CURLOPT_TIMECONDITION;
+extern __global__ const CURLOPT_TIMEVALUE;
+extern __global__ const CURLOPT_CUSTOMREQUEST;
+extern __global__ const CURLOPT_STDERR;
+extern __global__ const CURLOPT_TRANSFERTEXT;
+extern __global__ const CURLOPT_RETURNTRANSFER;
+extern __global__ const CURLOPT_QUOTE;
+extern __global__ const CURLOPT_POSTQUOTE;
+extern __global__ const CURLOPT_INTERFACE;
+extern __global__ const CURLOPT_KRB4LEVEL;
+extern __global__ const CURLOPT_HTTPPROXYTUNNEL;
+extern __global__ const CURLOPT_FILETIME;
+extern __global__ const CURLOPT_WRITEFUNCTION;
+extern __global__ const CURLOPT_READFUNCTION;
+extern __global__ const CURLOPT_PASSWDFUNCTION;
+extern __global__ const CURLOPT_HEADERFUNCTION;
+extern __global__ const CURLOPT_MAXREDIRS;
+extern __global__ const CURLOPT_MAXCONNECTS;
+extern __global__ const CURLOPT_CLOSEPOLICY;
+extern __global__ const CURLOPT_FRESH_CONNECT;
+extern __global__ const CURLOPT_FORBID_REUSE;
+extern __global__ const CURLOPT_RANDOM_FILE;
+extern __global__ const CURLOPT_EGDSOCKET;
+extern __global__ const CURLOPT_CONNECTTIMEOUT;
+extern __global__ const CURLOPT_CONNECTTIMEOUT_MS;
+extern __global__ const CURLOPT_SSL_VERIFYPEER;
+extern __global__ const CURLOPT_CAINFO;
+extern __global__ const CURLOPT_CAPATH;
+extern __global__ const CURLOPT_COOKIEJAR;
+extern __global__ const CURLOPT_SSL_CIPHER_LIST;
+extern __global__ const CURLOPT_BINARYTRANSFER;
+extern __global__ const CURLOPT_NOSIGNAL;
+extern __global__ const CURLOPT_PROXYTYPE;
+extern __global__ const CURLOPT_BUFFERSIZE;
+extern __global__ const CURLOPT_HTTPGET;
+extern __global__ const CURLOPT_HTTP_VERSION;
+extern __global__ const CURLOPT_SSLKEY;
+extern __global__ const CURLOPT_SSLKEYTYPE;
+extern __global__ const CURLOPT_SSLKEYPASSWD;
+extern __global__ const CURLOPT_SSLENGINE;
+extern __global__ const CURLOPT_SSLENGINE_DEFAULT;
+extern __global__ const CURLOPT_SSLCERTTYPE;
+extern __global__ const CURLOPT_CRLF;
+extern __global__ const CURLOPT_ENCODING;
+extern __global__ const CURLOPT_PROXYPORT;
+extern __global__ const CURLOPT_UNRESTRICTED_AUTH;
+extern __global__ const CURLOPT_FTP_USE_EPRT;
+extern __global__ const CURLOPT_HTTP200ALIASES;
+extern __global__ const CURLOPT_HTTPAUTH;
+extern __global__ const CURLAUTH_BASIC;
+extern __global__ const CURLAUTH_DIGEST;
+extern __global__ const CURLAUTH_GSSNEGOTIATE;
+extern __global__ const CURLAUTH_NTLM;
+extern __global__ const CURLAUTH_ANY;
+extern __global__ const CURLAUTH_ANYSAFE;
+extern __global__ const CURLOPT_PROXYAUTH;
+extern __global__ const CURLOPT_MAX_RECV_SPEED_LARGE;
+extern __global__ const CURLOPT_MAX_SEND_SPEED_LARGE;
+extern __global__ const CURLCLOSEPOLICY_LEAST_RECENTLY_USED;
+extern __global__ const CURLCLOSEPOLICY_LEAST_TRAFFIC;
+extern __global__ const CURLCLOSEPOLICY_SLOWEST;
+extern __global__ const CURLCLOSEPOLICY_CALLBACK;
+extern __global__ const CURLCLOSEPOLICY_OLDEST;
+extern __global__ const CURLINFO_PRIVATE;
+extern __global__ const CURLINFO_EFFECTIVE_URL;
+extern __global__ const CURLINFO_HTTP_CODE;
+extern __global__ const CURLINFO_HEADER_OUT;
+extern __global__ const CURLINFO_HEADER_SIZE;
+extern __global__ const CURLINFO_REQUEST_SIZE;
+extern __global__ const CURLINFO_TOTAL_TIME;
+extern __global__ const CURLINFO_NAMELOOKUP_TIME;
+extern __global__ const CURLINFO_CONNECT_TIME;
+extern __global__ const CURLINFO_PRETRANSFER_TIME;
+extern __global__ const CURLINFO_SIZE_UPLOAD;
+extern __global__ const CURLINFO_SIZE_DOWNLOAD;
+extern __global__ const CURLINFO_SPEED_DOWNLOAD;
+extern __global__ const CURLINFO_SPEED_UPLOAD;
+extern __global__ const CURLINFO_FILETIME;
+extern __global__ const CURLINFO_SSL_VERIFYRESULT;
+extern __global__ const CURLINFO_CONTENT_LENGTH_DOWNLOAD;
+extern __global__ const CURLINFO_CONTENT_LENGTH_UPLOAD;
+extern __global__ const CURLINFO_STARTTRANSFER_TIME;
+extern __global__ const CURLINFO_CONTENT_TYPE;
+extern __global__ const CURLINFO_REDIRECT_TIME;
+extern __global__ const CURLINFO_REDIRECT_COUNT;
+extern __global__ const CURL_TIMECOND_IFMODSINCE;
+extern __global__ const CURL_TIMECOND_IFUNMODSINCE;
+extern __global__ const CURL_TIMECOND_LASTMOD;
+extern __global__ const CURL_VERSION_IPV6;
+extern __global__ const CURL_VERSION_KERBEROS4;
+extern __global__ const CURL_VERSION_SSL;
+extern __global__ const CURL_VERSION_LIBZ;
+extern __global__ const CURLVERSION_NOW;
+extern __global__ const CURLE_OK;
+extern __global__ const CURLE_UNSUPPORTED_PROTOCOL;
+extern __global__ const CURLE_FAILED_INIT;
+extern __global__ const CURLE_URL_MALFORMAT;
+extern __global__ const CURLE_URL_MALFORMAT_USER;
+extern __global__ const CURLE_COULDNT_RESOLVE_PROXY;
+extern __global__ const CURLE_COULDNT_RESOLVE_HOST;
+extern __global__ const CURLE_COULDNT_CONNECT;
+extern __global__ const CURLE_FTP_WEIRD_SERVER_REPLY;
+extern __global__ const CURLE_FTP_ACCESS_DENIED;
+extern __global__ const CURLE_FTP_USER_PASSWORD_INCORRECT;
+extern __global__ const CURLE_FTP_WEIRD_PASS_REPLY;
+extern __global__ const CURLE_FTP_WEIRD_USER_REPLY;
+extern __global__ const CURLE_FTP_WEIRD_PASV_REPLY;
+extern __global__ const CURLE_FTP_WEIRD_227_FORMAT;
+extern __global__ const CURLE_FTP_CANT_GET_HOST;
+extern __global__ const CURLE_FTP_CANT_RECONNECT;
+extern __global__ const CURLE_FTP_COULDNT_SET_BINARY;
+extern __global__ const CURLE_PARTIAL_FILE;
+extern __global__ const CURLE_FTP_COULDNT_RETR_FILE;
+extern __global__ const CURLE_FTP_WRITE_ERROR;
+extern __global__ const CURLE_FTP_QUOTE_ERROR;
+extern __global__ const CURLE_HTTP_NOT_FOUND;
+extern __global__ const CURLE_WRITE_ERROR;
+extern __global__ const CURLE_MALFORMAT_USER;
+extern __global__ const CURLE_FTP_COULDNT_STOR_FILE;
+extern __global__ const CURLE_READ_ERROR;
+extern __global__ const CURLE_OUT_OF_MEMORY;
+extern __global__ const CURLE_OPERATION_TIMEOUTED;
+extern __global__ const CURLE_FTP_COULDNT_SET_ASCII;
+extern __global__ const CURLE_FTP_PORT_FAILED;
+extern __global__ const CURLE_FTP_COULDNT_USE_REST;
+extern __global__ const CURLE_FTP_COULDNT_GET_SIZE;
+extern __global__ const CURLE_HTTP_RANGE_ERROR;
+extern __global__ const CURLE_HTTP_POST_ERROR;
+extern __global__ const CURLE_SSL_CONNECT_ERROR;
+extern __global__ const CURLE_FTP_BAD_DOWNLOAD_RESUME;
+extern __global__ const CURLE_FILE_COULDNT_READ_FILE;
+extern __global__ const CURLE_LDAP_CANNOT_BIND;
+extern __global__ const CURLE_LDAP_SEARCH_FAILED;
+extern __global__ const CURLE_LIBRARY_NOT_FOUND;
+extern __global__ const CURLE_FUNCTION_NOT_FOUND;
+extern __global__ const CURLE_ABORTED_BY_CALLBACK;
+extern __global__ const CURLE_BAD_FUNCTION_ARGUMENT;
+extern __global__ const CURLE_BAD_CALLING_ORDER;
+extern __global__ const CURLE_HTTP_PORT_FAILED;
+extern __global__ const CURLE_BAD_PASSWORD_ENTERED;
+extern __global__ const CURLE_TOO_MANY_REDIRECTS;
+extern __global__ const CURLE_UNKNOWN_TELNET_OPTION;
+extern __global__ const CURLE_TELNET_OPTION_SYNTAX;
+extern __global__ const CURLE_OBSOLETE;
+extern __global__ const CURLE_SSL_PEER_CERTIFICATE;
+extern __global__ const CURLE_GOT_NOTHING;
+extern __global__ const CURLE_SSL_ENGINE_NOTFOUND;
+extern __global__ const CURLE_SSL_ENGINE_SETFAILED;
+extern __global__ const CURLE_SEND_ERROR;
+extern __global__ const CURLE_RECV_ERROR;
+extern __global__ const CURLE_SHARE_IN_USE;
+extern __global__ const CURLE_SSL_CERTPROBLEM;
+extern __global__ const CURLE_SSL_CIPHER;
+extern __global__ const CURLE_SSL_CACERT;
+extern __global__ const CURLE_BAD_CONTENT_ENCODING;
+extern __global__ const CURLE_LDAP_INVALID_URL;
+extern __global__ const CURLE_FILESIZE_EXCEEDED;
+extern __global__ const CURLE_FTP_SSL_FAILED;
+extern __global__ const CURLFTPAUTH_DEFAULT;
+extern __global__ const CURLFTPAUTH_SSL;
+extern __global__ const CURLFTPAUTH_TLS;
+extern __global__ const CURLPROXY_HTTP;
+extern __global__ const CURLPROXY_SOCKS5;
+extern __global__ const CURL_NETRC_OPTIONAL;
+extern __global__ const CURL_NETRC_IGNORED;
+extern __global__ const CURL_NETRC_REQUIRED;
+extern __global__ const CURL_HTTP_VERSION_NONE;
+extern __global__ const CURL_HTTP_VERSION_1_0;
+extern __global__ const CURL_HTTP_VERSION_1_1;
+extern __global__ const CURLM_CALL_MULTI_PERFORM;
+extern __global__ const CURLM_OK;
+extern __global__ const CURLM_BAD_HANDLE;
+extern __global__ const CURLM_BAD_EASY_HANDLE;
+extern __global__ const CURLM_OUT_OF_MEMORY;
+extern __global__ const CURLM_INTERNAL_ERROR;
+extern __global__ const CURLMSG_DONE;
+extern __global__ const CURLOPT_KEYPASSWD;
+extern __global__ const CURLOPT_SSH_AUTH_TYPES;
+extern __global__ const CURLOPT_SSH_HOST_PUBLIC_KEY_MD5;
+extern __global__ const CURLOPT_SSH_PRIVATE_KEYFILE;
+extern __global__ const CURLOPT_SSH_PUBLIC_KEYFILE;
+extern __global__ const CURLMOPT_PIPELINING;
+extern __global__ const CURLMOPT_MAXCONNECTS;
+extern __global__ const CURLSSH_AUTH_ANY;
+extern __global__ const CURLSSH_AUTH_DEFAULT;
+extern __global__ const CURLSSH_AUTH_HOST;
+extern __global__ const CURLSSH_AUTH_KEYBOARD;
+extern __global__ const CURLSSH_AUTH_NONE;
+extern __global__ const CURLSSH_AUTH_PASSWORD;
+extern __global__ const CURLSSH_AUTH_PUBLICKEY;
+extern __global__ const CURL_WRAPPERS_ENABLED;
+extern __global__ const CURLPAUSE_ALL;
+extern __global__ const CURLPAUSE_CONT;
+extern __global__ const CURLPAUSE_RECV;
+extern __global__ const CURLPAUSE_RECV_CONT;
+extern __global__ const CURLPAUSE_SEND;
+extern __global__ const CURLPAUSE_SEND_CONT;
+
