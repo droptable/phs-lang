@@ -12,4 +12,14 @@ class EnumVar extends Node
     $this->id = $id;
     $this->init = $init;
   }
+
+  public function __clone()
+  {
+    $this->id = clone $this->id;
+    
+    if ($this->init)
+      $this->init = clone $this->init;
+    
+    parent::__clone();
+  }
 }

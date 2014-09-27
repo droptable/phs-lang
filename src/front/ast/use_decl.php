@@ -12,4 +12,11 @@ class UseDecl extends Decl
     $this->item = $item;
     $this->pub = $pub;
   }
+
+  public function __clone()
+  {
+    $this->item = clone $this->item;
+    
+    parent::__clone();
+  }
 }

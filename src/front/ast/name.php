@@ -23,4 +23,22 @@ class Name extends Node
   {
     $this->parts[] = $name;
   }
+
+  public function __clone()
+  {
+    $this->base = clone $this->base;
+    
+    if ($this->parts) {
+      $parts = $this->parts;
+      $this->parts = [];
+      
+      foreach ($parts as $part)
+        $this->parts[] = clone $part;
+    }
+    
+    if ($this->symbol)
+      $this->symbol = clone $this->symbol;
+    
+    parent::__clone();
+  }
 }

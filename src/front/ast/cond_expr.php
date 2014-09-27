@@ -14,4 +14,16 @@ class CondExpr extends Expr
     $this->then = $then;
     $this->els = $els;
   }
+
+  public function __clone()
+  {
+    $this->test = clone $this->test;
+    
+    if ($this->then)
+      $this->then = clone $this->then;
+    
+    $this->els = clone $this->els;
+  
+    parent::__clone();
+  }
 }

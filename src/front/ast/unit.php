@@ -13,4 +13,12 @@ class Unit extends Node
   {
     $this->body = $body;
   }
+
+  public function __clone()
+  {
+    $this->body = clone $this->body;
+    $this->scope = clone $this->scope;
+    
+    parent::__clone();
+  }
 }

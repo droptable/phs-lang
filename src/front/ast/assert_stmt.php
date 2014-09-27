@@ -12,4 +12,14 @@ class AssertStmt extends Stmt
     $this->expr = $expr;
     $this->message = $message;
   }
+  
+  public function __clone()
+  {
+    $this->expr = clone $this->expr;
+    
+    if ($this->message) 
+      $this->message = clone $this->message;
+    
+    parent::__clone();
+  }
 }

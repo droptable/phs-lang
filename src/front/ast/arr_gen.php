@@ -14,4 +14,13 @@ class ArrGen extends Node
     $this->init = $init;
     $this->each = $each;
   }
+  
+  public function __clone()
+  {
+    $this->expr = clone $this->expr;
+    $this->init = clone $this->init;
+    $this->each = clone $this->each;
+    
+    parent::__clone();
+  }
 }

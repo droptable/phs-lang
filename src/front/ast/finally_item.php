@@ -10,4 +10,11 @@ class FinallyItem extends Node
   {
     $this->body = $body;
   }
+
+  public function __clone()
+  {
+    $this->body = clone $this->body;
+    
+    parent::__clone();
+  }
 }

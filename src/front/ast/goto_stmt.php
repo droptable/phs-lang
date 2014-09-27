@@ -10,4 +10,11 @@ class GotoStmt extends Stmt
   {
     $this->id = $id;
   }
+
+  public function __clone()
+  {
+    $this->id = clone $this->id;
+    
+    parent::__clone();
+  }
 }

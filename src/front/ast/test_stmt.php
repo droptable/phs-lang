@@ -12,4 +12,14 @@ class TestStmt extends Stmt
     $this->name = $name;
     $this->block = $block;
   }
+
+  public function __clone()
+  {
+    if ($this->name)
+      $this->name = clone $this->name;
+    
+    $this->block = clone $this->block;
+    
+    parent::__clone();
+  }
 }

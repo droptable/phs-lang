@@ -12,4 +12,12 @@ class LabelDecl extends Decl
     $this->id = $id;
     $this->stmt = $stmt;
   }
+
+  public function __clone()
+  {
+    $this->id = clone $this->id;
+    $this->stmt = clone $this->stmt;
+    
+    parent::__clone();
+  }
 }

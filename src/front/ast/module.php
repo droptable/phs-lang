@@ -7,8 +7,7 @@ class Module extends Node
   public $name;
   public $body;
   
-  // @var phs\front\ModuleScope
-  // this is a workaround 
+  // @var ModuleScope 
   public $scope;
   
   public function __construct($name, $body)
@@ -18,5 +17,14 @@ class Module extends Node
     
     $this->name = $name;
     $this->body = $body;
+  }
+
+  public function __clone()
+  {
+    $this->name = clone $this->name;
+    $this->body = clone $this->body;
+    $this->scope = clone $this->scope;
+    
+    parent::__clone();
   }
 }

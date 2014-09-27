@@ -12,4 +12,11 @@ class RequireDecl extends Node
     $this->php = $php;
     $this->expr = $expr;
   }
+
+  public function __clone()
+  {
+    $this->expr = clone $this->expr;
+    
+    parent::__clone();
+  }
 }

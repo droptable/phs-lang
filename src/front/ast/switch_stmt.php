@@ -12,4 +12,19 @@ class SwitchStmt extends Stmt
     $this->test = $test;
     $this->cases = $cases;
   }
+
+  public function __clone()
+  {
+    $this->test = clone $this->test;
+    
+    if ($this->cases) {
+      $cases = $this->cases;
+      $this->cases = [];
+      
+      foreach ($cases as $case)
+        $this->cases[] = clone $case;
+    }
+    
+    parent::__clone();
+  }
 }

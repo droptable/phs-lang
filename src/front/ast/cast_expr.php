@@ -12,4 +12,12 @@ class CastExpr extends Expr
     $this->expr = $expr;
     $this->type = $type;
   }
+
+  public function __clone()
+  {
+    $this->expr = clone $this->expr;
+    $this->type = clone $this->type;
+    
+    parent::__clone();
+  }
 }

@@ -10,4 +10,12 @@ class ReturnStmt extends Stmt
   {
     $this->expr = $expr;
   }
+
+  public function __clone()
+  {
+    if ($this->expr)
+      $this->expr = clone $this->expr;
+    
+    parent::__clone();
+  }
 }

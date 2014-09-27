@@ -14,4 +14,14 @@ class VarItem extends Node
     $this->init = $init;
     $this->ref = $ref;
   }
+
+  public function __clone()
+  {
+    $this->id = clone $this->id;
+    
+    if ($this->init)
+      $this->init = clone $this->init;
+    
+    parent::__clone();
+  }
 }

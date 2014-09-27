@@ -17,4 +17,16 @@ class RestParam extends Node
     $this->id = $id;
     $this->ref = $ref;
   }
+
+  public function __clone()
+  {
+    $this->id = clone $this->id;
+    
+    if ($this->hint)
+      $this->hint = clone $this->hint;
+    
+    $this->symbol = null;
+    
+    parent::__clone();
+  }
 }

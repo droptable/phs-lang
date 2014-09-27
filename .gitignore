@@ -1,6 +1,3 @@
-gen/y.output
-gen/parser-tmp.y
-gen/kmyacc.exe
 bin/test.bat
 bin/test.log
 bin/test.phs
@@ -9,7 +6,9 @@ bin/out.log
 src/flow.txt
 src_/
 src/old/
-src/front/yacc/kmyacc.exe
 src/front/yacc/y.output
+src/front/yacc/parser-tmp.y
+src/front/yacc/parser-tmp.php
+src/front/yacc/kmyacc.exe
 test/
 out/

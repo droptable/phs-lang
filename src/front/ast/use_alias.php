@@ -12,4 +12,12 @@ class UseAlias extends Node
     $this->name = $name;
     $this->alias = $alias;
   }
+
+  public function __clone()
+  {
+    $this->name = clone $this->name;
+    $this->alias = clone $this->alias;
+    
+    parent::__clone();
+  }
 }

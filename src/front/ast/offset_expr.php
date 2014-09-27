@@ -12,4 +12,12 @@ class OffsetExpr extends Expr
     $this->object = $object;
     $this->offset = $offset;
   }
+
+  public function __clone()
+  {
+    $this->object = clone $this->object;
+    $this->offset = clone $this->offset;
+    
+    parent::__clone();
+  }
 }

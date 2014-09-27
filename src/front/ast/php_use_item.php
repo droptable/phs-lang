@@ -12,4 +12,14 @@ class PhpUseItem extends Node
     $this->id = $id;
     $this->alias = $alias;
   }
+
+  public function __clone()
+  {
+    $this->id = clone $this->id;
+    
+    if ($this->alias)
+      $this->alias = clone $this->alias;
+    
+    parent::__clone();
+  }
 }

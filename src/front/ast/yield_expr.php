@@ -12,4 +12,14 @@ class YieldExpr extends Expr
     $this->key = $key;
     $this->arg = $arg;
   }
+
+  public function __clone()
+  {
+    if ($this->key)
+      $this->key = clone $this->key;
+    
+    $this->arg = clone $this->arg;
+  
+    parent::__clone();
+  }
 }

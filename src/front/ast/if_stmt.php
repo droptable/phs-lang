@@ -16,4 +16,23 @@ class IfStmt extends Stmt
     $this->elsifs = $elsifs;
     $this->els = $els;
   }
+
+  public function __clone()
+  {
+    $this->test = clone $this->test;
+    $this->stmt = clone $this->stmt;
+    
+    if ($this->elsifs) {
+      $elsifs = $this->elsifs;
+      $this->elsifs = [];
+      
+      foreach ($elsifs as $elsif)
+        $this->elsifs[] = clone $elsif;
+    }
+    
+    if ($this->els)
+      $this->els = clone $this->els;
+    
+    parent::__clone();
+  }
 }

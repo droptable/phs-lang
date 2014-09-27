@@ -16,4 +16,20 @@ class Block extends Stmt
   {
     $this->body = $body;
   }
+  
+  public function __clone()
+  {
+    if ($this->body) {
+      $body = $this->body;
+      $this->body = [];
+      
+      foreach ($body as $node)
+        $this->body[] = clone $node;
+    }
+    
+    if ($this->scope)
+      $this->scope = clone $this->scope;
+    
+    parent::__clone();
+  }
 }

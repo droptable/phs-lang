@@ -8,4 +8,9 @@ class KStrLit extends Expr
   {
     $this->data = (string) $data;
   }
+
+  public function __clone()
+  {
+    parent::__clone();
+  }
 }

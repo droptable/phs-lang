@@ -22,6 +22,11 @@ class Token
     $this->uid = ++self::$uid_base;
   }
   
+  public function __clone()
+  {
+    $this->loc = clone $this->loc;
+  }
+  
   public function debug()
   {
     $this->loc->debug();
@@ -41,6 +46,11 @@ class Position
     $this->line = $line;
     $this->coln = $coln;
   }
+  
+  public function __clone() 
+  {
+    // nothing to clone
+  }
 }
 
 // location
@@ -53,6 +63,11 @@ class Location
   {
     $this->file = $file;
     $this->pos = $pos;
+  }
+  
+  public function __clone()
+  {
+    $this->pos = clone $this->pos;
   }
   
   public function debug()

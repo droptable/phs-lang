@@ -12,4 +12,19 @@ class CallExpr extends Expr
     $this->callee = $callee;
     $this->args = $args;
   }
+  
+  public function __clone()
+  {
+    $this->callee = clone $this->callee;
+    
+    if ($this->args) {
+      $args = $this->args;
+      $this->args = [];
+      
+      foreach ($args as $arg)
+        $this->args[] = clone $arg;
+    }
+    
+    parent::__clone();
+  }
 }

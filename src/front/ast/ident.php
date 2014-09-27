@@ -13,4 +13,12 @@ class Ident extends Node
   {
     $this->data = $data;
   }
+
+  public function __clone()
+  {
+    if ($this->symbol)
+      $this->symbol = clone $this->symbol;
+    
+    parent::__clone();
+  }
 }

@@ -40,3 +40,43 @@ public use self::dio_stat as stat;
 public use self::dio_tcsetattr as tcsetattr;
 public use self::dio_truncate as truncate;
 public use self::dio_write as write;
+
+// global constants
+extern __global__ const F_DUPFD;
+extern __global__ const F_GETFD;
+extern __global__ const F_GETFL;
+extern __global__ const F_GETLK;
+extern __global__ const F_GETOWN;
+extern __global__ const F_RDLCK;
+extern __global__ const F_SETFL;
+extern __global__ const F_SETLK;
+extern __global__ const F_SETLKW;
+extern __global__ const F_SETOWN;
+extern __global__ const F_UNLCK;
+extern __global__ const F_WRLCK;
+
+extern __global__ const O_APPEND;
+extern __global__ const O_ASYNC;
+extern __global__ const O_CREAT;
+extern __global__ const O_EXCL;
+extern __global__ const O_NDELAY;
+extern __global__ const O_NOCTTY;
+extern __global__ const O_NONBLOCK;
+extern __global__ const O_RDONLY;
+extern __global__ const O_RDWR;
+extern __global__ const O_SYNC;
+extern __global__ const O_TRUNC;
+extern __global__ const O_WRONLY;
+
+extern __global__ const S_IRGRP;
+extern __global__ const S_IROTH;
+extern __global__ const S_IRUSR;
+extern __global__ const S_IRWXG;
+extern __global__ const S_IRWXO;
+extern __global__ const S_IRWXU;
+extern __global__ const S_IWGRP;
+extern __global__ const S_IWOTH;
+extern __global__ const S_IWUSR;
+extern __global__ const S_IXGRP;
+extern __global__ const S_IXOTH;
+extern __global__ const S_IXUSR;

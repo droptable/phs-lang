@@ -12,4 +12,19 @@ class TraitUse extends Node
     $this->name = $name;
     $this->items = $items;
   }  
+
+  public function __clone()
+  {
+    $this->name = clone $this->name;
+    
+    if ($this->items) {
+      $items = $this->items;
+      $this->items = [];
+      
+      foreach ($items as $item)
+        $this->items[] = clone $item;
+    }
+    
+    parent::__clone();
+  }
 }

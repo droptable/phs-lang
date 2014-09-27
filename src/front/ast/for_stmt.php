@@ -19,4 +19,17 @@ class ForStmt extends Stmt
     $this->each = $each;
     $this->stmt = $stmt;
   }
+
+  public function __clone()
+  {
+    $this->init = clone $this->init;
+    $this->test = clone $this->test;
+    $this->each = clone $this->each;
+    $this->stmt = clone $this->stmt;
+    
+    if ($this->scope)
+      $this->scope = clone $this->scope;
+    
+    parent::__clone();
+  }
 }

@@ -21,4 +21,17 @@ class StrLit extends Expr
   {
     $this->parts[] = $slice;
   }
+
+  public function __clone()
+  {
+    if ($this->parts) {
+      $parts = $this->parts;
+      $this->parts = [];
+      
+      foreach($parts as $part)
+        $this->parts[] = clone $part;
+    }
+    
+    parent::__clone();
+  }
 }

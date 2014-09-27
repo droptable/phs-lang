@@ -12,4 +12,12 @@ class ObjPair extends Node
     $this->key = $key;
     $this->value = $value;
   }
+
+  public function __clone()
+  {
+    $this->key = clone $this->key;
+    $this->value = clone $this->value;
+    
+    parent::__clone();
+  }
 }

@@ -10,4 +10,17 @@ class ObjLit extends Expr
   {
     $this->pairs = $pairs;
   }
+
+  public function __clone()
+  {
+    if ($this->pairs) {
+      $pairs = $this->pairs;
+      $this->pairs = [];
+      
+      foreach ($pairs as $pair)
+        $this->pairs[] = clone $pair;
+    }
+    
+    parent::__clone();
+  }
 }

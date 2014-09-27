@@ -10,4 +10,9 @@ class LNumLit extends Expr
   {
     $this->data = $data;
   }
+
+  public function __clone()
+  {
+    parent::__clone();
+  }
 }

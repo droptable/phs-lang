@@ -12,4 +12,21 @@ class CaseItem extends Node
     $this->labels = $labels;
     $this->body = $body;
   }
+  
+  public function __clone()
+  {
+    $labels = $this->labels;
+    $this->labels = [];
+    
+    foreach ($labels as $label)
+      $this->labels[] = clone $label;    
+    
+    $body = $this->body;
+    $this->body = [];
+    
+    foreach ($body as $node)
+      $this->body[] = clone $node;
+    
+    parent::__clone();
+  }
 }

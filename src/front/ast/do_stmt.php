@@ -12,4 +12,12 @@ class DoStmt extends Stmt
     $this->stmt = $stmt;
     $this->test = $test;
   }
+
+  public function __clone()
+  {
+    $this->stmt = clone $this->stmt;
+    $this->test = clone $this->test;
+    
+    parent::__clone();
+  }
 }

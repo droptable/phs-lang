@@ -197,7 +197,7 @@ class UnitResolver extends AutoVisitor
     if (!preg_match($re_ext, $path))
       $path .= $php ? '.php' : '.phs';
     
-    //                       dest--v
+    //               destination --v
     $fsrc = new FileSource($path, null, $php, $loc);
     $this->sess->add_source($fsrc);
   }
@@ -265,14 +265,6 @@ class UnitResolver extends AutoVisitor
         Logger::info('gets defined here but is not yet accessible');
         Logger::info('try to move variable-declarations at the top of \\');
         Logger::info('the file or blocks {...} to avoid errors like this');
-      } elseif (($sym->flags & SYM_FLAG_INCOMPLETE) && 
-                !($sym->flags & SYM_FLAG_EXTERN)) {
-        // nay ...
-        Logger::error_at($node->loc, 'access to incomplete %s', $sym);
-        Logger::info_at($sym->loc, 'incomplete declaration was here');
-        Logger::error_at($node->loc, 'referenced as %s', $ref);
-        Logger::info('each incomplete declaration requires a \\');
-        Logger::info('definition somewhere in the same unit');
       } else {
         $node->symbol = $sym;
         return true;
@@ -288,28 +280,20 @@ class UnitResolver extends AutoVisitor
    */
   private function resolve_types()
   {
-    foreach ($this->scope->iter(SYM_NS2) as $sym) {
-      if (($sym->flags & SYM_FLAG_INCOMPLETE) &&
-          !($sym->flags & SYM_FLAG_EXTERN)) {
-        Logger::error_at($sym->loc, '%s declared incomplete \\', $sym);
-        Logger::error('and never fully defined');
-        Logger::info('each incomplete declaration requires a \\');
-        Logger::info('definition somewhere in the same unit');
-      } else      
-        switch ($sym->kind) {
-          case SYM_KIND_CLASS:
-            $this->resolve_class($sym);
-            break;
-          case SYM_KIND_TRAIT:
-            $this->resolve_trait($sym);
-            break;
-          case SYM_KIND_IFACE:
-            $this->resolve_iface($sym);
-            break;
-          default:
-            assert(0);
-        }
-    }
+    foreach ($this->scope->iter(SYM_NS2) as $sym)   
+      switch ($sym->kind) {
+        case SYM_KIND_CLASS:
+          $this->resolve_class($sym);
+          break;
+        case SYM_KIND_TRAIT:
+          $this->resolve_trait($sym);
+          break;
+        case SYM_KIND_IFACE:
+          $this->resolve_iface($sym);
+          break;
+        default:
+          assert(0);
+      }
   }
   
   /**
@@ -587,7 +571,9 @@ class UnitResolver extends AutoVisitor
   public function visit_class_decl($node)
   {
     $this->cclass = $node->symbol;
-    parent::visit_class_decl($node);
+    
+    // somehow insert trait-nodes to class members
+    
     $this->cclass = null;
   }
   

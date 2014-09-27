@@ -14,4 +14,13 @@ class CheckExpr extends Expr
     $this->op = $op;
     $this->right = $right;
   }
+
+  public function __clone()
+  {
+    $this->left = clone $this->left;
+    $this->op = clone $this->op;
+    $this->right = clone $this->right;
+    
+    parent::__clone();
+  }
 }

@@ -12,4 +12,12 @@ class NamedArg extends Node
     $this->name = $name;
     $this->expr = $expr;
   }
+
+  public function __clone()
+  {
+    $this->name = clone $this->name;
+    $this->expr = clone $this->expr;
+    
+    parent::__clone();
+  }
 }

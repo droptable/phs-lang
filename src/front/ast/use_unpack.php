@@ -12,4 +12,19 @@ class UseUnpack extends Node
     $this->base = $base;
     $this->items = $items;
   }
+
+  public function __clone()
+  {
+    $this->base = clone $this->base;
+    
+    if ($this->items) {
+      $items = $this->items;
+      $this->items = [];
+      
+      foreach ($items as $item)
+        $this->items[] = clone $item;
+    }
+        
+    parent::__clone();  
+  }
 }

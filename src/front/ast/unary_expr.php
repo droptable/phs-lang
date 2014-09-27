@@ -12,4 +12,12 @@ class UnaryExpr extends Expr
     $this->op = $op;
     $this->expr = $expr;
   }
+
+  public function __clone()
+  {
+    $this->op = clone $this->op;
+    $this->expr = clone $this->expr;
+    
+    parent::__clone();
+  }
 }

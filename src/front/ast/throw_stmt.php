@@ -10,4 +10,11 @@ class ThrowStmt extends Stmt
   {
     $this->expr = $expr;
   }
+
+  public function __clone()
+  {
+    $this->expr = clone $this->expr;
+    
+    parent::__clone();
+  }
 }

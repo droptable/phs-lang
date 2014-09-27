@@ -14,4 +14,21 @@ class SetterDecl extends Decl
     $this->params = $params;
     $this->body = $body;
   }
+
+  public function __clone()
+  {
+    $this->id = clone $this->id;
+    
+    if ($this->params) {
+      $params = $this->params;
+      $this->params = [];
+      
+      foreach ($params as $param)
+        $this->params[] = clone $param;      
+    }
+    
+    $this->body = clone $this->body;
+    
+    parent::__clone();
+  }
 }

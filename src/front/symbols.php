@@ -164,6 +164,7 @@ abstract class Symbol
   public function __clone()
   {
     $this->scope = null;
+    $this->node = clone $this->node;
   }
   
   /**

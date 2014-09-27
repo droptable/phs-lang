@@ -10,4 +10,17 @@ class TupleExpr extends Expr
   {
     $this->seq = $seq;
   }
+
+  public function __clone()
+  {
+    if ($this->seq) {
+      $seq = $this->seq;
+      $this->seq = [];
+      
+      foreach ($seq as $expr)
+        $this->seq[] = clone $expr;
+    }
+    
+    parent::__clone();
+  }
 }

@@ -31,4 +31,10 @@ abstract class Node
       return $this->kind;
     }
   }
+
+  public function __clone()
+  {
+    if ($this->loc)
+      $this->loc = clone $this->loc;
+  }
 }

@@ -14,4 +14,13 @@ class CatchItem extends Node
     $this->id = $id;
     $this->body = $body;
   }
+
+  public function __clone()
+  {
+    $this->name = clone $this->name;
+    $this->id = clone $this->id;
+    $this->body = clone $this->body;
+    
+    parent::__clone();
+  }
 }

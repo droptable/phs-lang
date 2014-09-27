@@ -17,4 +17,16 @@ class ForInStmt extends Stmt
     $this->rhs = $rhs;
     $this->stmt = $stmt;
   }
+
+  public function __clone()
+  {
+    $this->lhs = clone $this->lhs;
+    $this->rhs = clone $this->rhs;
+    $this->stmt = clone $this->stmt;
+    
+    if ($this->scope)
+      $this->scope = clone $this->scope;
+    
+    parent::__clone();
+  }
 }

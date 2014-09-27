@@ -10,4 +10,11 @@ class SpreadExpr extends Expr
   {
     $this->expr = $expr;
   }
+
+  public function __clone()
+  {
+    $this->expr = clone $this->expr;
+    
+    parent::__clone();
+  }
 }

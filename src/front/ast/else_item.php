@@ -10,4 +10,11 @@ class ElseItem extends Node
   {
     $this->stmt = $stmt;
   }
+
+  public function __clone()
+  {
+    $this->stmt = clone $this->stmt;
+    
+    parent::__clone();
+  }
 }
