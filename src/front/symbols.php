@@ -117,11 +117,11 @@ abstract class Symbol
   // @var int
   public $kind;
   
+  // @var Node  the ast-node associated with this symbol
+  public $node;
+  
   // @var int
   public $flags;
-    
-  // @var Node  the ast-node which defines this symbol
-  public $node = null;
   
   // @var Scope  scope where this symbol was defined in
   public $scope = null;
@@ -164,7 +164,9 @@ abstract class Symbol
   public function __clone()
   {
     $this->scope = null;
-    $this->node = clone $this->node;
+    
+    if ($this->node)
+      $this->node = clone $this->node;
   }
   
   /**
@@ -176,6 +178,26 @@ abstract class Symbol
   public function __tostring()
   {
     $str = sym_kind_to_str($this->kind) . ' ';
+    $abs = $this->path();
+    
+    $str .= '`';
+    $str .= path_to_str($abs);
+    
+    if (!empty ($abs)) $str .= '::';
+     
+    $str .= $this->id;
+    $str .= '`';
+    
+    return $str;
+  }
+  
+  /**
+   * returns the absolute path (fully qualified) to this symbol
+   *
+   * @return array
+   */
+  public function path()
+  {
     $abs = [];
        
     for ($scp = $this->scope; 
@@ -187,6 +209,10 @@ abstract class Symbol
       
       while (!($scp instanceof RootScope)) {
         if (!$scp->prev) break 2;
+        
+        if ($scp instanceof MemberScope)
+          $abs[] = $scp->host->id;
+        
         $scp = $scp->prev;
       }
       
@@ -198,15 +224,7 @@ abstract class Symbol
         $abs[] = $scp->id;
     }
     
-    $str .= '`';
-    $str .= path_to_str(array_reverse($abs));
-    
-    if (!empty ($abs)) $str .= '::';
-     
-    $str .= $this->id;
-    $str .= '`';
-    
-    return $str;
+    return array_reverse($abs);
   }
   
   /* ------------------------------------ */
@@ -642,9 +660,6 @@ class FnSymbol extends Symbol
     
     if ($this->origin !== null)
       echo ' (& ', $this->origin->id, ')';
-    
-    if (!$this->expr && $this->node->scope)
-      $this->node->scope->dump($tab);
   }
   
   /* ------------------------------------ */
@@ -798,58 +813,8 @@ class ParamSymbol extends VarSymbol
       $flags = mods_to_sym_flags($node->mods);
     
     $sym = new ParamSymbol(ident_to_str($node->id), $node->loc, $flags);
-    $sym->node = $node;    
-    return $sym;
-  }
-}
-
-class AliasSymbol extends Symbol
-{
-  // @var Name 
-  public $orig;
-  
-  /**
-   * constructor
-   * 
-   * @param string   $id
-   * @param Location $loc
-   * @param int   $flags
-   */
-  public function __construct($id, Location $loc)
-  {
-    // init symbol
-    parent::__construct($id, SYM_ALIAS_NS, $loc, SYM_KIND_ALIAS, SYM_FLAG_NONE);
-  }
-  
-  /* ------------------------------------ */
-  
-  /**
-   * creates an alias-symbol from a ast-node
-   *
-   * @param  Node   $node
-   * @return AliasSymbol
-   */
-  public static function from(Node $node)
-  {
-    $sym = new AliasSymbol(ident_to_str($node->id), $node->loc);
     $sym->node = $node;
-    $sym->orig = $node->orig;
-    
     return $sym;
-  }
-  
-  /* ------------------------------------ */
-  
-  /**
-   * debug dump
-   *
-   * @param  string $tab
-   * @return void
-   */
-  public function dump($tab = '')
-  {
-    parent::dump($tab);
-    echo ' => ', name_to_str($this->orig);
   }
 }
 
@@ -890,7 +855,7 @@ class ClassSymbol extends Symbol
   {
     $id = ident_to_str($node->id);
     $sym = new ClassSymbol($id, $node->loc, mods_to_sym_flags($node->mods));
-    $sym->node = $node;
+    $sym->node = $node;  
     return $sym;
   }
   
@@ -970,7 +935,7 @@ class TraitSymbol extends Symbol
   {
     $id = ident_to_str($node->id);
     $sym = new TraitSymbol($id, $node->loc, mods_to_sym_flags($node->mods));
-    $sym->node = $node;
+    $sym->node = $node;  
     return $sym;
   }
   
@@ -1040,7 +1005,7 @@ class IfaceSymbol extends Symbol
   {
     $id = ident_to_str($node->id);
     $sym = new IfaceSymbol($id, $node->loc, mods_to_sym_flags($node->mods));
-    $sym->node = $node;
+    $sym->node = $node; 
     return $sym;
   }
   

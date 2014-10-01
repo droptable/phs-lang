@@ -371,10 +371,10 @@ class File {
   public fn create() => open('w+');
   
   // WIP
-  public fn is_dir() => ::is_dir(path);
-  public fn is_file() => ::is_file(path);
-  public fn is_readable() => ::is_readable(path);
-  public fn is_writable() => ::is_writable(path);
+  public fn is_dir() => self::is_dir(path);
+  public fn is_file() => self::is_file(path);
+  public fn is_readable() => self::is_readable(path);
+  public fn is_writable() => self::is_writable(path);
    
   /**
    * removes the file or directory

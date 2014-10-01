@@ -84,6 +84,9 @@ class Scope extends SymbolMap
   // @var Set  captured symbols from the parent scope
   public $capt;
   
+  // @var Scope  delegate scope
+  private $other;
+  
   // @var boolean
   public $sealed = false;
   
@@ -125,7 +128,23 @@ class Scope extends SymbolMap
    *
    * @return void
    */
-  public function leave() {}
+  public function leave() 
+  {
+    if ($this->other)
+      $this->other->leave();
+  }
+  
+  /**
+   * sets a delegate scope.
+   * this scope gets only used in get() ignoring the `sealed` flag
+   *
+   * @param  Scope  $other
+   */
+  public function delegate(Scope $other)
+  {
+    $this->other = $other;
+    $this->other->enter();
+  }
   
   /**
    * adds a reference
@@ -159,16 +178,30 @@ class Scope extends SymbolMap
     $sym = parent::get($key, $ns);
     $res = null;
     
-    if ($sym === null && $this->prev && !$this->sealed) {
-      $res = $this->prev->get($key, $ns);
+    if ($sym === null) {
+      $test = [];
       
-      // if found, mark symbol as captured
-      if ($res->is_some())
-        $this->capt->add($res->unwrap());
+      if ($this->prev && !$this->sealed)
+        $test[] = $this->prev;
       
+      if ($this->other)
+        $test[] = $this->other;
+      
+      foreach ($test as $scp) {
+        $res = $scp->get($key, $ns);
+        
+        // if found, mark symbol as captured
+        if ($res->is_some()) {
+          $this->capt->add($res->unwrap());
+          goto out;
+        }
+      }
+      
+      $res = ScResult::None();
     } else
       $res = ScResult::from($sym);
     
+    out:
     return $res;
   }
   
@@ -699,11 +732,17 @@ class MemberScope extends Scope
   // @var TraitSymbol|ClassSymbol|IfaceSymbol
   public $host;
   
+  // @var MemberScope  super-class members
+  public $super = null;
+  
   // @var FnSymbol  constructor-symbol
   public $ctor;
   
   // @var FnSymbol  destructor-symbol
   public $dtor;
+  
+  // @var FnSymbol  clone-method
+  public $clone;
   
   // @var SymbolMap  getter
   public $getter;
@@ -723,6 +762,24 @@ class MemberScope extends Scope
     $this->host = $host;
     $this->getter = new SymbolMap;
     $this->setter = new SymbolMap;
+  }
+  
+  /**
+   * @see Scope#get()
+   *
+   * @param  string  $id
+   * @param  integer $ns
+   * @return ScResult
+   */
+  public function get($id, $ns = -1)
+  {
+    $res = parent::get($id, $ns);
+    
+    // ask super-class
+    if ($res->is_none() && $this->super)
+      $res = $this->super->get($id, $ns);
+    
+    return $res;
   }
   
   /* ------------------------------------ */

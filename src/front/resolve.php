@@ -2,6 +2,11 @@
 
 namespace phs\front;
 
+
+// NEXT: `this` and `super`
+
+
+
 require_once 'utils.php';
 require_once 'visitor.php';
 require_once 'symbols.php';
@@ -34,6 +39,9 @@ use phs\front\ast\RestParam;
 use phs\front\ast\ClassDecl;
 use phs\front\ast\IfaceDecl;
 use phs\front\ast\TraitDecl;
+use phs\front\ast\SelfExpr;
+use phs\front\ast\ThisExpr;
+use phs\front\ast\SuperExpr;
 
 use phs\lang\BuiltInList;
 use phs\lang\BuiltInDict;
@@ -58,6 +66,9 @@ class UnitResolver extends AutoVisitor
   // mixin lookup-methods
   use Lookup;
   
+  // mixin late-bindings for __class__ and __method__
+  use LateBindings;
+  
   // @var Session
   private $sess;
   
@@ -76,18 +87,15 @@ class UnitResolver extends AutoVisitor
   // @var GlobScope
   private $sglob;
   
-  // @var array<FnSymbol>
-  // for __fn__ and __method__
-  private $fnstk = [];
-  
-  // @var ClassSymbol 
-  // for __class__, __method__, `this` and `super` (early binding)
+  // @var ClassSymbol  current class
+  // to resolve `this` and `super`
   private $cclass;
   
-  // @var TraitSymbol
-  // for __trait__
-  // and __class__, __method__, `this` and `super` (late binding)
-  private $ctrait;
+  // @var array<FnSymbol>  function stack
+  private $fnstk;
+  
+  // @var NodeCollector  used for applied trait-members
+  private $ncol;
   
   /**
    * constructor
@@ -98,6 +106,7 @@ class UnitResolver extends AutoVisitor
   {
     parent::__construct();
     $this->sess = $sess;
+    $this->ncol = new NodeCollector($this->sess);
     $this->rpath = $sess->rpath;
     $this->sglob = $sess->scope;
   }
@@ -112,6 +121,7 @@ class UnitResolver extends AutoVisitor
   {
     $this->upath = dirname($unit->loc->file);
     $this->sunit = $unit->scope; 
+    $this->fnstk = [];
     
     $this->enter($this->sunit, $unit);
   }
@@ -151,11 +161,38 @@ class UnitResolver extends AutoVisitor
     $this->scope = $node->scope;
     
     $this->scope->enter();
+    
+    if ($node->symbol && $node->symbol->origin)
+      // function comes from a trait!
+      // make origin-scope accessible
+      $this->scope->delegate($node->symbol->origin->scope);
+    
+    array_push($this->fnstk, $node->symbol);
+    
     $this->visit_fn_params($node->params);
     $this->visit($node->body);
     $this->scope->leave();
     
     $this->scope = $prev;
+    
+    array_pop($this->fnstk);
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * collects symbols inside a node (late bindings)
+   *
+   * @param  Symbol $sym
+   * @param  Scope $scope
+   */
+  private function collect(Symbol $sym, Scope $scope)
+  {
+    // make cyclic reference ...
+    $node = $sym->node;
+    $node->symbol = $sym;
+    
+    $this->ncol->collect_node($node, $scope);
   }
   
   /* ------------------------------------ */
@@ -222,23 +259,8 @@ class UnitResolver extends AutoVisitor
       assert(0);
     
     // no symbol found
-    if ($res->is_none() && !$res->is_priv()) {  
-      switch ($ref) {
-        // produce a warning
-        case '__fn__':
-        case '__class__':
-        case '__trait__':
-        case '__module__':
-        case '__method__':
-          Logger::warn_at($node->loc, 'special constant `%s` \\', $ref);
-          Logger::warn('is not defined in this scope');
-          break;
-        
-        // produce an error
-        default:
-          Logger::error_at($node->loc, 'access to undefined symbol `%s`', $ref);
-      }
-    }
+    if ($res->is_none() && !$res->is_priv())
+      Logger::error_at($node->loc, 'access to undefined symbol `%s`', $ref);
     
     // private symbol "trap"
     elseif ($res->is_priv()) {
@@ -317,6 +339,11 @@ class UnitResolver extends AutoVisitor
       }
     }
     
+    // mark vars inside as reachable
+    foreach ($sym->members->iter(SYM_VAR_NS) as $var)
+      if ($var instanceof VarSymbol)
+        $var->reachable = true;
+    
     $sym->resolved = true;
   }
   
@@ -367,6 +394,9 @@ class UnitResolver extends AutoVisitor
         
         if ($sym->resolved === false)
           $this->resolve_class($sym);
+        
+        // install super-class in member-scope
+        $csym->members->super = $sym->members;
       }
     }
   }
@@ -434,7 +464,6 @@ class UnitResolver extends AutoVisitor
     $this->resolve_trait_usage($csym, $okay);
   }
   
-  
   /**
    * resolves usage from traits
    *
@@ -443,6 +472,8 @@ class UnitResolver extends AutoVisitor
    */
   private function resolve_trait_usage($csym, array $traits)
   {
+    $is_class = $csym instanceof ClassSymbol;
+    
     foreach ($traits as $trait) {
       $use = $trait->trait->symbol;
       
@@ -456,7 +487,7 @@ class UnitResolver extends AutoVisitor
         } else {          
           $sym = &$res->unwrap();
           
-          if ($this->lookup_member($csym, $trait->dest ?: $sym->id, $sym->ns))
+          if ($csym->members->has($trait->dest ?: $sym->id, $sym->ns))
             continue;
           
           $dup = clone $sym;
@@ -467,25 +498,49 @@ class UnitResolver extends AutoVisitor
           if ($trait->dest)
             $dup->id = $trait->dest;
           
+          // save origin for proper error-reporting
+          if ($dup->origin === null)
+            $dup->origin = $use; 
+          
           $csym->members->add($dup);
+          
+          if ($is_class)
+            $this->collect($dup, $csym->members);
         }
       } else {
         // use all items
         foreach ($use->members->iter() as $sym) {
-          $res = $this->lookup_member($csym, $sym->id, $sym->ns);
+          if ($csym->members->has($sym->id, $sym->ns))
+            continue;
           
-          if ($res->is_some()) continue;
-               
           $dup = clone $sym;
           
           // save origin for proper error-reporting
           if ($dup->origin === null)
             $dup->origin = $use;
-            
+          
           $csym->members->add($dup);
+          
+          if ($is_class)
+            $this->collect($dup, $csym->members);
         }
       }
     }
+  }
+  
+  /**
+   * resolves members of a class/trait
+   *
+   * @param  ClassSymbol|TraitSymbol $csym
+   */
+  private function resolve_members($csym)
+  {
+    foreach ($csym->members->iter() as $sym)
+      if ($sym instanceof VarSymbol) {
+        if ($sym->node->init)
+          $this->visit($sym->node->init);
+      } else
+        $this->enter_fn($sym->node);
   }
   
   /**
@@ -498,12 +553,16 @@ class UnitResolver extends AutoVisitor
   private function resolve_type($node, $tyc = TYC_ANY)
   {
     // typeid is always allowed
-    if ($node instanceof TypeId) return true;
+    if ($node instanceof TypeId)
+      return true;
     
     if ($node instanceof Name)
       $res = $this->lookup_name($node);
     elseif ($node instanceof Ident)
       $res = $this->lookup_ident($node);
+    elseif ($node instanceof SelfExpr)
+      // well this depends ... TODO
+      return true;
     else
       assert(0);
     
@@ -533,7 +592,11 @@ class UnitResolver extends AutoVisitor
         if ($sym->kind !== SYM_KIND_CLASS)
           return false;
         
-        $from = $this->lookup_member($sym, 'from', SYM_FN_NS);
+        // if the class is declared as <extern> we have to trust the implementor
+        if ($sym->flags & SYM_FLAG_EXTERN)
+          return true;
+        
+        $from = $sym->members->get('from', SYM_FN_NS);
         if ($from->is_none()) return false;
         
         $fsym = &$from->unwrap();
@@ -544,6 +607,22 @@ class UnitResolver extends AutoVisitor
       default:
         assert(0);
     }
+  }
+  
+  private function resolve_this_member($node, $mid)
+  {
+    // early binding does not make sense
+    
+  }
+  
+  private function resolve_self_member($node, $mid)
+  {
+    
+  }
+  
+  private function resolve_super_member($node, $mid)
+  {
+    
   }
     
   /* ------------------------------------ */
@@ -570,51 +649,34 @@ class UnitResolver extends AutoVisitor
   
   public function visit_class_decl($node)
   {
+    assert($node->scope !== null);
+    assert($node->symbol !== null);
+    
+    $this->scope = $node->scope;
     $this->cclass = $node->symbol;
     
-    // somehow insert trait-nodes to class members
+    $this->resolve_members($node->symbol);
     
     $this->cclass = null;
   }
   
   public function visit_trait_decl($node)
   {
-    $this->ctrait = $node->symbol;
-    parent::visit_trait_decl($node);
-    $this->ctrait = null;
+    // noop
   }
-    
+  
   public function visit_fn_decl($node)
   {
     assert($node->scope !== null);
     assert($node->symbol !== null);
     
-    // push current function onto the stack
-    array_push($this->fnstk, $node->symbol);
-    
     $this->enter_fn($node);
-    
-    // pop current function of the stack
-    array_pop($this->fnstk);
   }
   
   public function visit_fn_expr($node)
   {
     assert($node->scope !== null);
-    
-    if ($node->id !== null) {
-      assert($node->symbol !== null);
-      // push symbol onto the stack
-      array_push($this->fnstk, $node->symbol);
-    } else
-      // push NULL onto the stack.
-      // __fn__ will be a empty string
-      array_push($this->fnstk, null);
-      
-    
     $this->enter_fn($node);
-    
-    array_pop($this->fnstk);
   }
   
   public function visit_fn_params($params)
@@ -724,6 +786,55 @@ class UnitResolver extends AutoVisitor
     }
   }
   
+  public function visit_member_expr($node)
+  {
+    parent::visit_member_expr($node);
+    
+    // cast member to string
+    if ($node->computed) {
+      if (!$node->member->value ||
+          $node->member->value->is_none())
+        return; // must be resolved at runtime
+      
+      if (!$node->member->value->as_str()) 
+        return; // error
+    }
+    
+    if ($this->cclass) {
+      $mid = null;
+      
+      if ($node->computed)        
+        $mid = $node->member->value->data;
+      else
+        $mid = ident_to_str($node->member);
+      
+      if ($node->object instanceof SelfExpr)
+        $this->resolve_self_member($node, $mid);
+      elseif ($node->object instanceof ThisExpr)
+        $this->resolve_this_member($node, $mid);
+      elseif ($node->object instanceof SuperExpr)
+        $this->resolve_super_member($node, $mid);
+    }
+  }
+  
+  public function visit_this_expr($node)
+  {
+    if (!$this->cclass)
+      Logger::error_at($node->loc, '`this` outside of class or trait');
+  }
+  
+  public function visit_super_expr($node)
+  {
+    if (!$this->cclass)
+      Logger::error_at($node->loc, '`super` outside of class or trait');
+  }
+  
+  public function visit_self_expr($node)
+  {
+    if (!$this->cclass)
+      Logger::error_at($node->loc, '`self` outside of class or trait');
+  }
+  
   public function visit_name($node)
   {
     $res = $this->lookup_name($node);
@@ -734,5 +845,23 @@ class UnitResolver extends AutoVisitor
   {
     $res = $this->lookup_ident($node);
     $this->process_lookup($node, $res);
+  }
+  
+  public function visit_engine_const($node)
+  {
+    if ($node->value && $node->value->is_some())
+      return;
+    
+    // must be late-bindings of __class__ or __method__
+    switch ($node->type) {
+      case T_CCLASS:
+        $this->reduce_class_const($node);
+        break;
+      case T_CMETHOD:
+        $this->reduce_method_const($node);
+        break;
+      default:
+        assert(0);
+    }
   }
 }

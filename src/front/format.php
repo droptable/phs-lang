@@ -579,7 +579,7 @@ class AstFormatter extends Visitor
    * @return string
    */
   private function format_str($str, $dlm)
-  {
+  {    
     $esc = false;
     $buf = '';
     
@@ -628,7 +628,7 @@ class AstFormatter extends Visitor
     if ($node->flag !== 'r' && count($node->parts))
       foreach ($node->parts as $idx => $part) {
         if ($idx & 1) 
-          $buf .= $this->format_str($part, $node->delim);
+          $buf .= $this->format_str($part->data, $node->delim);
         else {
           $buf .= '${';
           $buf .= $this->handle_expr($part);

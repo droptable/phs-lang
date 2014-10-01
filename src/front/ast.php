@@ -93,6 +93,7 @@ require_once 'ast/true_lit.php';
 require_once 'ast/false_lit.php';
 require_once 'ast/kstr_lit.php';
 require_once 'ast/lnum_lit.php';
+require_once 'ast/engine_const.php';
 require_once 'ast/str_lit.php';
 require_once 'ast/dnum_lit.php';
 require_once 'ast/snum_lit.php';

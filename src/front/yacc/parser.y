@@ -124,6 +124,11 @@
 %token T_CFILE
 %token T_CLINE
 %token T_CCOLN
+%token T_CFN
+%token T_CCLASS
+%token T_CTRAIT
+%token T_CMETHOD
+%token T_CMODULE
 
 /* error token gets produced from the lexer if a regexp 
    was requested but the scan failed */
@@ -845,8 +850,6 @@ lxpr
   | T_NEW type_id pargs     { $$ = @NewExpr($2, $3); }
   | T_NEW nxpr              { $$ = @NewExpr($2, null); }
   | T_NEW nxpr pargs        { $$ = @NewExpr($2, $3); }
-  | T_NEW T_SELF            { $$ = @NewExpr(null, null); }
-  | T_NEW T_SELF pargs      { $$ = @NewExpr(null, $3); }
   | T_DEL nxpr              { $$ = @DelExpr($2); }
   | atom                    { $$ = $1; }
   ;
@@ -921,8 +924,6 @@ rxpr
   | T_NEW type_id pargs     { $$ = @NewExpr($2, $3); }
   | T_NEW nxpr              { $$ = @NewExpr($2, null); }
   | T_NEW nxpr pargs        { $$ = @NewExpr($2, $3); }
-  | T_NEW T_SELF            { $$ = @NewExpr(null, null); }
-  | T_NEW T_SELF pargs      { $$ = @NewExpr(null, $3); }
   | T_DEL nxpr              { $$ = @DelExpr($2); }
   | atom                    { $$ = $1; }
   | obj                     { $$ = $1; }
@@ -1087,16 +1088,21 @@ ident
   ;
  
 kwc
-  : T_THIS  { $$ = @ThisExpr; }
-  | T_SUPER { $$ = @SuperExpr; }
-  | T_SELF  { $$ = @SelfExpr; }
-  | T_NULL  { $$ = @NullLit; }
-  | T_TRUE  { $$ = @TrueLit; }
-  | T_FALSE { $$ = @FalseLit; }
-  | T_CDIR  { $$ = @KStrLit($this->cdir); }
-  | T_CFILE { $$ = @KStrLit($this->cfile); }
-  | T_CLINE { $$ = @LNumLit($1->loc->pos->line); }
-  | T_CCOLN { $$ = @LNumLit($1->loc->pos->coln); }
+  : T_THIS    { $$ = @ThisExpr; }
+  | T_SUPER   { $$ = @SuperExpr; }
+  | T_SELF    { $$ = @SelfExpr; }
+  | T_NULL    { $$ = @NullLit; }
+  | T_TRUE    { $$ = @TrueLit; }
+  | T_FALSE   { $$ = @FalseLit; }
+  | T_CDIR    { $$ = @KStrLit($this->cdir); }
+  | T_CFILE   { $$ = @KStrLit($this->cfile); }
+  | T_CLINE   { $$ = @LNumLit($1->loc->pos->line); }
+  | T_CCOLN   { $$ = @LNumLit($1->loc->pos->coln); }
+  | T_CFN     { $$ = @EngineConst($1->type); }
+  | T_CCLASS  { $$ = @EngineConst($1->type); }
+  | T_CTRAIT  { $$ = @EngineConst($1->type); }
+  | T_CMETHOD { $$ = @EngineConst($1->type); }
+  | T_CMODULE { $$ = @EngineConst($1->type); }
   ;
   
 str
@@ -1225,6 +1231,15 @@ rid
   | T_TFLOAT    { $$ = $1; }
   | T_TSTRING   { $$ = $1; }
   | T_TREGEXP   { $$ = $1; }
+  | T_CDIR      { $$ = $1; }
+  | T_CFILE     { $$ = $1; }
+  | T_CLINE     { $$ = $1; }
+  | T_CCOLN     { $$ = $1; }
+  | T_CFN       { $$ = $1; }
+  | T_CCLASS    { $$ = $1; }
+  | T_CTRAIT    { $$ = $1; }
+  | T_CMETHOD   { $$ = $1; }
+  | T_CMODULE   { $$ = $1; }
   ;
   
 %%

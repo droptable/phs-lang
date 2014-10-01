@@ -2,6 +2,10 @@
 
 namespace phs\front;
 
+// TODO: split trait and class here
+//  trait -> just operations (+ - / * ... NOT reduce_obj_lit() !)
+//  class -> everything else
+
 require_once 'utils.php';
 require_once 'scope.php';
 require_once 'lookup.php';
@@ -20,17 +24,83 @@ use phs\front\ast\OffsetExpr;
 use phs\front\ast\Param;
 use phs\front\ast\RestParam;
 
-// access flags
-const
-  ACC_NONE  = 0, // base flag
-  ACC_READ  = 1, // read symbol
-  ACC_WRITE = 2, // write symbol
-  ACC_CALL  = 4  // call symbol
-;
+trait LateBindings
+{
+  // @var array 
+  private $fnstk;
+  
+  // @var ClassSymbol
+  private $cclass;
+  
+  // @var TraitSymbol
+  private $ctrait;
+  
+  /**
+   * computes a absolute path to a symbol
+   *
+   * @param  Symbol $sym
+   * @return string
+   */
+  private function compute_sym_path($sym)
+  {
+    $path = $sym->path();
+    $pstr = path_to_str($sym->path());
+    
+    if (!empty ($path))
+      $pstr .= '::';
+    
+    return $pstr . $sym->id;
+  }
+  
+  /**
+   * reduces a __class__ constant (early binding only)
+   *
+   * @param  Node $node
+   */
+  private function reduce_class_const($node)
+  {
+    if ($this->cclass === null) {
+      if ($this->ctrait === null) {
+        Logger::warn_at($node->loc, '`__class__` is not defined in this scope');
+        $node->value = Value::$EMPTY;
+      }
+        
+      return; // late binding  
+    }
+    
+    $path = $this->compute_sym_path($this->cclass);
+    $node->value = new Value(VAL_KIND_STR, $path);
+  }
+  
+  /**
+   * reduces a __method__ constant (early binding only)
+   *
+   * @param  Node $node
+   */
+  private function reduce_method_const($node)
+  {
+    if (empty ($this->fnstk) || ($this->cclass === null && $this->ctrait === null)) {
+      Logger::warn_at($node->loc, '`__method__` is not defined in this scope');
+      $node->value = Value::$EMPTY;
+      return;
+    }
+    
+    if ($this->cclass === null)
+      // delay to late binding
+      return;
+    
+    $path = $this->compute_sym_path($this->cclass);
+    $path .= '.' . $this->compute_fn_path();
+    
+    $node->value = new Value(VAL_KIND_STR, $path);
+  }
+}
 
 /** expression reduce */
 trait Reduce
 {  
+  use LateBindings;
+  
   /**
    * checks if a node has a value
    *
@@ -1000,14 +1070,7 @@ trait Reduce
     
     $node->value = new Value(VAL_KIND_BOOL, false);
   }
-  
-  /**
-   * reduces a engine_const
-   *
-   * @param Node $node
-   */
-  public function reduce_engine_const($n) {}
-  
+    
   /**
    * reduces a str_lit
    *
@@ -1024,25 +1087,26 @@ trait Reduce
     }
     
     $hcf = $node->flag === 'c';
-    $lst = [ $node->data ];
+    $lst = [ $node ];
     $lhs = 0;
+    $tok = null;
     
     $out = Value::$UNDEF;
     $okay = true;
     $part = null;
-    
+        
     foreach ($node->parts as $idx => &$part) {
       if ($idx & 1) {
         if ($lhs === -1) {
-          $lhs = array_push($lst, $part->data) - 1;
+          $lhs = array_push($lst, $part) - 1;
           continue;
         }
         
-        $lst[$lhs] .= $part->data;
+        $lst[$lhs]->data .= $part->data;
         $part = null;
         continue;
       }
-      
+            
       $val = $this->get_value($part);
       
       if ($val->is_unkn())
@@ -1051,7 +1115,7 @@ trait Reduce
       $vres = $val->to_str();
         
       if ($vres->is_some()) {
-        $lst[$lhs] .= $vres->unwrap()->data;
+        $lst[$lhs]->data .= $vres->unwrap()->data;
         continue;
       }
       
@@ -1062,9 +1126,9 @@ trait Reduce
       $lhs = -1;
     }
     
-    $node->data = array_shift($lst);
-    $node->parts = $lst;
-      
+    // first entry is the node itself
+    $node->parts = array_slice($lst, 1);
+    
     if (empty ($node->parts)) {
       $node->parts = null;
       $out = new Value(VAL_KIND_STR, $node->data);
@@ -1074,7 +1138,7 @@ trait Reduce
     
     err:
     Logger::error_at($part ? $part->loc : $node->loc, '\\');
-    Logger::error('constant string-substitution must be \\');
+    Logger::error('constant string-interpolation must be \\');
     Logger::error('convertible to a string value');
     
     out:
@@ -1104,6 +1168,116 @@ trait Reduce
     // not 100% sure
     $node->value = Value::$UNDEF;
   } 
+  
+  /**
+   * reduces an engine-constant to a value
+   *
+   * @param  Node $node
+   */
+  public function reduce_engine_const($node)
+  {
+    if ($this->has_value($node))
+      return;
+    
+    switch ($node->type) {
+      case T_CFN:
+        $this->reduce_fn_const($node);
+        break;
+      case T_CCLASS:
+        $this->reduce_class_const($node);
+        break;
+      case T_CTRAIT:
+        $this->reduce_trait_const($node);
+        break;
+      case T_CMETHOD:
+        $this->reduce_method_const($node);
+        break;
+      case T_CMODULE:
+        $this->reduce_module_const($node);
+        break;
+      default:
+        assert(0);
+    }
+  }
+  
+  /**
+   * reduces a __fn__ constant
+   *
+   * @param  Node $node
+   */
+  public function reduce_fn_const($node)
+  {
+    if (empty ($this->fnstk)) {
+      Logger::warn_at($node->loc, '`__fn__` is not defined in this scope');
+      $node->value = Value::$EMPTY;
+      return;  
+    }
+        
+    // assign value
+    $path = $this->compute_fn_path();
+    $pstr = '';
+    
+    // prepend module-path if we're not in a method
+    if (!$this->cclass && !$this->ctrait && $this->cmodule) {
+      $pstr .= path_to_str($this->cmodule->path());
+      $pstr .= '::';
+    }
+    
+    $pstr .= $path;
+    
+    $node->value = new Value(VAL_KIND_STR, $pstr);
+  }
+  
+  /**
+   * computes the current function-path (without class-name)
+   *
+   * @return string
+   */
+  private function compute_fn_path()
+  {
+    $path = [];
+    
+    foreach ($this->fnstk as $fn)
+      if ($fn === null)
+        $path[] = '{closure}';
+      else
+        $path[] = $fn->id;
+            
+    return implode('/', $path);
+  }
+        
+  /**
+   * reduces a __trait__ constant (early binding only)
+   *
+   * @param  Node $node
+   */
+  public function reduce_trait_const($node)
+  {
+    if ($this->ctrait === null) {
+      Logger::warn_at($node->loc, '`__trait__` is not defined in this scope');
+      $node->value = Value::$EMPTY;
+      return;
+    }
+    
+    $path = $this->compute_sym_path($this->ctrait);
+    $node->value = new Value(VAL_KIND_STR, $path);
+  }
+  
+  /**
+   * reduces a __module__ constant
+   *
+   * @param  Node $node
+   */
+  public function reduce_module_const($node)
+  {
+    if ($this->cmodule === null) {
+      Logger::warn_at($node->loc, '`__module__` is not defined in this scope');
+      $node->value = Value::$EMPTY;
+      return;
+    }
+    
+    $node->value = new Value(VAL_KIND_STR, path_to_str($this->cmodule->path()));
+  }
 }
 
 /** unit reducer */
@@ -1114,6 +1288,23 @@ class UnitReducer extends Visitor
   
   // @var Session
   private $sess;
+  
+  // @var array<FnSymbol>
+  // for __fn__ and __method__
+  private $fnstk;
+  
+  // @var ClassSymbol 
+  // for __class__ and __method__
+  private $cclass;
+  
+  // @var TraitSymbol
+  // for __trait__
+  // and __class__ and __method__
+  private $ctrait;
+  
+  // @var ModuleScope
+  // for __module__
+  private $cmodule;
   
   /**
    * constructor
@@ -1134,6 +1325,7 @@ class UnitReducer extends Visitor
    */
   public function reduce(Unit $unit)
   {
+    $this->fnstk = [];
     $this->visit($unit);
   }
   
@@ -1144,7 +1336,12 @@ class UnitReducer extends Visitor
    */
   public function visit_module($node) 
   { 
+    $prev = $this->cmodule;
+    $this->cmodule = $node->scope;
+    
     $this->visit($node->body);
+    
+    $this->cmodule = $prev;
   }
   
   /**
@@ -1175,9 +1372,15 @@ class UnitReducer extends Visitor
    */
   public function visit_class_decl($node) 
   {
+    assert($node->symbol !== null);
+    
+    $this->cclass = $node->symbol;
+    
     if ($node->members)
       foreach ($node->members as $member)
         $this->visit($member);
+    
+    $this->cclass = null;
   }
   
   /**
@@ -1240,9 +1443,17 @@ class UnitReducer extends Visitor
    *
    * @param Node $node
    */
-  public function visit_trait_decl($n) 
+  public function visit_trait_decl($node) 
   {
-    // noop
+    assert($node->symbol !== null);
+    
+    $this->ctrait = $node->symbol;
+    
+    if ($node->members)
+      foreach ($node->members as $member)
+        $this->visit($member);
+      
+    $this->ctrait = null;
   }
   
   /**
@@ -1262,10 +1473,16 @@ class UnitReducer extends Visitor
    */
   public function visit_fn_decl($node) 
   {
+    assert($node->symbol);
+    
+    array_push($this->fnstk, $node->symbol);
+    
     $this->visit_fn_params($node->params);
     
     if ($node->body)
       $this->visit($node->body);
+    
+    array_pop($this->fnstk);
   }
   
   /**
@@ -1361,7 +1578,7 @@ class UnitReducer extends Visitor
     $this->visit($node->init);
     $this->visit($node->test);
     $this->visit($node->each);
-    $this->visit($node->stmt);  
+    $this->visit($node->stmt); 
   }
   
   /**
@@ -1557,8 +1774,12 @@ class UnitReducer extends Visitor
    */
   public function visit_fn_expr($node) 
   {
+    array_push($this->fnstk, $node->symbol);
+    
     $this->visit_fn_params($node->params);
     $this->visit($node->body);
+    
+    array_pop($this->fnstk);
   }
   
   /**
@@ -1879,16 +2100,6 @@ class UnitReducer extends Visitor
   }
   
   /**
-   * Visitor#visit_engine_const()
-   *
-   * @param Node $node
-   */
-  public function visit_engine_const($n) 
-  {
-    // TODO
-  }
-  
-  /**
    * Visitor#visit_str_lit()
    *
    * @param Node $node
@@ -1920,5 +2131,15 @@ class UnitReducer extends Visitor
   public function visit_type_id($n) 
   {
     // noop
+  }
+  
+  /**
+   * Visitor#visit_engine_const()
+   *
+   * @param Node $node
+   */
+  public function visit_engine_const($node)
+  {
+    $this->reduce_engine_const($node);
   }
 }

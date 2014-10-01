@@ -177,35 +177,153 @@ abstract class Visitor
   public function visit_str_lit($n) {}
   public function visit_kstr_lit($n) {}
   public function visit_type_id($n) {}
+  public function visit_engine_const($n) {}
 }
 
 /** automatic-visitor: visits _all_ nodes */
 abstract class AutoVisitor extends Visitor
 {
-  // unit, module, content and block don't need extra code
+  // <unit>, <module>, <content> and <block> don't need extra code.
+  // <use> is excluded, because visiting without any logic behind doesn't makes sense
+  
+  /**
+   * Visitor#visit_enum_decl()
+   *
+   * @param  Node  $node
+   * @return void
+   */ 
+  public function visit_enum_decl($node) 
+  {
+    foreach ($node->vars as $var)
+      if ($var->init)
+        $this->visit($var->init); 
+  }
+  
+  /**
+   * Visitor#visit_class_decl()
+   *
+   * @param  Node  $node
+   * @return void
+   */
+  public function visit_class_decl($node) 
+  {
+    // only members gonna be visited here
+    if ($node->members)
+      foreach ($node->members as $member)
+        $this->visit($member);  
+  }
+  
+  /**
+   * Visitor#visit_nested_mods()
+   *
+   * @param  Node  $node
+   * @return void
+   */
+  public function visit_nested_mods($node) 
+  {
+    if ($node->members)
+      foreach ($node->members as $member)
+        $this->visit($member);  
+  }
+  
+  /**
+   * Visitor#visit_ctor_decl()
+   *
+   * @param  Node  $node
+   * @return void
+   */
+  public function visit_ctor_decl($node) 
+  {
+    $this->visit_fn_params($node->params);
     
+    if ($node->body)
+      $this->visit($node->body);  
+  }
+  
   /**
-   * Visitor#visit_topex_attr()
+   * Visitor#visit_dtor_decl()
    *
    * @param  Node  $node
    * @return void
    */
-  public function visit_topex_attr($node) 
+  public function visit_dtor_decl($node) 
   {
-    $this->visit($node->topex);  
+    $this->visit_fn_params($node->params);
+    
+    if ($node->body)
+      $this->visit($node->body);
   }
   
   /**
-   * Visitor#visit_comp_attr()
+   * Visitor#visit_getter_decl()
    *
    * @param  Node  $node
    * @return void
    */
-  public function visit_comp_attr($node) 
+  public function visit_getter_decl($node) 
   {
-    $this->visit($node->comp);
+    $this->visit_fn_params($node->params);
+    
+    if ($node->body)
+      $this->visit($node->body);   
   }
   
+  /**
+   * Visitor#visit_setter_decl()
+   *
+   * @param  Node  $node
+   * @return void
+   */
+  public function visit_setter_decl($node) 
+  {
+    $this->visit_fn_params($node->params);
+    
+    if ($node->body)
+      $this->visit($node->body); 
+  }
+  
+  /**
+   * Visitor#visit_trait_decl()
+   *
+   * @param  Node  $node
+   * @return void
+   */
+  public function visit_trait_decl($node) 
+  {
+    // only members gonna be visited here
+    if ($node->members)
+      foreach ($node->members as $member)
+        $this->visit($member);  
+  }
+  
+  /**
+   * Visitor#visit_iface_decl()
+   *
+   * @param  Node  $node
+   * @return void
+   */
+  public function visit_iface_decl($node) 
+  {
+    // only members gonna be visited here
+    if ($node->members)
+      foreach ($node->members as $member)
+        $this->visit($member);
+  }
+  
+  /**
+   * Visitor#visit_fn_decl()
+   *
+   * @param  Node  $node
+   * @return void
+   */
+  public function visit_fn_decl($node) 
+  {
+    $this->visit_fn_params($node->params);
+    
+    if ($node->body)
+      $this->visit($node->body);
+  }
+    
   /**
    * Visitor#visit_var_decl()
    *

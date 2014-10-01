@@ -967,7 +967,12 @@ class Lexer
     '__dir__'  => T_CDIR,
     '__file__' => T_CFILE,
     '__line__' => T_CLINE,
-    '__coln__' => T_CCOLN
+    '__coln__' => T_CCOLN,
+    '__fn__' => T_CFN,
+    '__class__' => T_CCLASS,
+    '__trait__' => T_CTRAIT,
+    '__method__' => T_CMETHOD,
+    '__module__' => T_CMODULE
   ];
   
   // some tokens are ascii-tokens, see comment at the top of this file

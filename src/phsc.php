@@ -34,6 +34,12 @@ assert_options(ASSERT_CALLBACK, function($s, $l, $c, $m = null) {
   exit;
 });
 
+set_error_handler(function($n, $s, $f, $l) {
+  echo "\nerror: $s ($n)\nfile: $f\nline: $l\n\n";
+  debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
+  exit;
+});
+
 function init(Session $sess) {
   $conf = $sess->conf;
   

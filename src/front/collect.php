@@ -1,10 +1,5 @@
 <?php
 
-// referenzen zu funktionen, klassen (usw) müssen innerhalb der 
-// unit aufgelöst werden (eine extern-deklaration ist zulässig).
-// 
-// referenzen zu variablen sind nicht gestattet.
-
 namespace phs\front;
 
 require_once 'utils.php';
@@ -27,36 +22,31 @@ use phs\front\ast\Node;
 use phs\front\ast\Unit;
 
 use phs\front\ast\FnExpr;
+use phs\front\ast\TraitDecl;
 
 use phs\front\ast\Name;
 use phs\front\ast\Ident;
 use phs\front\ast\UseAlias;
-use phs\front\ast\UseUnpack;
+
+use phs\front\ast\FnDecl;
+use phs\front\ast\VarDecl;
+use phs\front\ast\VarItem;
+use phs\front\ast\EnumVar;
+use phs\front\ast\CtorDecl;
+use phs\front\ast\DtorDecl;
+use phs\front\ast\GetterDecl;
+use phs\front\ast\SetterDecl;
 
 const DS = DIRECTORY_SEPARATOR;
 
-/** unit collector */
-class UnitCollector extends AutoVisitor
-{  
+/** node collector */
+class NodeCollector extends AutoVisitor
+{
   // @var Session
   private $sess;
   
-  // @var UsageMap
-  private $umap;
-  
-  // @var UsageMap nested uses
-  private $unst;
-  
-  // @var array  nested use-stack
-  private $nstk;
-  
   // @var Scope  scope
-  private $scope;
-  
-  // @var Scope  root scope
-  private $sroot;
-  
-  private static $pass = 1;
+  protected $scope;
   
   /**
    * constructor
@@ -71,12 +61,282 @@ class UnitCollector extends AutoVisitor
   }
   
   /**
+   * collects symbols inside a node (and the node itself)
+   *
+   * @param  Node   $node
+   * @param  Scope  $scope
+   * @return Scope
+   */
+  public function collect(Node $node, Scope $scope = null)
+  {
+    // for compatibility with UnitCollector#__construct()
+    assert($scope !== null);
+    
+    $this->scope = $scope;       
+    $this->visit($node);
+  }
+  
+  /**
+   * collects the content of a node
+   *
+   * @param  Node   $node
+   * @param  Scope  $scope
+   */
+  public function collect_node(Node $node, Scope $scope)
+  {
+    $this->scope = $scope;
+    
+    if ($node instanceof FnDecl ||
+        $node instanceof FnExpr ||
+        $node instanceof GetterDecl ||
+        $node instanceof SetterDecl ||
+        $node instanceof CtorDecl ||
+        $node instanceof DtorDecl) {
+      // the given node must not have a scope already
+      assert($node->scope === null);
+      $this->enter($node);
+    } elseif ($node instanceof VarItem ||
+              $node instanceof EnumVar) {
+      if ($node->init)
+        $this->visit($node->init);
+    } else
+      // unable to walk
+      assert(false);
+  }
+  
+  /**
+   * enters a function-ish node
+   *
+   * @param  FnDecl|FnExpr|GetterDecl|SetterDecl|CtorDecl|DtorDecl $node
+   */
+  protected function enter($node)
+  {
+    $prev = $this->scope;
+    $node->scope = new Scope($prev);
+    $this->scope = $node->scope;
+    
+    if ($node instanceof FnExpr && $node->id) {
+      $sym = $node->symbol = FnSymbol::from($node);
+      $this->scope->add($sym);
+    }
+    
+    if ($node->params)
+      foreach ($node->params as $param) {
+        $sym = $param->symbol = ParamSymbol::from($param);
+        $this->scope->add($sym);
+      }
+    
+    if ($node->body)
+      $this->visit($node->body);
+    
+    $this->scope = $prev;
+  }
+  
+  /**
+   * Visitor#visit_enum_decl()
+   *
+   * @param  Node $node
+   */
+  public function visit_enum_decl($node)
+  {
+    $flags = mods_to_sym_flags($node->mods, SYM_FLAG_CONST);
+    
+    foreach ($node->vars as $var) {
+      $sym = $var->symbol = VarSymbol::from($var, $flags);
+      
+      if ($var->init)
+        $this->visit($var->init);
+      
+      $this->scope->add($sym);
+    }
+  }
+  
+  /**
+   * Visitor#visit_getter_decl()
+   *
+   * @param  Node $node
+   */
+  public function visit_getter_decl($node)
+  {
+    assert($this->scope instanceof MemberScope);
+    
+    $sym = $node->symbol = FnSymbol::from($node);
+    $this->scope->getter->add($sym);
+    $this->enter($node);
+  }
+  
+  /**
+   * Visitor#visit_setter_decl()
+   *
+   * @param  Node $node
+   */
+  public function visit_setter_decl($node)
+  {
+    assert($this->scope instanceof MemberScope);
+    
+    $sym = $node->symbol = FnSymbol::from($node);
+    $this->scope->setter->add($sym);
+    $this->enter($node);
+  }
+  
+  /**
+   * @see AutoVisitor#visit_block()
+   *
+   * @param  Node $node
+   */
+  public function visit_block($node)
+  {
+    $prev = $this->scope;
+    $node->scope = new Scope($prev);
+    $this->scope = $node->scope;
+    
+    $this->scope->enter();
+    $this->visit($node->body);
+    $this->scope->leave();
+    
+    $this->scope = $prev;
+  }
+  
+  /**
+   * AutoVisitor#visit_fn_decl()
+   *
+   * @param Node $node
+   */
+  public function visit_fn_decl($node)
+  {
+    $sym = $node->symbol = FnSymbol::from($node);
+    $this->scope->add($sym);
+        
+    $this->enter($node);
+  }
+  
+  /**
+   * AutoVisitor#visit_var_decl()
+   *
+   * @param  Node $node
+   */
+  public function visit_var_decl($node)
+  {
+    $flags = mods_to_sym_flags($node->mods);
+    
+    foreach ($node->vars as $var) {
+      $sym = $var->symbol = VarSymbol::from($var, $flags);
+      
+      if ($var->init)
+        $this->visit($var->init);
+      
+      $this->scope->add($sym);
+    }
+  }
+  
+  /**
+   * AutoVisitor#visit_fn_expr()
+   *
+   * @param  Node $node
+   */
+  public function visit_fn_expr($node)
+  {
+    $this->enter($node);
+  }
+  
+  /**
+   * AutoVisitor#visit_for_in_stmt()
+   *
+   * @param  Node $node
+   */
+  public function visit_for_in_stmt($node)
+  {
+    $prev = $this->scope;
+    $node->scope = new Scope($prev);
+    $this->scope = $node->scope;
+    
+    $vars = [];
+    
+    if ($node->lhs->key)
+      $vars[] = $node->lhs->key;
+    
+    if ($node->lhs->arg)
+      $vars[] = $node->lhs->arg;
+      
+    foreach ($vars as $var)   
+      $this->scope->add($var->symbol = new VarSymbol(
+        ident_to_str($var), 
+        $var->loc, 
+        SYM_FLAGS_NONE
+      ));
+        
+    $this->visit($node->rhs);
+    $this->visit($node->stmt);
+    
+    $this->scope = $prev;
+  }
+  
+  /**
+   * AutoVisitor#visit_for_stmt()
+   *
+   * @param  Node $node
+   */
+  public function visit_for_stmt($node)
+  {
+    $prev = $this->scope;
+    $node->scope = new Scope($prev);
+    $this->scope = $node->scope;
+    
+    $this->visit($node->init);
+    $this->visit($node->test);
+    $this->visit($node->each);
+    $this->visit($node->stmt);
+    
+    $this->scope = $prev;
+  }
+}
+
+/** unit collector */
+class UnitCollector extends NodeCollector
+{  
+  // @var Session
+  private $sess;
+  
+  // @var UsageMap
+  private $umap;
+  
+  // @var UsageMap nested uses
+  private $unst;
+  
+  // @var array  nested use-stack
+  private $nstk;
+  
+  // @var Scope  root scope
+  private $sroot;
+  
+  // var boolean  whenever the collector is inside a trait
+  private $trait = false;
+  
+  /**
+   * constructor
+   * 
+   * @param Session  $sess
+   */
+  public function __construct(Session $sess)
+  {
+    // node collector
+    parent::__construct($sess);
+    $this->sess = $sess;
+  }
+  
+  /**
    * collect type-symbols from a node/node-list
    * 
    * @param  Unit $unit
    */
-  public function collect(Unit $unit)
+  public function collect(Node $unit, Scope $scope = null)
   {
+    // PHP does not allow method-overloads with different parameters...
+    // the correct signature would be:
+    // public function collect(Unit $unit)
+    assert($unit instanceof Unit);
+    assert($scope === null);
+    
     $unit->scope = new UnitScope($this->sess, $unit);
     $this->scope = $unit->scope;
     $this->sroot = $this->scope;
@@ -151,7 +411,7 @@ class UnitCollector extends AutoVisitor
   /**
    * collects members
    *
-   * @param  ClassDecl $sym
+   * @param  ClassDecl|TraitDecl|IfaceDecl $decl
    * @return MemberScope
    */
   private function collect_members($decl)
@@ -160,9 +420,11 @@ class UnitCollector extends AutoVisitor
     $mscp = new MemberScope($decl->symbol, $prev);
     
     if ($decl->members) {
+      $this->trait = $decl instanceof TraitDecl;
       $this->scope = $mscp;
       $this->visit($decl->members);
       $this->scope = $prev;
+      $this->trait = false;
     }
     
     return $mscp;
@@ -300,25 +562,10 @@ class UnitCollector extends AutoVisitor
    */
   protected function enter($node)
   {
-    $prev = $this->scope;
-    $node->scope = new Scope($prev);
-    $this->scope = $node->scope;
+    // don't enter nodes inside a trait-decl
+    if ($this->trait) return;
     
-    if ($node instanceof FnExpr && $node->id) {
-      $sym = $node->symbol = FnSymbol::from($node);
-      $this->scope->add($sym);
-    }
-    
-    if ($node->params)
-      foreach ($node->params as $param) {
-        $sym = $param->symbol = ParamSymbol::from($param);
-        $this->scope->add($sym);
-      }
-    
-    if ($node->body)
-      $this->visit($node->body);
-    
-    $this->scope = $prev;
+    parent::enter($node);
   }
   
   /* ------------------------------------ */
@@ -371,7 +618,7 @@ class UnitCollector extends AutoVisitor
     
     // use module for uses
     $this->umap = $this->scope->umap;
-    
+        
     // walk module body
     $this->scope->enter();
     $this->visit($node->body);
@@ -382,20 +629,7 @@ class UnitCollector extends AutoVisitor
     // use prev scope (again) for uses
     $this->umap = $this->scope->umap;
   }
-  
-  public function visit_block($node)
-  {
-    $prev = $this->scope;
-    $node->scope = new Scope($prev);
-    $this->scope = $node->scope;
     
-    $this->scope->enter();
-    $this->visit($node->body);
-    $this->scope->leave();
-    
-    $this->scope = $prev;
-  }
-  
   /**
    * Visitor#visit_class_decl()
    *
@@ -407,7 +641,7 @@ class UnitCollector extends AutoVisitor
     $sym->super = $this->collect_super($node);
     $sym->traits = $this->collect_traits($node);
     $sym->ifaces = $this->collect_ifaces($node);
-    $sym->members = $this->collect_members($node);
+    $sym->members = $node->scope = $this->collect_members($node);
     
     if ($node->incomp)
       $sym->flags |= SYM_FLAG_INCOMPLETE;
@@ -424,7 +658,7 @@ class UnitCollector extends AutoVisitor
   {
     $sym = $node->symbol = TraitSymbol::from($node);    
     $sym->traits = $this->collect_traits($node);
-    $sym->members = $this->collect_members($node);
+    $sym->members = $node->scope = $this->collect_members($node);
     
     if ($node->incomp)
       $sym->flags |= SYM_FLAG_INCOMPLETE;
@@ -448,20 +682,7 @@ class UnitCollector extends AutoVisitor
     
     $this->scope->add($sym); 
   }
-  
-  /**
-   * Visitor#visit_fn_decl()
-   *
-   * @param Node $node
-   */
-  public function visit_fn_decl($node)
-  {
-    $sym = $node->symbol = FnSymbol::from($node);
-    $this->scope->add($sym);
-        
-    $this->enter($node);
-  }
-  
+    
   /**
    * Visitor#visit_use_decl()
    *
@@ -470,44 +691,6 @@ class UnitCollector extends AutoVisitor
   public function visit_use_decl($node) 
   {
     $this->collect_use(null, $node->item, $node->pub);
-  }
-  
-  /**
-   * Visitor#visit_var_decl()
-   *
-   * @param  Node $node
-   */
-  public function visit_var_decl($node)
-  {
-    $flags = mods_to_sym_flags($node->mods);
-    
-    foreach ($node->vars as $var) {
-      $sym = $var->symbol = VarSymbol::from($var, $flags);
-      
-      if ($var->init)
-        $this->visit($var->init);
-      
-      $this->scope->add($sym);
-    }
-  }
-  
-  /**
-   * Visitor#visit_enum_decl()
-   *
-   * @param  Node $node
-   */
-  public function visit_enum_decl($node)
-  {
-    $flags = mods_to_sym_flags($node->mods, SYM_FLAG_CONST);
-    
-    foreach ($node->vars as $var) {
-      $sym = $var->symbol = VarSymbol::from($var, $flags);
-      
-      if ($var->init)
-        $this->visit($var->init);
-      
-      $this->scope->add($sym);
-    }
   }
   
   /**
@@ -543,91 +726,40 @@ class UnitCollector extends AutoVisitor
   }
   
   /**
-   * Visitor#visit_getter_decl()
+   * Visitor#visit_enum_decl()
    *
    * @param  Node $node
    */
-  public function visit_getter_decl($node)
+  public function visit_enum_decl($node)
   {
-    assert($this->scope instanceof MemberScope);
+    $flags = mods_to_sym_flags($node->mods, SYM_FLAG_CONST);
     
-    $sym = $node->symbol = FnSymbol::from($node);
-    $this->scope->getter->add($sym);
-    $this->enter($node);
-  }
-  
-  /**
-   * Visitor#visit_setter_decl()
-   *
-   * @param  Node $node
-   */
-  public function visit_setter_decl($node)
-  {
-    assert($this->scope instanceof MemberScope);
-    
-    $sym = $node->symbol = FnSymbol::from($node);
-    $this->scope->setter->add($sym);
-    $this->enter($node);
-  }
-  
-  /**
-   * Visitor#visit_fn_expr()
-   *
-   * @param  Node $node
-   */
-  public function visit_fn_expr($node)
-  {
-    $this->enter($node);
-  }
-  
-  /**
-   * Visitor#visit_for_in_stmt()
-   *
-   * @param  Node $node
-   */
-  public function visit_for_in_stmt($node)
-  {
-    $prev = $this->scope;
-    $node->scope = new Scope($prev);
-    $this->scope = $node->scope;
-    
-    $vars = [];
-    
-    if ($node->lhs->key)
-      $vars[] = $node->lhs->key;
-    
-    if ($node->lhs->arg)
-      $vars[] = $node->lhs->arg;
+    foreach ($node->vars as $var) {
+      $sym = $var->symbol = VarSymbol::from($var, $flags);
       
-    foreach ($vars as $var)   
-      $this->scope->add($var->symbol = new VarSymbol(
-        ident_to_str($var), 
-        $var->loc, 
-        SYM_FLAGS_NONE
-      ));
-        
-    $this->visit($node->rhs);
-    $this->visit($node->stmt);
-    
-    $this->scope = $prev;
+      if (!$this->trait && $var->init)
+        $this->visit($var->init);
+      
+      $this->scope->add($sym);
+    }
   }
   
   /**
-   * Visitor#visit_for_stmt()
+   * AutoVisitor#visit_var_decl()
    *
    * @param  Node $node
    */
-  public function visit_for_stmt($node)
+  public function visit_var_decl($node)
   {
-    $prev = $this->scope;
-    $node->scope = new Scope($prev);
-    $this->scope = $node->scope;
+    $flags = mods_to_sym_flags($node->mods);
     
-    $this->visit($node->init);
-    $this->visit($node->test);
-    $this->visit($node->each);
-    $this->visit($node->stmt);
-    
-    $this->scope = $prev;
+    foreach ($node->vars as $var) {
+      $sym = $var->symbol = VarSymbol::from($var, $flags);
+      
+      if (!$this->trait && $var->init)
+        $this->visit($var->init);
+      
+      $this->scope->add($sym);
+    }
   }
 }

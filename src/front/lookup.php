@@ -311,29 +311,4 @@ trait Lookup
     // return None
     return ScResult::None();
   }
-  
-  /**
-   * lookup a member
-   *
-   * @param  ClassSymbol|TraitSymbol  $sym
-   * @param  string  $id 
-   * @param  integer $ns
-   * @return ScResult
-   */
-  public function lookup_member($sym, $id, $ns = -1)
-  {
-    for (;;) {    
-      $mem = $sym->members;
-      
-      if ($mem->has($id, $ns))
-        return $mem->get($id, $ns);
-      
-      if (!($sym instanceof ClassSymbol) || !$sym->super)
-        break;
-              
-      $sym = $sym->super->symbol;
-    }
-    
-    return ScResult::None();
-  }
 }

@@ -46,6 +46,9 @@ class Value
   // @var Value
   public /* const */ static $UNDEF;
   
+  // @var Value
+  public /* const */ static $EMPTY;
+  
   /**
    * constructor
    *
@@ -564,3 +567,4 @@ class Value
 // undefined values must be immutable
 Value::$NONE = Value::immutable(VAL_KIND_NONE);
 Value::$UNDEF = Value::immutable(VAL_KIND_UNDEF);
+Value::$EMPTY = new Value(VAL_KIND_STR, '');

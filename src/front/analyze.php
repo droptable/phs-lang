@@ -78,6 +78,12 @@ class Analyzer
     $this->ures = new UnitResolver($this->sess);
   }
   
+  // erst alle traits sammeln, den nodes darin aber __keine__ symbole/scopes zuweisen!
+  // dann bei jeder klasse am ende (wenn alle member gesammelt wurden)
+  // die trait-decls hinzufügen (clone) und dann diese collecten.
+  // später im resolver ausmisten was nicht gebraucht wird
+  // = profit 
+  
   /**
    * starts the analyzer
    * 
@@ -101,22 +107,20 @@ class Analyzer
       // 3. validate unit
       function($unit) { $this->validate_unit($unit); },
       
-      // 4. collect classes, interfaces and traits
-      // 5. collect functions and variables
-      // 6. collect usage
+      // 4. collect traits
+      // 5. collect classes and interfaces
+      // 6. collect functions and variables
+      // 7. collect usage
       function($unit) { $this->collect_unit($unit); },
       
-      // 7. export global symbols
+      // 8. export global symbols
       function($unit) { $this->export_unit($unit); },
       
-      // 8. reduce constant expressions
+      // 9. reduce constant expressions
       function($unit) { $this->reduce_unit($unit); },
       
-      // 9. resolve usage and imports
-      function($unit) { $this->resolve_unit($unit); },
-      
-      // 10. optimize unit
-      // function($unit) { $this->optimize_unit($unit); },
+      // 10. resolve usage and imports
+      function($unit) { $this->resolve_unit($unit); }
     ];
     
     foreach ($tasks as $task) {

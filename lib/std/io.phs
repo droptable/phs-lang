@@ -93,7 +93,7 @@ trait From {
     // create a stream from the given value if it
     // is a php-stream-resource
     if (is_resource(mix) && get_resource_type(mix) == "stream")
-      return new __class__(mix);
+      return new self(mix);
     
     // bail out
     throw TypeError("unable to create a stream from %0", mix);

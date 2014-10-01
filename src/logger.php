@@ -159,7 +159,7 @@ class Logger
   
   /* ------------------------------------ */
   
-  private function intersect_root($path)
+  private static function intersect_root($path)
   {
     $root = self::$root;
     
