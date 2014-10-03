@@ -3,6 +3,7 @@
 namespace phs\front;
 
 require_once 'utils.php';
+require_once 'values.php';
 
 use \Countable;
 use \ArrayIterator;
@@ -154,6 +155,13 @@ abstract class Symbol
     $this->loc = $loc;
     $this->kind = $kind;
     $this->flags = $flags;
+    
+    if (!($this->flags & SYM_FLAG_PUBLIC) &&
+        !($this->flags & SYM_FLAG_PRIVATE) && 
+        !($this->flags & SYM_FLAG_PROTECTED))
+      $this->flags |= SYM_FLAG_PUBLIC;
+    
+    $this->value = Value::$UNDEF;
   }
   
   /**
@@ -183,8 +191,15 @@ abstract class Symbol
     $str .= '`';
     $str .= path_to_str($abs);
     
-    if (!empty ($abs)) $str .= '::';
-     
+    if (!empty ($abs)) {
+      if ($this->scope instanceof MemberScope ||
+          ($this->scope instanceof InnerScope &&
+           $this->scope->outer instanceof MemberScope))
+        $str .= '.';
+      else
+        $str .= '::';
+    }
+    
     $str .= $this->id;
     $str .= '`';
     

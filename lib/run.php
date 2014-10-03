@@ -26,3 +26,16 @@
 
 ini_set('auto_detect_line_endings', true);
 
+/**
+ * binds a method if necessary
+ * 
+ * @since  0.1
+ * @param  object $obj
+ * @param  string $mem
+ * @return mixed
+ */
+function _bind($obj, $mem) {
+  if (is_method($obj, $mem))
+    return [ $obj, $mem ];
+  return $obj->$mem;
+}

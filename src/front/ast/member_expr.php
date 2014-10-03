@@ -8,6 +8,9 @@ class MemberExpr extends Expr
   public $member;
   public $computed;
   
+  // @var Symbol
+  public $symbol;
+  
   public function __construct($object, $member, $computed = false)
   {
     $this->object = $object;
@@ -19,6 +22,8 @@ class MemberExpr extends Expr
   {
     $this->object = clone $this->object;
     $this->member = clone $this->member;
+    
+    $this->symbol = null;
     
     parent::__clone();
   }

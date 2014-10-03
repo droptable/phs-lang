@@ -2,11 +2,6 @@
 
 namespace phs\front;
 
-
-// NEXT: `this` and `super`
-
-
-
 require_once 'utils.php';
 require_once 'visitor.php';
 require_once 'symbols.php';
@@ -22,7 +17,6 @@ use phs\util\Set;
 use phs\util\Map;
 use phs\util\Cell;
 use phs\util\Entry;
-use phs\util\Table;
 
 use phs\front\ast\Node;
 use phs\front\ast\Unit;
@@ -42,9 +36,6 @@ use phs\front\ast\TraitDecl;
 use phs\front\ast\SelfExpr;
 use phs\front\ast\ThisExpr;
 use phs\front\ast\SuperExpr;
-
-use phs\lang\BuiltInList;
-use phs\lang\BuiltInDict;
 
 // type-context 
 const
@@ -258,6 +249,19 @@ class UnitResolver extends AutoVisitor
     else
       assert(0);
     
+    return $this->resolve_lookup($node, $res, $ref);
+  }
+  
+  /**
+   * resolves a lookup
+   *
+   * @param  Node $node
+   * @param  ScResult $res
+   * @param  string $ref
+   * @return boolean
+   */
+  private function resolve_lookup($node, $res, $ref)
+  {
     // no symbol found
     if ($res->is_none() && !$res->is_priv())
       Logger::error_at($node->loc, 'access to undefined symbol `%s`', $ref);
@@ -267,7 +271,6 @@ class UnitResolver extends AutoVisitor
       $sym = &$res->unwrap();
       Logger::error_at($node->loc, 'access to private %s \\', $sym);
       Logger::error('from invalid context');
-      Logger::error_at($node->loc, 'referenced as %s', $ref);
       Logger::error_at($sym->loc, 'declaration was here');
     }
     
@@ -276,23 +279,44 @@ class UnitResolver extends AutoVisitor
       Logger::error_at($node->loc, '[bug] error while looking up `%s`', $ref);
     }
     
-    // yay!
+    // found something useful
     else {
       $sym = &$res->unwrap();
       
       if (!$sym->reachable) {
-        // nay ...
         Logger::error_at($node->loc, 'access to undefined symbol `%s`', $ref);
         Logger::info_at($sym->loc, 'a variable with the name `%s` \\', $ref);
         Logger::info('gets defined here but is not yet accessible');
         Logger::info('try to move variable-declarations at the top of \\');
         Logger::info('the file or blocks {...} to avoid errors like this');
       } else {
+        // there is a better way to do this
+        // but it works for now
+        if ($sym->flags & SYM_FLAG_PROTECTED) {
+          $cls = $this->cclass;
+          
+          while ($cls) {
+            if ($cls->members->contains($sym))
+              goto sok;
+            
+            if ($cls->super)
+              $cls = $cls->super->symbol;
+            else
+              break;
+          }
+          
+          Logger::error_at($node->loc, 'access to protected %s \\', $sym);
+          Logger::error('from invalid context');
+          goto err;
+        }
+        
+        sok:
         $node->symbol = $sym;
         return true;
       }
     }
     
+    err:
     return false;
   }
   
@@ -450,6 +474,8 @@ class UnitResolver extends AutoVisitor
         if ($sym->kind !== SYM_KIND_TRAIT) {
           Logger::error_at($use->loc, 'trait-usage `%s` \\', name_to_str($use));
           Logger::error('does not resolve to a trait-symbol');
+          Logger::info_at($use->loc, 'usage instead resolved to %s', $sym);
+          Logger::info_at($sym->loc, 'declared here');
         } else {
           $use->symbol = $sym;
           
@@ -535,12 +561,16 @@ class UnitResolver extends AutoVisitor
    */
   private function resolve_members($csym)
   {
+    $csym->members->enter();
+    
     foreach ($csym->members->iter() as $sym)
       if ($sym instanceof VarSymbol) {
         if ($sym->node->init)
           $this->visit($sym->node->init);
       } else
         $this->enter_fn($sym->node);
+        
+    $csym->members->leave();
   }
   
   /**
@@ -573,8 +603,10 @@ class UnitResolver extends AutoVisitor
     
     // basic test
     if ($sym->kind !== SYM_KIND_CLASS &&
-        $sym->kind !== SYM_KIND_IFACE)
+        $sym->kind !== SYM_KIND_IFACE) {
+      Logger::error_at($node->loc, '%s is not a valid type', $sym);
       return false;
+    }
     
     switch ($tyc) {
       case TYC_ANY:
@@ -583,27 +615,52 @@ class UnitResolver extends AutoVisitor
         return true;
       
       case TYC_NEW: 
-        // must be a class and not abstract
-        return $sym->kind === SYM_KIND_CLASS &&
-               !($sym->flags & SYM_FLAG_ABSTRACT);
-               
-      case TYC_CAST:
-        // must be a class and must have a static method named "from"
-        if ($sym->kind !== SYM_KIND_CLASS)
+        // must be a class
+        if ($sym->kind !== SYM_KIND_CLASS) {
+          Logger::error_at($node->loc, 'cannot use %s in new-expression', $sym);
           return false;
+        }
         
-        // if the class is declared as <extern> we have to trust the implementor
-        if ($sym->flags & SYM_FLAG_EXTERN)
+        // must not be abstract
+        if ($sym->flags & SYM_FLAG_ABSTRACT) {
+          Logger::error_at($node->loc, 'cannot use abstract %s \\', $sym);
+          Logger::error('in new-expression');
+          return false;
+        }
+        
+        return true;
+               
+      case TYC_CAST:        
+        // if the class is declared as <extern> without extern methods
+        // we have to trust the implementor
+        if (($sym->flags & SYM_FLAG_EXTERN) && 
+            ($sym->flags & SYM_FLAG_INCOMPLETE))
           return true;
         
+        // must have a public static `from` method
         $from = $sym->members->get('from', SYM_FN_NS);
-        if ($from->is_none()) return false;
+        if ($from->is_none())
+          goto fse;
         
         $fsym = &$from->unwrap();
-        return (bool) (!($fsym->flags & SYM_FLAG_PRIVATE) && 
-                       !($fsym->flags & SYM_FLAG_PROTECTED) &&
-                       $fsym->flags & SYM_FLAG_STATIC);
-      
+        if ($fsym->flags & SYM_FLAG_PRIVATE ||
+            $fsym->flags & SYM_FLAG_PROTECTED)
+          goto fse;
+        
+        if ($fsym->flags & SYM_FLAG_STATIC)
+          return true;
+        
+        Logger::error_at($fsym->loc, '%s method `from` must be \\', $sym);
+        Logger::error('declared static to be used in cast-expressions');
+        Logger::info_at($node->loc, 'used as cast-type here');
+        return false;
+        
+        fse:
+        Logger::error_at($node->loc, '%s must have a \\', $sym);
+        Logger::error('public static `from` method to be used \\');
+        Logger::error('in cast-expressions');
+        return false;
+        
       default:
         assert(0);
     }
@@ -611,18 +668,75 @@ class UnitResolver extends AutoVisitor
   
   private function resolve_this_member($node, $mid)
   {
-    // early binding does not make sense
+    $res = $this->cclass->members->get($mid);
     
+    if ($res->is_none())
+      return; // maybe dynamic
+    
+    $sym = &$res->unwrap();
+    
+    if ($sym->flags & SYM_FLAG_STATIC) {
+      Logger::error_at($node->loc, 'access to static %s \\', $sym);  
+      Logger::error('from object-context (this)');
+    } else {
+      $node->symbol = $sym;
+      $node->object->symbol = $this->cclass;
+    }
   }
   
   private function resolve_self_member($node, $mid)
   {
+    $res = $this->cclass->members->get($mid);
     
+    if ($res->is_none()) {
+      Logger::error_at($node->loc, 'access to undefined static member \\');
+      Logger::error('`%s` of %s', $mid, $this->cclass);
+    } else {
+      $sym = &$res->unwrap();
+      
+      if (!($sym->flags & SYM_FLAG_STATIC)) {
+        Logger::error_at($node->loc, 'access to non-static %s \\', $sym);
+        Logger::error('from class-context (self)');
+      } else {
+        $node->symbol = $sym;
+        $node->object->symbol = $this->cclass;
+      }
+    }
   }
   
   private function resolve_super_member($node, $mid)
   {
+    // how super works:
+    // 1. super can access any method (static or not)
+    // 2. super cannot access non-static variables
     
+    $mscp = $this->cclass->members;
+    
+    if (!$mscp->super) {
+      Logger::error_at($node->loc, 'cannot use `super` in %s \\', $this->cclass);
+      Logger::error('without parent class');
+    } else {
+      $res = $mscp->super->get($mid);
+      $hst = $mscp->super->host;
+      
+      if ($res->is_none()) {
+        Logger::error_at($node->loc, 'access to undefined member \\');
+        Logger::error('`%s` of %s \\', $mid, $hst);
+        Logger::error('from parent-context (super)');
+      } else {
+        $sym = &$res->unwrap();
+        
+        if ($sym->kind !== SYM_KIND_FN && !($sym->flags & SYM_FLAG_STATIC)) {
+          Logger::error_at($node->loc, 'cannot access non-static \\');
+          Logger::error('%s from parent-context (super)', $sym);
+          Logger::info('only methods and static variables of \\');
+          Logger::info('the parent class can be accessed via `super`');
+        } else {
+          $node->symbol = $sym;
+          $node->object->symbol = $mscp->host;
+        }
+      }
+    }
   }
     
   /* ------------------------------------ */
@@ -768,21 +882,60 @@ class UnitResolver extends AutoVisitor
   
   public function visit_new_expr($node)
   {
-    $expr = $node->name;
-    
-    if (!$this->resolve_type($expr, TYC_NEW)) {
-      Logger::error_at($expr->loc, 'invalid type-name in new-expression');
-    }
+    $this->resolve_type($node->name, TYC_NEW);
   }
   
   public function visit_cast_expr($node) 
   {
     $this->visit($node->expr);
-    $type = $node->type;
+    $this->resolve_type($node->type, TYC_CAST);
+  }
+  
+  public function visit_call_expr($node)
+  {
+    $this->visit($node->callee);
+    $this->visit_fn_args($node->args);
     
-    if (!$this->resolve_type($type, TYC_CAST)) {
-      Logger::error_at($type->loc, 'only primitive types and classes with \\');
-      Logger::error('a static `from` method can be used in a type-cast');
+    if ($node->callee instanceof SuperExpr) {
+      if (!$this->cclass) return; // already seen an error
+      
+      $curfn = end($this->fnstk);
+      if ($curfn === null || $curfn->id !== '<ctor>') {
+        Logger::error_at($node->loc, 'super() can only be called \\');
+        Logger::error('directly in constructors');
+      } else {
+        
+        // TODO: implement default-constructors?
+        
+        $super = $this->cclass->super;
+        $found = false;
+        $sctor = null;
+        
+        for (;;) {
+          if ($super->symbol->members->ctor) {
+            $found = true;
+            $sctor = $super->symbol->members->ctor;
+            break;
+          }
+          
+          if ($super->symbol->super)
+            $super = $super->symbol->super;
+          else
+            break;
+        }
+        
+        if (!$found) {
+          Logger::error_at($node->loc, 'can not forward constructor-call \\');
+          Logger::error('via super(), because no parent-class has a own \\');
+          Logger::error('constructor');
+        } elseif ($sctor->flags & SYM_FLAG_PRIVATE) {
+          Logger::error_at($node->loc, 'can not forward constructor-call \\');
+          Logger::error('via super() to %s, because \\', $super->symbol);
+          Logger::error('is was declared private');
+          Logger::info_at($sctor->loc, 'resolved parent-constructor is here');
+        } else
+          $node->callee->symbol = $sctor;
+      }
     }
   }
   
@@ -793,28 +946,64 @@ class UnitResolver extends AutoVisitor
     // cast member to string
     if ($node->computed) {
       if (!$node->member->value ||
-          $node->member->value->is_none())
+          $node->member->value->is_none() ||
+          $node->member->value->is_undef())
         return; // must be resolved at runtime
       
       if (!$node->member->value->as_str()) 
         return; // error
     }
     
+    $mid = null;
+    
+    if ($node->computed)        
+      $mid = $node->member->value->data;
+    else
+      $mid = ident_to_str($node->member);
+    
     if ($this->cclass) {
-      $mid = null;
-      
-      if ($node->computed)        
-        $mid = $node->member->value->data;
-      else
-        $mid = ident_to_str($node->member);
-      
       if ($node->object instanceof SelfExpr)
         $this->resolve_self_member($node, $mid);
       elseif ($node->object instanceof ThisExpr)
         $this->resolve_this_member($node, $mid);
       elseif ($node->object instanceof SuperExpr)
         $this->resolve_super_member($node, $mid);
+      else
+        goto smc;
+      
+      goto out;
     }
+    
+    smc:
+    if (($node->object instanceof Name || 
+         $node->object instanceof Ident) && 
+        $node->object->symbol !== null) {
+      
+      $osm = $node->object->symbol;
+      
+      if ($osm->kind === SYM_KIND_TRAIT ||
+          $osm->kind === SYM_KIND_IFACE) {
+        Logger::error_at($node->loc, 'cannot access members of \\');
+        Logger::error('%s directly', $osm);
+      } elseif ($osm->kind === SYM_KIND_CLASS &&
+                !($osm->flags & SYM_FLAG_INCOMPLETE)) {
+        // static member check
+        $res = $osm->members->get($mid);
+        $ref = $osm->id . '.' . $mid;
+        
+        if ($this->resolve_lookup($node, $res, $ref)) {
+          $sym = &$res->unwrap();
+          
+          if (!($sym->flags & SYM_FLAG_STATIC)) {
+            Logger::error_at($node->loc, 'access to non-static %s \\', $sym);
+            Logger::error('from invalid context');
+          }
+        }
+      }
+    }
+    
+    out:
+    return;
   }
   
   public function visit_this_expr($node)
@@ -838,7 +1027,7 @@ class UnitResolver extends AutoVisitor
   public function visit_name($node)
   {
     $res = $this->lookup_name($node);
-    $this->process_lookup($node, $res);    
+    $this->process_lookup($node, $res);
   }
   
   public function visit_ident($node)
@@ -852,7 +1041,7 @@ class UnitResolver extends AutoVisitor
     if ($node->value && $node->value->is_some())
       return;
     
-    // must be late-bindings of __class__ or __method__
+    // late-bindings of __class__ or __method__
     switch ($node->type) {
       case T_CCLASS:
         $this->reduce_class_const($node);

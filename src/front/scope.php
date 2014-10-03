@@ -366,6 +366,17 @@ class Scope extends SymbolMap
     return false;
   }
   
+  /**
+   * checks if a symbol is a member of this scope
+   *
+   * @param  Symbol $sym
+   * @return boolean
+   */
+  public function contains(Symbol $sym)
+  {
+    return $sym->scope && $sym->scope === $this;
+  }
+  
   /* ------------------------------------ */
   
   public static function in_same_scope(Symbol $sym, Scope $scp)
@@ -406,24 +417,14 @@ class InnerScope extends Scope
   }
 }
 
-/** root-scope: common class for scopes 
-    with (sub-)modules and/or private symbols */
-abstract class RootScope extends Scope
+/** a scope for private symbols */
+abstract class PrivScope extends Scope
 {
-  // @var UsageMap  usage of this scope
-  public $umap;
-  
-  // @var ModuleMap (sub-)modules
-  public $mmap;
-  
   // @var Scope inner scope (for private symbols)
   public $inner;
   
   // @var boolean  whenever this scope is active
   public $active = false;
-  
-  // @var int  nesting level
-  private $nest = 0;
   
   /**
    * constructor
@@ -433,8 +434,6 @@ abstract class RootScope extends Scope
   public function __construct(Scope $prev = null)
   {
     parent::__construct($prev);
-    $this->umap = new UsageMap;
-    $this->mmap = new ModuleMap;
     $this->inner = new InnerScope($this);
   }
   
@@ -490,16 +489,6 @@ abstract class RootScope extends Scope
    */
   public function add(Symbol $sym)
   {
-    if ($this->umap->has($sym->id)) {
-      Logger::error_at($sym->loc, 'symbol-name `%s` \\', $sym->id);
-      Logger::error('collides with an imported symbol'); 
-      Logger::info_at($this->umap->get($sym->id)->loc, 'import was here');
-      return false; 
-    }
-    
-    #Logger::debug('adding %s (check=%d) <%s>', 
-      #$sym->id, $this->check($sym, false), get_class($this));
-            
     switch ($this->check($sym)) {
       case CHK_RES_ERR:
         return false;
@@ -557,6 +546,66 @@ abstract class RootScope extends Scope
       yield $sym;
   }
   
+  /**
+   * checks if a symbol is a member of this scope
+   *
+   * @param  Symbol $sym
+   * @return boolean
+   */
+  public function contains(Symbol $sym)
+  {
+    return $sym->scope && (
+      $sym->scope === $this ||
+      $sym->scope === $this->inner
+    );
+  }
+}
+
+/** root-scope: common class for scopes 
+    with (sub-)modules and/or private symbols */
+abstract class RootScope extends PrivScope
+{
+  // @var UsageMap  usage of this scope
+  public $umap;
+  
+  // @var ModuleMap (sub-)modules
+  public $mmap;
+  
+  // @var int  nesting level
+  private $nest = 0;
+  
+  /**
+   * constructor
+   *
+   * @param Scope $prev
+   */
+  public function __construct(Scope $prev = null)
+  {
+    parent::__construct($prev);
+    $this->umap = new UsageMap;
+    $this->mmap = new ModuleMap;
+    $this->inner = new InnerScope($this);
+  }
+    
+  /**
+   * @see Scope#add()
+   * @param Symbol $sym
+   */
+  public function add(Symbol $sym)
+  {
+    if ($this->umap->has($sym->id)) {
+      Logger::error_at($sym->loc, 'symbol-name `%s` \\', $sym->id);
+      Logger::error('collides with an imported symbol'); 
+      Logger::info_at($this->umap->get($sym->id)->loc, 'import was here');
+      return false; 
+    }
+    
+    #Logger::debug('adding %s (check=%d) <%s>', 
+      #$sym->id, $this->check($sym, false), get_class($this));
+            
+    return parent::add($sym);
+  }
+    
   /* ------------------------------------ */
   
   /**
@@ -727,7 +776,7 @@ class_alias('phs\\util\\Map', 'phs\\front\\ModuleScopeMap');
 class_alias('phs\\util\\Map', 'phs\\front\\ModuleMap');
 
 /** member scope */
-class MemberScope extends Scope
+class MemberScope extends PrivScope
 {    
   // @var TraitSymbol|ClassSymbol|IfaceSymbol
   public $host;
@@ -780,6 +829,23 @@ class MemberScope extends Scope
       $res = $this->super->get($id, $ns);
     
     return $res;
+  }
+  
+  public function iter($ns = -1)
+  {
+    foreach (parent::iter($ns) as $sym)
+      yield $sym;
+    
+    if ($ns === -1 || $ns === SYM_FN_NS) {
+      if ($this->ctor) yield $this->ctor;
+      if ($this->dtor) yield $this->dtor;
+      
+      foreach ($this->getter->iter() as $sym)
+        yield $sym;
+      
+      foreach ($this->setter->iter() as $sym)
+        yield $sym;
+    }
   }
   
   /* ------------------------------------ */

@@ -78,12 +78,6 @@ class Analyzer
     $this->ures = new UnitResolver($this->sess);
   }
   
-  // erst alle traits sammeln, den nodes darin aber __keine__ symbole/scopes zuweisen!
-  // dann bei jeder klasse am ende (wenn alle member gesammelt wurden)
-  // die trait-decls hinzufügen (clone) und dann diese collecten.
-  // später im resolver ausmisten was nicht gebraucht wird
-  // = profit 
-  
   /**
    * starts the analyzer
    * 
@@ -93,7 +87,7 @@ class Analyzer
   public function analyze(Source $src)
   {    
     Logger::debug('analyze file %s', $src->get_path());
-    
+        
     // 1. parse source
     $unit = $this->parse_src($src);
     
@@ -131,12 +125,15 @@ class Analyzer
     }
     
     // no error
-    return $unit;
+    goto out;
     
     err:
     unset ($unit);
+    $unit = null;
     gc_collect_cycles();
-    return null;
+    
+    out:
+    return $unit;
   }
   
   /**

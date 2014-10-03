@@ -8,6 +8,7 @@ require_once 'symbols.php';
 require_once 'scope.php';
 require_once 'branch.php';
 require_once 'usage.php';
+require_once 'values.php';
 
 use phs\Logger;
 use phs\Session;
@@ -143,6 +144,7 @@ class NodeCollector extends AutoVisitor
     
     foreach ($node->vars as $var) {
       $sym = $var->symbol = VarSymbol::from($var, $flags);
+      $sym->value = Value::$NONE;
       
       if ($var->init)
         $this->visit($var->init);
@@ -221,6 +223,7 @@ class NodeCollector extends AutoVisitor
     
     foreach ($node->vars as $var) {
       $sym = $var->symbol = VarSymbol::from($var, $flags);
+      $sym->value = Value::$NONE;
       
       if ($var->init)
         $this->visit($var->init);
@@ -705,7 +708,7 @@ class UnitCollector extends NodeCollector
     if ($this->scope->ctor !== null)
       Logger::warn_at($node->loc, 'duplicate constructor');
     
-    $this->scope->ctor = FnSymbol::from($node);
+    $this->scope->ctor = $node->symbol = FnSymbol::from($node);
     $this->enter($node);
   }
   
@@ -721,7 +724,7 @@ class UnitCollector extends NodeCollector
     if ($this->scope->dtor !== null)
       Logger::warn_at($node->loc, 'duplicate destructor');
     
-    $this->scope->dtor = FnSymbol::from($node);
+    $this->scope->dtor = $node->symbol = FnSymbol::from($node);
     $this->enter($node);
   }
   
@@ -736,6 +739,7 @@ class UnitCollector extends NodeCollector
     
     foreach ($node->vars as $var) {
       $sym = $var->symbol = VarSymbol::from($var, $flags);
+      $sym->value = Value::$NONE;
       
       if (!$this->trait && $var->init)
         $this->visit($var->init);
@@ -755,6 +759,7 @@ class UnitCollector extends NodeCollector
     
     foreach ($node->vars as $var) {
       $sym = $var->symbol = VarSymbol::from($var, $flags);
+      $sym->value = Value::$NONE;
       
       if (!$this->trait && $var->init)
         $this->visit($var->init);

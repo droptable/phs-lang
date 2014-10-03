@@ -31,6 +31,7 @@ use phs\front\ast\ObjKey;
 use phs\front\ast\NamedArg;
 use phs\front\ast\RestArg;
 use phs\front\ast\SelfExpr;
+use phs\front\ast\SuperExpr;
 
 // label
 class Label 
@@ -483,6 +484,11 @@ class UnitValidator extends Visitor
             continue;
           }
           
+          if ($this->has_extern_mod($member->mods)) {
+            Logger::info_at($member->loc, '`extern` modifier for members \\');
+            Logger::info('is optional in extern classes/traits/ifaces');
+          }
+          
           if ($member->body !== null)
             Logger::error_at($member->loc, 'extern function must not have a body');
         }
@@ -694,18 +700,7 @@ class UnitValidator extends Visitor
   {
     // noop  
   }
-  
-  /**
-   * Visitor#visit_member_attr()
-   *
-   * @param  Node  $node
-   * @return void
-   */
-  public function visit_member_attr($node) 
-  {
-    $this->visit($node->member);  
-  }
-  
+    
   /**
    * Visitor#visit_trait_decl()
    *
@@ -870,8 +865,7 @@ class UnitValidator extends Visitor
       // reduce the given expression to a string.
       // this gets checked in the resolve-pass (Analyzer->resolve_unit)
       Logger::warn_at($node->loc, 'require path should be \\');
-      Logger::warn('a constant string value. relying \\');
-      Logger::warn('on constant-folding is not recommended'); 
+      Logger::warn('a constant string value');
     }
   }
   

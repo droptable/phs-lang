@@ -26,55 +26,55 @@ extern __global__ fn curl_version;
 public use self::curl_strerror as strerror;
 public use self::curl_version as version;
 
-extern __global__ fn curl_close;
-extern __global__ fn curl_copy_handle;
-extern __global__ fn curl_errno;
-extern __global__ fn curl_error;
-extern __global__ fn curl_escape;
-extern __global__ fn curl_exec;
-extern __global__ fn curl_file_create;
-extern __global__ fn curl_getinfo;
-extern __global__ fn curl_init;
-extern __global__ fn curl_pause;
-extern __global__ fn curl_reset;
-extern __global__ fn curl_setopt_array;
-extern __global__ fn curl_setopt;
-extern __global__ fn curl_unescape;
-
-public use self::curl_close as close;
-public use self::curl_copy_handle as copy_handle;
-public use self::curl_errno as errno;
-public use self::curl_error as error;
-public use self::curl_escape as escape;
-public use self::curl_exec as exec;
-public use self::curl_file_create as file_create;
-public use self::curl_getinfo as getinfo;
-public use self::curl_init as init;
-public use self::curl_pause as pause;
-public use self::curl_reset as reset;
-public use self::curl_setopt_array as setopt_array;
-public use self::curl_setopt as setopt;
-public use self::curl_unescape as unescape;
+// aliases of the easy-interface
+public use self::easy::close;
+public use self::easy::copy_handle;
+public use self::easy::errno;
+public use self::easy::error;
+public use self::easy::escape;
+public use self::easy::exec;
+public use self::easy::file_create;
+public use self::easy::getinfo;
+public use self::easy::init;
+public use self::easy::pause;
+public use self::easy::reset;
+public use self::easy::setopt_array;
+public use self::easy::setopt;
+public use self::easy::unescape;
 
 /**
- * cURL Easy Interface (aliases)
- * TODO make this module mandatory?
+ * cURL Easy Interface
  */
-module easy {
-  public use std::curl::close;
-  public use std::curl::copy_handle;
-  public use std::curl::errno;
-  public use std::curl::error;
-  public use std::curl::escape;
-  public use std::curl::exec;
-  public use std::curl::file_create;
-  public use std::curl::getinfo;
-  public use std::curl::init;
-  public use std::curl::pause;
-  public use std::curl::reset;
-  public use std::curl::setopt_array;
-  public use std::curl::setopt;
-  public use std::curl::unescape;
+module easy {  
+  extern __global__ fn curl_close;
+  extern __global__ fn curl_copy_handle;
+  extern __global__ fn curl_errno;
+  extern __global__ fn curl_error;
+  extern __global__ fn curl_escape;
+  extern __global__ fn curl_exec;
+  extern __global__ fn curl_file_create;
+  extern __global__ fn curl_getinfo;
+  extern __global__ fn curl_init;
+  extern __global__ fn curl_pause;
+  extern __global__ fn curl_reset;
+  extern __global__ fn curl_setopt_array;
+  extern __global__ fn curl_setopt;
+  extern __global__ fn curl_unescape;
+
+  public use self::curl_close as close;
+  public use self::curl_copy_handle as copy_handle;
+  public use self::curl_errno as errno;
+  public use self::curl_error as error;
+  public use self::curl_escape as escape;
+  public use self::curl_exec as exec;
+  public use self::curl_file_create as file_create;
+  public use self::curl_getinfo as getinfo;
+  public use self::curl_init as init;
+  public use self::curl_pause as pause;
+  public use self::curl_reset as reset;
+  public use self::curl_setopt_array as setopt_array;
+  public use self::curl_setopt as setopt;
+  public use self::curl_unescape as unescape;
 }
 
 /**

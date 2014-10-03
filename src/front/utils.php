@@ -40,8 +40,23 @@ function name_to_arr(Name $name) {
 }
 
 function arr_to_path(array $arr, $root = false, $sep = '::') {
-  $res = implode($sep, $arr);
+  $res = '';
+  
+  foreach ($arr as $val) {
+    // array means: [ separator, name ]
+    if (is_array($val)) {
+      $res .= $val[0];
+      $val = $val[1];
+    } else
+      $res .= $sep;
+    
+    $res .= $val;
+  }
+  
+  $res = ltrim($res, '.:');
+  
   if ($root) $res = "$sep$res";
+  
   return $res;
 }
 
