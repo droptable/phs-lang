@@ -184,8 +184,15 @@ abstract class Symbol
    * @return string
    */
   public function __tostring()
-  {
-    $str = sym_kind_to_str($this->kind) . ' ';
+  { 
+    $str = '';
+    
+    if ($this->flags & SYM_FLAG_PARAM)
+      $str .= 'parameter';
+    else
+      $str = sym_kind_to_str($this->kind);
+    
+    $str .= ' ';
     $abs = $this->path();
     
     $str .= '`';
@@ -214,6 +221,10 @@ abstract class Symbol
   public function path()
   {
     $abs = [];
+    
+    // don't compute a path for parameters
+    if ($this->flags & SYM_FLAG_PARAM)
+      return $abs;
        
     for ($scp = $this->scope; 
          $scp !== null; 
@@ -648,8 +659,13 @@ class TraitUsage
 /** function symbol */
 class FnSymbol extends Symbol
 {  
+  private static $aid = 0;
+  
   // @var boolean  this is a function-expression
   public $expr;
+  
+  // @var array  parameters
+  public $params;
   
   // @var TraitSymbol  origin
   public $origin = null;
@@ -665,6 +681,7 @@ class FnSymbol extends Symbol
   {
     // init symbol
     parent::__construct($id, SYM_FN_NS, $loc, SYM_KIND_FN, $flags);
+    $this->params = [];
   }
   
   /* ------------------------------------ */
@@ -690,10 +707,12 @@ class FnSymbol extends Symbol
     $id = '<unknown>';
     
     if ($node instanceof FnDecl || 
-        $node instanceof FnExpr || // <- $node->id must be set
+        ($node instanceof FnExpr && $node->id) ||
         $node instanceof GetterDecl ||
         $node instanceof SetterDecl)
       $id = ident_to_str($node->id);
+    elseif ($node instanceof FnExpr)
+      $id = '~anonymus#' . self::$aid++;
     elseif ($node instanceof CtorDecl)
       $id = '<ctor>';
     elseif ($node instanceof DtorDecl)
@@ -796,7 +815,13 @@ class VarSymbol extends Symbol
 
 class ParamSymbol extends VarSymbol
 {
-  // @var SymbolRef|int  hint
+  // @var boolean
+  public $opt = false;
+  
+  // @var boolean  
+  public $rest = false;
+  
+  // @var TypeId|Name  hint
   public $hint;
   
   /**
@@ -822,12 +847,19 @@ class ParamSymbol extends VarSymbol
    */
   public static function from($node)
   {
+    if (!($node instanceof Param ||
+          $node instanceof RestParam))
+      assert(0);
+    
     $flags = SYM_FLAG_NONE;
     
     if ($node instanceof Param)
       $flags = mods_to_sym_flags($node->mods);
     
     $sym = new ParamSymbol(ident_to_str($node->id), $node->loc, $flags);
+    $sym->opt = $node instanceof RestParam || $node->opt || ($node instanceof Param && $node->init);
+    $sym->rest = $node instanceof RestParam;
+    $sym->hint = $node->hint;
     $sym->node = $node;
     return $sym;
   }

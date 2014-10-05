@@ -51,6 +51,7 @@ require "std/util";
 // io-related
 require "std/io";
 require "std/dio";
+require "std/ob";
 
 // filesystem-related
 require "std/fs";

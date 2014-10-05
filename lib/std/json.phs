@@ -30,6 +30,10 @@ public use self::json_encode as encode;
 public use self::json_last_error_msg as last_error_msg;
 public use self::json_last_error as last_error;
 
+// aliases
+public use self::json_decode as parse;
+public use self::json_encode as stringify;
+
 extern __global__ const JSON_ERROR_NONE;
 extern __global__ const JSON_ERROR_DEPTH;
 extern __global__ const JSON_ERROR_STATE_MISMATCH;

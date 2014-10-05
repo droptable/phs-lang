@@ -20,13 +20,7 @@
 
 module std::fs;
 
-use std::io::Stream;
 use std::io::FStream;
-
-module ::std::io {
-  // alias
-  public use std::fs::FsStream;
-}
 
 extern __global__ const FILE_USE_INCLUDE_PATH;
 extern __global__ const FILE_NO_DEFAULT_CONTEXT;
@@ -334,8 +328,8 @@ class FsStream : FStream {
    */
   public fn reopen(string mode?) {
     if (!closed) close();
-    swap(open(path, this.mode = mode ?: this.mode));
     closed = false;
+    swap(open(path, this.mode = mode ?: this.mode));
     return this;
   }
 }

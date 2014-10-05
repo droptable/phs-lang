@@ -2,12 +2,17 @@
 
 namespace phs\front;
 
+// abstrakte methoden checken
+// wenn nicht alle abstrakte methoden implementiert wurden die klasse selbst als abstrakt definieren
+
 require_once 'utils.php';
 require_once 'visitor.php';
 require_once 'symbols.php';
 require_once 'values.php';
 require_once 'scope.php';
 require_once 'lookup.php';
+require_once 'collect.php';
+require_once 'reduce.php';
 
 use phs\Logger;
 use phs\Session;
@@ -37,6 +42,13 @@ use phs\front\ast\SelfExpr;
 use phs\front\ast\ThisExpr;
 use phs\front\ast\SuperExpr;
 
+// access-context
+const 
+  ACC_READ  = 1, // read-access 
+  ACC_WRITE = 2, // write-access (assign)
+  ACC_CALL  = 4  // call-access
+;
+
 // type-context 
 const
   TYC_ANY  = 1, // no specific context
@@ -48,9 +60,11 @@ const
 /** 
  * unit resolver
  * 
- * - executes <require>
- * - executes <use>
- * - checks reachability
+ * - executes <require>                                    [X]
+ * - executes trait-usage in classes                       [X]
+ * - checks interface-implementations (iface and abstract) [X]
+ * - checks reachability                                   [X]
+ * - checks accessibility (static and flow-based)          [ ]
  */
 class UnitResolver extends AutoVisitor
 {  
@@ -58,6 +72,7 @@ class UnitResolver extends AutoVisitor
   use Lookup;
   
   // mixin late-bindings for __class__ and __method__
+  // @see "reduce.php"
   use LateBindings;
   
   // @var Session
@@ -88,6 +103,12 @@ class UnitResolver extends AutoVisitor
   // @var NodeCollector  used for applied trait-members
   private $ncol;
   
+  // @var int  access-mode
+  private $acc;
+  
+  // @var array  access-stack
+  private $astk; 
+  
   /**
    * constructor
    *
@@ -110,6 +131,8 @@ class UnitResolver extends AutoVisitor
    */
   public function resolve(Unit $unit)
   {
+    $this->acc = ACC_READ;
+    $this->astk = [];
     $this->upath = dirname($unit->loc->file);
     $this->sunit = $unit->scope; 
     $this->fnstk = [];
@@ -161,7 +184,10 @@ class UnitResolver extends AutoVisitor
     array_push($this->fnstk, $node->symbol);
     
     $this->visit_fn_params($node->params);
-    $this->visit($node->body);
+    
+    if ($node->body)
+      $this->visit($node->body);
+    
     $this->scope->leave();
     
     $this->scope = $prev;
@@ -553,11 +579,11 @@ class UnitResolver extends AutoVisitor
       }
     }
   }
-  
+    
   /**
    * resolves members of a class/trait
    *
-   * @param  ClassSymbol|TraitSymbol $csym
+   * @param  ClassSymbol|IfaceSymbol $csym
    */
   private function resolve_members($csym)
   {
@@ -569,7 +595,8 @@ class UnitResolver extends AutoVisitor
           $this->visit($sym->node->init);
       } else
         $this->enter_fn($sym->node);
-        
+    
+    $this->verify_impls($csym); 
     $csym->members->leave();
   }
   
@@ -738,6 +765,173 @@ class UnitResolver extends AutoVisitor
       }
     }
   }
+  
+  /**
+   * verifies implementations from interfaces and super-classes
+   *
+   * @param  ClassSymbol|IfaceSymbol $csym
+   */
+  private function verify_impls($csym)
+  {
+    $impl = new SymbolMap;
+    $curr = $csym;
+    $clss = $csym instanceof ClassSymbol;
+    
+    // collect abstract symbols
+    for (;;) {
+      // collect symbols from interfaces
+      if ($curr->ifaces)
+        foreach ($curr->ifaces as $iface)
+          if ($iface->symbol) {
+            $iface = $iface->symbol;
+            foreach ($iface->members->iter() as $isym)
+              $impl->put($isym);
+          }
+      
+      if (!$clss) break;
+       
+      $curr = $curr->super;
+            
+      if (!$curr || !$curr->symbol)
+        break;
+      
+      $curr = $curr->symbol;
+      
+      // collect abstract symbols from super-class      
+      if ($curr->flags & SYM_FLAG_ABSTRACT)
+        foreach ($curr->members->iter() as $ssym)
+          if ($ssym->flags & SYM_FLAG_ABSTRACT)
+            $impl->put($ssym);
+    }
+        
+    // resolve implementations
+    foreach ($impl->iter() as $isym)
+      $this->verify_impl($csym, $isym);
+  }
+  
+  /**
+   * verifies a implementation
+   *
+   * @param  ClassSymbol $csym
+   * @param  Symbol $isym
+   * @return boolean
+   */
+  private function verify_impl($csym, $isym)
+  {
+    $cres = $csym->members->get($isym->id, $isym->ns);
+    
+    if ($cres->is_none()) {
+      // mark class as abstract
+      Logger::debug('%s does not implement at least \\', $csym);
+      Logger::debug('one abstract method and therefore declared abstract');
+      $csym->flags |= SYM_FLAG_ABSTRACT;
+    } else {
+      $cmem = &$cres->unwrap();
+      
+      if ($cmem->flags !== ($isym->flags ^ SYM_FLAG_ABSTRACT) &&
+          $cmem->flags !== $isym->flags /* <- declared abstract */) {
+        // access-flag can be loosened
+        if (($isym->flags & SYM_FLAG_PROTECTED) &&
+            ($cmem->flags & SYM_FLAG_PUBLIC)) {
+          $iflags = $isym->flags ^ SYM_FLAG_PROTECTED;
+          $cflags = $cmem->flags ^ SYM_FLAG_PUBLIC;
+          
+          if ($cflags === ($iflags ^ SYM_FLAG_ABSTRACT) ||
+              $cflags === $iflags /* <- declared abstract */)
+            goto nxt;
+        }
+        
+        Logger::error_at($cmem->loc, 'modifiers of \\');
+        Logger::error('%s are incompatible with %s', $cmem, $isym);
+        Logger::info_at($isym->loc, 'declaration of %s was here', $isym);
+        Logger::info('modifiers of %s: %s', $cmem, sym_flags_to_str($cmem->flags));
+        Logger::info('modifiers of %s: %s', $isym, sym_flags_to_str($isym->flags));
+        return false;
+      }
+      
+      // check params
+      nxt:
+        
+      $cparam = null;
+      $iparam = null;
+      $passed = true;
+      
+      if (count($cmem->params) !== count($isym->params)) {
+        Logger::error_at($cmem->loc, 'wrong parameter-count');
+        Logger::info_at($isym->loc, 'declaration was here');
+      }
+        
+      foreach ($cmem->params as $pidx => $cparam) {
+        if (!isset ($isym->params[$pidx])) {
+          Logger::error_at($cparam->loc, '%s is not \\', $cparam);
+          Logger::error('declared in %s', $isym);
+          $passed = false;
+          break;
+        }
+        
+        // fetch interface param at the same position
+        $iparam = $isym->params[$pidx];
+                
+        if ($cparam->flags !== $iparam->flags ||
+            $cparam->rest !== $iparam->rest ||
+            $cparam->opt !== $iparam->opt) {
+          Logger::error_at($cparam->loc, '%s \\', $cparam);
+          Logger::error('must be compatible with the declaration in %s', $isym);
+          Logger::info_at($iparam->loc, 'declaration was here');
+          $passed = false;
+        }
+        
+        if ($cparam->hint || $iparam->hint) {
+          if (!$iparam->hint) {
+            Logger::error_at($cparam->loc, 'cannot augment \\');
+            Logger::error('%s with an type-hint', $cparam);
+            Logger::info_at($iparam->loc, 'declaration was here');
+            $passed = false;
+          } elseif (!$cparam->hint) {
+            Logger::error_at($cparam->loc, 'missing type-hint');
+            Logger::info_at($iparam->loc, 'declaration was here');
+          } else {
+            // both hints must be the same (type-id or symbol)
+            if (!$this->verify_hint($cparam->hint, $iparam->hint))
+              $passed = false;
+          }
+        }
+      }
+      
+      return $passed;
+    }
+    
+    return true;
+  }
+  
+  /**
+   * verifies two parameter type-hints
+   *
+   * @param  TypeId|Name $hint1
+   * @param  TypeId|Name $hint2
+   * @return boolean
+   */
+  public function verify_hint($hint1, $hint2) 
+  {
+    $h1_is_type = $hint1 instanceof TypeId;
+    $h2_is_type = $hint2 instanceof TypeId;
+    
+    if ($h1_is_type) {
+      if (!$h2_is_type || $hint1->type !== $hint2->type) 
+        goto err;
+    } else {
+      if ($h2_is_type || $hint1->symbol !== $hint2->symbol)
+        goto err;
+    }
+    
+    return true;
+    
+    err:
+    Logger::error_at($hint1->loc, 'incompatible \\');
+    Logger::error('parameter type-hint');
+    Logger::info_at($hint2->loc, 'declaration was here');
+    return false;
+  }
     
   /* ------------------------------------ */
   
@@ -766,17 +960,33 @@ class UnitResolver extends AutoVisitor
     assert($node->scope !== null);
     assert($node->symbol !== null);
     
+    $prev = $this->scope;
     $this->scope = $node->scope;
+    
     $this->cclass = $node->symbol;
     
     $this->resolve_members($node->symbol);
     
     $this->cclass = null;
+    $this->scope = $prev;
   }
   
   public function visit_trait_decl($node)
   {
     // noop
+  }
+  
+  public function visit_iface_decl($node)
+  {
+    assert($node->scope !== null);
+    assert($node->symbol !== null);
+    
+    $prev = $this->scope;
+    $this->scope = $node->scope;
+    
+    $this->resolve_members($node->symbol);
+    
+    $this->scope = $prev;
   }
   
   public function visit_fn_decl($node)

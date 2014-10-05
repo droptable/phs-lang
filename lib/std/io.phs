@@ -133,15 +133,11 @@ class Stream {
    * 
    * this method does not rewind() the given handle nor 
    * will it close() the current handle before replacing it.
-   * 
-   * if the stream was closed before a Error gets thrown.
    *
    * @param  resource hnd
    * @throws Error
    */
   public fn swap(hnd) {
-    if (closed) 
-      throw new Error("can not swap stream-handle in a closed stream");
     this.hnd = hnd;
   }
     
@@ -314,7 +310,7 @@ trait Write {
    * @param  string msg
    * @return int
    */
-  public fn write(msg) =>
+  public fn write(string msg) =>
     fwrite(this.hnd, msg);
   
   /**

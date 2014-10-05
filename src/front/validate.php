@@ -452,6 +452,23 @@ class UnitValidator extends Visitor
   }
   
   /**
+   * checks if <private> modifier is set
+   *
+   * @param  array  $mods
+   * @return boolean
+   */
+  private function has_private_mod($mods)
+  {
+    if (!$mods) return false;
+    
+    foreach ($mods as $mod)
+      if ($mod->type === T_PRIVATE) 
+        return true;
+    
+    return false;
+  }
+  
+  /**
    * checks members of a <extern> class/trait or iface declaration
    *
    * @param  Node $decl
@@ -794,8 +811,9 @@ class UnitValidator extends Visitor
     }
     
     // #6 final-method-abstract check
-    elseif (($this->within('class') || $this->within('trait')) &&
-            $this->has_final_mod($node->mods) && $node->body === null) {
+    elseif (($this->within('class') || $this->within('trait') || 
+             $this->within('iface')) && $this->has_final_mod($node->mods) && 
+            $node->body === null) {
       Logger::error_at($node->loc, 'final method `%s` \\', $id);
       Logger::error('can not be abstract');
     }
@@ -804,6 +822,12 @@ class UnitValidator extends Visitor
     elseif (($this->within('class') || $this->within('trait') || 
              $this->within('iface')) && $this->has_const_mod($node->mods)) {
       Logger::info_at($node->loc, '`const` modifier has no effect here');
+    }
+    
+    // #8 abstract-private check
+    elseif (($this->within('class') || $this->within('iface')) &&
+            $this->has_private_mod($node->mods) && $node->body === null) {
+      Logger::error_at($node->loc, 'abstract method can not be private');
     }
     
     if ($node->body !== null) {

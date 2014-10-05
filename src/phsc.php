@@ -42,12 +42,16 @@ set_error_handler(function($n, $s, $f, $l) {
 
 function init(Session $sess) {
   $conf = $sess->conf;
+  $qarg = in_array('-q', $_SERVER['argv']);
   
-  if (in_array('--nologo', $_SERVER['argv']))
+  if ($qarg || in_array('--nologo', $_SERVER['argv']))
     $conf->set('nologo', true);
   
   if (in_array('--nostd', $_SERVER['argv']))
     $conf->set('nostd', true);
+  
+  if ($qarg || in_array('--nodebug', $_SERVER['argv']))
+    $conf->set('log_level', phs\LOG_LEVEL_WARNING);
   
   if ($conf->get('nologo') === false)
       echo <<<END_LOGO

@@ -129,6 +129,11 @@ class Set implements
     return new ArrayIterator($this->mem);
   }
   
+  public function iter()
+  {
+    return $this->mem;
+  }
+  
   /* ------------------------------------ */
   /* Countable */
   

@@ -170,7 +170,7 @@ class Session
     if ($unit) {
       $this->units->add($unit);
       
-      if (false && basename($unit->loc->file) === 'test.phs') {
+      if (basename($unit->loc->file) === 'test.phs') {
         echo "\n";
         $unit->scope->dump('');
         echo "\n\n";

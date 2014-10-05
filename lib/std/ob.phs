@@ -1,0 +1,68 @@
+/*!
+ * This file is part of the PHS Standard Library
+ * Copyright (c) 2014 Andre "asc" Schmidt 
+ * 
+ * All rights reserved.
+ * 
+ * This library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published 
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+module std::ob;
+
+use std::io::OStream;
+
+extern __global__ fn ob_clean;
+extern __global__ fn ob_end_clean;
+extern __global__ fn ob_end_flush;
+extern __global__ fn ob_flush;
+extern __global__ fn ob_get_clean;
+extern __global__ fn ob_get_contents;
+extern __global__ fn ob_get_flush;
+extern __global__ fn ob_get_length;
+extern __global__ fn ob_get_level;
+extern __global__ fn ob_get_status;
+extern __global__ fn ob_gzhandler;
+extern __global__ fn ob_implicit_flush;
+extern __global__ fn ob_list_handlers;
+extern __global__ fn ob_start;
+
+extern __global__ const PHP_OUTPUT_HANDLER_START;
+extern __global__ const PHP_OUTPUT_HANDLER_WRITE;
+extern __global__ const PHP_OUTPUT_HANDLER_FLUSH;
+extern __global__ const PHP_OUTPUT_HANDLER_CLEAN;
+extern __global__ const PHP_OUTPUT_HANDLER_FINAL;
+extern __global__ const PHP_OUTPUT_HANDLER_CONT;
+extern __global__ const PHP_OUTPUT_HANDLER_END;
+extern __global__ const PHP_OUTPUT_HANDLER_CLEANABLE;
+extern __global__ const PHP_OUTPUT_HANDLER_FLUSHABLE;
+extern __global__ const PHP_OUTPUT_HANDLER_REMOVABLE;
+extern __global__ const PHP_OUTPUT_HANDLER_STDFLAGS;
+
+public use self::ob_clean as clean;
+public use self::ob_end_clean as end_clean;
+public use self::ob_end_flush as end_flush;
+public use self::ob_flush as flush;
+public use self::ob_get_clean as get_clean;
+public use self::ob_get_contents as get_contents;
+public use self::ob_get_flush as get_flush;
+public use self::ob_get_length as get_length;
+public use self::ob_get_level as get_level;
+public use self::ob_get_status as get_status;
+public use self::ob_gzhandler as gzhandler;
+public use self::ob_implicit_flush as implicit_flush;
+public use self::ob_list_handlers as list_handlers;
+public use self::ob_start as start;
+
+fn stream(OStream out, int cs = 0, int flags = PHP_OUTPUT_HANDLER_STDFLAGS) =>
+  start(fn (data) { out.write(data); }, cs, flags);

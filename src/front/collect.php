@@ -116,15 +116,17 @@ class NodeCollector extends AutoVisitor
     $node->scope = new Scope($prev);
     $this->scope = $node->scope;
     
-    if ($node instanceof FnExpr && $node->id) {
-      $sym = $node->symbol = FnSymbol::from($node);
-      $this->scope->add($sym);
-    }
+    $fsym = $node->symbol;
     
+    // lazy-adding
+    if ($node instanceof FnExpr)
+      $this->scope->add($fsym);
+          
     if ($node->params)
       foreach ($node->params as $param) {
         $sym = $param->symbol = ParamSymbol::from($param);
         $this->scope->add($sym);
+        $fsym->params[] = $param->symbol;
       }
     
     if ($node->body)
@@ -239,6 +241,7 @@ class NodeCollector extends AutoVisitor
    */
   public function visit_fn_expr($node)
   {
+    $node->symbol = FnSymbol::from($node);
     $this->enter($node);
   }
   
@@ -678,7 +681,7 @@ class UnitCollector extends NodeCollector
   {
     $sym = $node->symbol = IfaceSymbol::from($node);
     $sym->ifaces = $this->collect_ifaces($node);
-    $sym->members = $this->collect_members($node);
+    $sym->members = $node->scope = $this->collect_members($node);
     
     if ($node->incomp)
       $sym->flags |= SYM_FLAG_INCOMPLETE;
