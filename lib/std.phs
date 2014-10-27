@@ -19,23 +19,48 @@
  */
 
 // ---------------------------------------
-// phs runtime
-
-require __php__ "run";
-
-// ---------------------------------------
 // built-in types
 
-extern class Dict;
-extern class List;
-extern class Thread;
-extern iface Iterator;
+// note: those types are also defined if --nostd was set
+// but not declared before compilation.
 
-extern class Error;
-extern class TypeError;
+public extern class Obj;
+public extern class Ref;
+public extern class Dict;
+public extern class List;
+public extern class Thread;
+public extern class Error;
+public extern class TypeError;
+public extern iface Iterator;
 
-fn isset(n) => n != null;
-fn empty(n) => !(n as bool);
+// ---------------------------------------
+// some global "compatibility" functions
+
+public fn isset(n) => 
+  n != null;
+
+public fn empty(n) => 
+  !(n as bool);
+
+/**
+ * does a runtime-require of a php-file.
+ * 
+ * if you need a runtime-require of a phs-file
+ * you have to compile it first.
+ *
+ * @param  string path
+ * @return mixed
+ */
+public fn include(path) {
+  extern retv;
+  
+  __php__ {
+    use path;
+    "$retv = require_once $path;"
+  }
+  
+  return retv;
+}
 
 // ---------------------------------------
 // temporary php bindings

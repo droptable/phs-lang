@@ -13,25 +13,18 @@ use phs\util\Set;
 use phs\util\Map;
 use phs\util\Dict;
 
-require_once 'front/glob.php';
-require_once 'front/ast.php';
-require_once 'front/analyze.php';
-require_once 'front/scope.php';
-require_once 'front/format.php';
+require_once 'glob.php';
+require_once 'ast.php';
+require_once 'scope.php';
+require_once 'compile.php';
 
-use phs\front\Analyzer;
-use phs\front\Resolver;
-use phs\front\Location;
-use phs\front\AstFormatter;
+use phs\ast\Node;
+use phs\ast\Unit;
 
-use phs\front\ast\Node;
-use phs\front\ast\Unit;
-
-use phs\front\Scope;
-use phs\front\GlobScope;
-use phs\front\RootScope;
-use phs\front\UnitScope;
-use phs\front\ModuleScope;
+const 
+  KIND_SRC = 1,
+  KIND_LIB = 2
+;
 
 class Session
 {
@@ -47,12 +40,21 @@ class Session
   
   public $started = false;
   
+  // @var int  current kind of file
+  private $kind;
+  
+  // @var Source  source root-directory (used to pack)
+  private $sroot;
+  
   // @var Dict  use-lookup cache dict
   public $udct;
   
   // files handled in this session.
   // includes imports via `use xyz;`
-  public $files;
+  public $srcs;
+  
+  // files added as library
+  public $libs;
   
   // @var Scope  global scope
   public $scope;
@@ -63,34 +65,73 @@ class Session
   // @var Set  assigned units
   private $units;
   
+  // @var Symbol  root-object class
+  // note: only defined if "nostd" is false
+  public $robj;
+  
+  // @var Compiler
+  private $comp;
+  
   /**
    * constructor
    * @param Config $conf
    * @param string $root
    */
   public function __construct(Config $conf, $root)
-  {
+  {    
     $this->conf = $conf;
     $this->rpath = $root;
     $this->abort = false;
     
-    $this->scope = new GlobScope; // global scope    
-    $this->udct = new Dict; // use-lookup-cache
-    $this->queue = new SourceSet; // to-be parsed files
-    $this->files = new SourceSet; // already parsed files
+    $this->scope = new GlobScope; // global scope
     $this->units = new Set;
+    
+    $this->srcs = new SourceSet;
+    $this->libs = new SourceSet;
+    
+    // process-queue
+    $this->queue = [];
+    
+    if (!$this->conf->get('nostd', false))
+      $this->setup_std();
+    
+    $this->comp = new Compiler($this);
   }
   
   /**
-   * adds a file
+   * pre-defines some built-in symbols of the stdlib and runtime
    *
-   * @param string $path
    */
-  public function add_file($path)
+  protected function setup_std()
   {
-    $this->add_source(new FileSource($path));
+    $loc = new Location('<built-in>', new Position(0, 0));
+    $pub = SYM_FLAG_PUBLIC;
+    $non = SYM_FLAG_NONE;
+    
+    /**
+     * the root-object class.
+     * every class has `Obj` as a superclass.
+     * 
+     * @see lib/run.php
+     */
+    $obj = new ClassSymbol('Obj', $loc, $non);
+    $obj->members = new MemberScope($obj, $this->scope);
+    $obj->managed = true;
+    $obj->resolved = true;
+    
+    /**
+     * returns the object-hash
+     * 
+     * @return string
+     */
+    $obj->members->add(new FnSymbol('hash', $loc, $pub));
+    
+    /* ------------------------------------ */
+    
+    $this->scope->add($obj);
+    $this->robj = $obj;
   }
-  
+    
   /**
    * add a source
    * 
@@ -98,15 +139,47 @@ class Session
    */
   public function add_source(Source $src)
   {
-    if ($src->check() && $this->files->add($src)) {
+    if ($src->check() && $this->srcs->add($src)) {
       if ($this->started)
         // in compilation: source may be added from a
         // require-declaration -> compile it now
-        $this->process($src);
+        $this->analyze($src, KIND_SRC);
       else
         // add file to the compile-queue
-        $this->queue->add($src);
+        $this->queue[] = [ $src, KIND_SRC ];
     }
+  }
+  
+  /**
+   * adds a library
+   *
+   * @param Source $src
+   */
+  public function add_library(Source $src)
+  {
+    if ($src->check() && $this->libs->add($src)) {
+      if ($this->started)
+        // in compilation: source may be added from a
+        // require-declaration -> compile it now
+        $this->analyze($src, KIND_LIB);
+      else
+        // add file to the compile-queue
+        $this->queue[] = [ $src, KIND_LIB ];
+    }
+  }
+  
+  /**
+   * adds a imported source
+   * this function is normally just called by the compiler (resolve.php)
+   *
+   * @param Source $src
+   */
+  public function add_import(Source $src)
+  {
+    if ($this->kind === KIND_SRC)
+      $this->add_source($src);
+    else
+      $this->add_library($src);
   }
   
   /**
@@ -127,56 +200,103 @@ class Session
    *
    * @return void
    */
-  public function compile()
+  public function process()
   {
     $this->started = true;
     
     // ---------------------------------------
-    // phase 1: analyze (process) sources
+    // step 1: analyze sources 
     
-    while ($src = $this->queue->shift())
-      $this->process($src);
-    
+    while ($src = array_shift($this->queue))
+      $this->analyze($src[0], $src[1]);
+                   
+    if ($this->aborted)
+      goto err;
     
     // ---------------------------------------
-    // phase 2: 
+    // step 2: translate units
     
-            
-    if ($this->aborted) {
-      Logger::error('compilation aborted due to previous error(s)');
-      return;
-    }
+    foreach ($this->libs as $lib)
+      $this->compile($lib);
     
+    foreach ($this->srcs as $src)
+      $this->compile($src); 
+    
+    if ($this->aborted)
+      goto err;
+    
+    // ---------------------------------------
+    // step 3: pack sources into a phar
+    
+    goto out;
+    
+    Logger::debug('phar lib/');
+    foreach ($this->libs as $lib)
+      logger::debug('%s', basename($lib->get_dest()));
+    
+    logger::debug('phar src/');
+    foreach ($this->srcs as $src)
+      Logger::debug('%s', basename($src->get_dest()));
+    
+    // ---------------------------------------
+    // step 4: cleanup
+    /*
+    foreach ($this->libs as $lib)
+      unlink($lib->get_dest());
+    
+    foreach ($this->srcs as $src)
+      unlink($src->get_dest());
+    */
+   
+    out:
     Logger::debug('complete');
-        
-    foreach ($this->files as $file)
-      Logger::debug('using file %s', $file->get_path());
+    return;
+  
+    err:
+    Logger::error('compilation aborted due to previous error(s)');
   }
   
   /**
-   * process a unit
+   * analyzes a unit
+   *
+   * @param  Source $src
+   * @param  int    $kind
+   */
+  protected function analyze(Source $src, $kind)
+  {
+    Logger::debug('analyze file %s', $src->get_path());
+    
+    // new kind -> update source-root for follow-ups in add_import()
+    if ($this->kind !== $kind)
+      $this->sroot = $src->use_root();
+    
+    // update source-root
+    $src->set_root($this->sroot);
+        
+    $this->kind = $kind;
+    
+    foreach ($src->iter() as $file) {
+      $unit = null;
+      
+      if (!$file->php) {
+        $unit = $this->comp->analyze($file);
+        
+        if ($unit)
+          $src->unit = $unit; 
+      }      
+    }
+  }
+  
+  /**
+   * compiles a source
    *
    * @param  Source $src
    */
-  protected function process(Source $src)
+  protected function compile(Source $src)
   {
-    if ($src->php)
-      return;
+    Logger::debug('compile file %s', $src->get_path());
     
-    $uanl = new Analyzer($this);
-    $afmt = new AstFormatter($this);
-    $unit = $uanl->analyze($src);
-    
-    if ($unit) {
-      $this->units->add($unit);
-      
-      if (basename($unit->loc->file) === 'test.phs') {
-        echo "\n";
-        $unit->scope->dump('');
-        echo "\n\n";
-        echo $afmt->format($unit);
-      }
-    }
+    $this->comp->compile($src);
   }
 }
 

@@ -1,2 +1,2 @@
 @echo off
-php ../src/phsc.php %*
+php ../src/cli/phsc.php %*

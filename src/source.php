@@ -2,22 +2,36 @@
 
 namespace phs;
 
-require_once 'front/glob.php';
+require_once 'glob.php';
 require_once 'util/set.php';
+
+use phs\ast\Unit;
 
 use phs\util\Set;
 use phs\util\LooseSet;
-
-use phs\front\Location;
-
-interface Origin
-{}
 
 /** abstract base class */
 abstract class Source
 {
   // @var Location
   public $loc = null;
+  
+  // @var Unit  the parsed unit for this source
+  public $unit;
+  
+  // @var string root-directory
+  private $root;
+  
+  /**
+   * should return all possible (sub-) sources.
+   *
+   * @return Iterable
+   */
+  public function iter()
+  {
+    // return self, no sub-sources
+    yield $this;
+  }
   
   /**
    * checks if this source can be used
@@ -27,6 +41,51 @@ abstract class Source
   public function check()
   {
     return true;
+  }
+  
+  /**
+   * return the-root path generated from this source
+   *
+   * @return string
+   */
+  public function use_root()
+  {
+    return dirname($this->get_path());
+  }
+  
+  /**
+   * ets the root-path of this source
+   *
+   * @param string $root
+   */
+  public function set_root($root)
+  {
+    $this->root = $root;
+  }
+  
+  /**
+   * returns the root-path of this source
+   * 
+   * @return string
+   */
+  public function get_root()
+  {
+    return $this->root;
+  }
+  
+  /**
+   * returns the relative path (seen from its root)
+   *
+   * @return string
+   */
+  public function get_rpath()
+  {
+    $path = $this->get_path();
+    
+    if (strpos($path, $this->root) === 0)
+      $path = substr($path, strlen($this->root) + 1);
+    
+    return $path;
   }
   
   /**
@@ -194,40 +253,9 @@ class FileSource extends Source
    */
   public function get_dest()
   {
-    if (!$this->dest) {
-      $try = 0;
-      $stt = 0;
-      $nam = basename($this->path, '.phs');
-      $dir = dirname($nam);
-      
-      $this->dest = "$dir/$nam.php";
-      
-      #if (is_file($this->dest))
-        #unlink($this->dest);
-      
-      goto out;
-      
-      do {
-        if ($try > 1000) {
-          if ($stt === 1)
-            // TODO: this should be reported via Context#error
-            exit('unable to create a temp destination for file ' . $this->path);
-          
-          // switch state, try current working dir
-          $dir = getcwd();
-          $stt = 1;
-          $try = 0;
-        }
-        
-        $cnt = $nam;
-        if ($try > 0) $cnt .= "-$try";
-        $this->dest = "$dir/$cnt.php";
-        
-        ++$try;
-      } while (is_file($this->dest));
-    }
+    if (!$this->dest)
+      $this->dest = tempnam(getcwd(), '~phsc');
     
-    out:
     return $this->dest;
   }
 }

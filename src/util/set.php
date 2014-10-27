@@ -86,6 +86,55 @@ class Set implements
   }
   
   /**
+   * merges this set with a other and returns a new set
+   *
+   * @param  Set    $oset
+   * @return Set
+   */
+  public function merge(Set $oset) 
+  {
+    $nset = new static;
+    
+    foreach ($this->iter() as $item)
+      $nset->add($item);
+    
+    $nset->insert($oset);
+    return $nset;
+  }
+  
+  public function insert(Set $set)
+  {
+    trigger_error('Set#insert() is deprecated, use Set#ins() instead', E_USER_DEPRECATED);
+    $this->ins($set);
+  }
+  
+  /**
+   * inserts all entries from a other set
+   *
+   * @param  Set    $oset   
+   */
+  public function ins(Set $oset)
+  {
+    foreach ($oset->iter() as $item)
+      $this->add($item);
+  }
+  
+  /**
+   * returns the first non-null entry.
+   * note: delete() removes keys, so mem[0] will always 
+   * be non-null except if the set is empty
+   *
+   * @return mixed
+   */
+  public function pick()
+  {
+    if (empty ($this->mem))
+      return null;
+    
+    return $this->mem[0];
+  }
+  
+  /**
    * returns the first item in the set.
    * the item gets removed.
    *

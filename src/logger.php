@@ -4,8 +4,6 @@ namespace phs;
 
 require_once 'config.php';
 
-use phs\front\Location;
-
 const
   LOG_LEVEL_ALL     = 0,
   LOG_LEVEL_DEBUG   = 1, // debug messages
@@ -178,6 +176,32 @@ class Logger
   
   /* ------------------------------------ */
   
+  public static function assert($cond, $msg)
+  {
+    if (!$cond) {
+      $fmt = [];
+      for ($i = 2, $l = func_num_args(); $i < $l; ++$i)
+        array_push($fmt, func_get_arg($i));
+      
+      self::vlog_at(null, LOG_LEVEL_ERROR, $msg, $fmt);
+      assert(0);
+    }
+  }
+  
+  public static function assert_at(Location $loc, $cond, $msg)
+  {
+    if (!$cond) {
+      $fmt = [];
+      for ($i = 3, $l = func_num_args(); $i < $l; ++$i)
+        array_push($fmt, func_get_arg($i));
+      
+      self::vlog_at($loc, LOG_LEVEL_ERROR, $msg, $fmt);
+      assert(0);
+    }
+  }
+  
+  /* ------------------------------------ */
+  
   /**
    * generic log method
    *
@@ -331,7 +355,7 @@ class Logger
   }
   
   // @see Logger#vlog_at() --- LOG_LEVEL_DEBUG
-  public static function debug_at(Location $loc, $msg)
+  public static function debug_at(Location $loc = null, $msg)
   {
     $fmt = [];
     for ($i = 2, $l = func_num_args(); $i < $l; ++$i)
@@ -353,7 +377,7 @@ class Logger
   }
   
   // @see Logger#vlog_at() --- LOG_LEVEL_VERBOSE
-  public static function verbose_at(Location $loc, $msg)
+  public static function verbose_at(Location $loc = null, $msg)
   {
     $fmt = [];
     for ($i = 2, $l = func_num_args(); $i < $l; ++$i)
@@ -375,7 +399,7 @@ class Logger
   }
   
   // @see Logger#vlog_at() --- LOG_LEVEL_INFO
-  public static function info_at(Location $loc, $msg)
+  public static function info_at(Location $loc = null, $msg)
   {
     $fmt = [];
     for ($i = 2, $l = func_num_args(); $i < $l; ++$i)
@@ -397,7 +421,7 @@ class Logger
   }
   
   // @see Logger#vlog_at() --- LOG_LEVEL_WARNING
-  public static function warn_at(Location $loc, $msg)
+  public static function warn_at(Location $loc = null, $msg)
   {
     $fmt = [];
     for ($i = 2, $l = func_num_args(); $i < $l; ++$i)
@@ -419,7 +443,7 @@ class Logger
   }
   
   // @see Logger#vlog_at() --- LOG_LEVEL_ERROR
-  public static function error_at(Location $loc, $msg)
+  public static function error_at(Location $loc = null, $msg)
   {
     $fmt = [];
     for ($i = 2, $l = func_num_args(); $i < $l; ++$i)

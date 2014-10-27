@@ -1,4 +1,4 @@
 #!/bin/bash
-# chmod +x ../src/phsc.php
-php ../src/phsc.php
+# chmod +x ../src/cli/phsc.php
+php ../src/cli/phsc.php
 echo "\n"

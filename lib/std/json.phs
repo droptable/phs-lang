@@ -20,10 +20,10 @@
 
 module std::json;
 
-extern __global__ fn json_decode;
-extern __global__ fn json_encode;
-extern __global__ fn json_last_error_msg;
-extern __global__ fn json_last_error;
+public extern __global__ fn json_decode;
+public extern __global__ fn json_encode;
+public extern __global__ fn json_last_error_msg;
+public extern __global__ fn json_last_error;
 
 public use self::json_decode as decode;
 public use self::json_encode as encode;
@@ -34,26 +34,26 @@ public use self::json_last_error as last_error;
 public use self::json_decode as parse;
 public use self::json_encode as stringify;
 
-extern __global__ const JSON_ERROR_NONE;
-extern __global__ const JSON_ERROR_DEPTH;
-extern __global__ const JSON_ERROR_STATE_MISMATCH;
-extern __global__ const JSON_ERROR_CTRL_CHAR;
-extern __global__ const JSON_ERROR_SYNTAX;
-extern __global__ const JSON_ERROR_UTF8;
-extern __global__ const JSON_ERROR_RECURSION;
-extern __global__ const JSON_ERROR_INF_OR_NAN;
-extern __global__ const JSON_ERROR_UNSUPPORTED_TYPE;
-extern __global__ const JSON_HEX_TAG;
-extern __global__ const JSON_HEX_AMP;
-extern __global__ const JSON_HEX_APOS;
-extern __global__ const JSON_HEX_QUOT;
-extern __global__ const JSON_FORCE_OBJECT;
-extern __global__ const JSON_NUMERIC_CHECK;
-extern __global__ const JSON_BIGINT_AS_STRING;
-extern __global__ const JSON_PRETTY_PRINT;
-extern __global__ const JSON_UNESCAPED_SLASHES;
-extern __global__ const JSON_UNESCAPED_UNICODE;
+public extern __global__ const JSON_ERROR_NONE;
+public extern __global__ const JSON_ERROR_DEPTH;
+public extern __global__ const JSON_ERROR_STATE_MISMATCH;
+public extern __global__ const JSON_ERROR_CTRL_CHAR;
+public extern __global__ const JSON_ERROR_SYNTAX;
+public extern __global__ const JSON_ERROR_UTF8;
+public extern __global__ const JSON_ERROR_RECURSION;
+public extern __global__ const JSON_ERROR_INF_OR_NAN;
+public extern __global__ const JSON_ERROR_UNSUPPORTED_TYPE;
+public extern __global__ const JSON_HEX_TAG;
+public extern __global__ const JSON_HEX_AMP;
+public extern __global__ const JSON_HEX_APOS;
+public extern __global__ const JSON_HEX_QUOT;
+public extern __global__ const JSON_FORCE_OBJECT;
+public extern __global__ const JSON_NUMERIC_CHECK;
+public extern __global__ const JSON_BIGINT_AS_STRING;
+public extern __global__ const JSON_PRETTY_PRINT;
+public extern __global__ const JSON_UNESCAPED_SLASHES;
+public extern __global__ const JSON_UNESCAPED_UNICODE;
 
-extern __global__ iface JsonSerializable {
+public extern __global__ iface JsonSerializable {
   fn jsonserialize();
 }

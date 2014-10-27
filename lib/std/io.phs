@@ -20,58 +20,58 @@
 
 module std::io;
 
-extern __global__ fn stream_bucket_append;
-extern __global__ fn stream_bucket_make_writeable;
-extern __global__ fn stream_bucket_new;
-extern __global__ fn stream_bucket_prepend;
-extern __global__ fn stream_context_create;
-extern __global__ fn stream_context_get_default;
-extern __global__ fn stream_context_get_options;
-extern __global__ fn stream_context_get_params;
-extern __global__ fn stream_context_set_default;
-extern __global__ fn stream_context_set_option;
-extern __global__ fn stream_context_set_params;
-extern __global__ fn stream_copy_to_stream;
-extern __global__ fn stream_encoding;
-extern __global__ fn stream_filter_append;
-extern __global__ fn stream_filter_prepend;
-extern __global__ fn stream_filter_register;
-extern __global__ fn stream_filter_remove;
-extern __global__ fn stream_get_contents;
-extern __global__ fn stream_get_filters;
-extern __global__ fn stream_get_line;
-extern __global__ fn stream_get_meta_data;
-extern __global__ fn stream_get_transports;
-extern __global__ fn stream_get_wrappers;
-extern __global__ fn stream_is_local;
-extern __global__ fn stream_notification_callback;
-extern __global__ fn stream_register_wrapper;
-extern __global__ fn stream_resolve_include_path;
-extern __global__ fn stream_select;
-extern __global__ fn stream_set_blocking;
-extern __global__ fn stream_set_chunk_size;
-extern __global__ fn stream_set_read_buffer;
-extern __global__ fn stream_set_timeout;
-extern __global__ fn stream_set_write_buffer;
-extern __global__ fn stream_socket_accept;
-extern __global__ fn stream_socket_client;
-extern __global__ fn stream_socket_enable_crypto;
-extern __global__ fn stream_socket_get_name;
-extern __global__ fn stream_socket_pair;
-extern __global__ fn stream_socket_recvfrom;
-extern __global__ fn stream_socket_sendto;
-extern __global__ fn stream_socket_server;
-extern __global__ fn stream_socket_shutdown;
-extern __global__ fn stream_supports_lock;
-extern __global__ fn stream_wrapper_register;
-extern __global__ fn stream_wrapper_restore;
-extern __global__ fn stream_wrapper_unregister;
+public extern __global__ fn stream_bucket_append;
+public extern __global__ fn stream_bucket_make_writeable;
+public extern __global__ fn stream_bucket_new;
+public extern __global__ fn stream_bucket_prepend;
+public extern __global__ fn stream_context_create;
+public extern __global__ fn stream_context_get_default;
+public extern __global__ fn stream_context_get_options;
+public extern __global__ fn stream_context_get_params;
+public extern __global__ fn stream_context_set_default;
+public extern __global__ fn stream_context_set_option;
+public extern __global__ fn stream_context_set_params;
+public extern __global__ fn stream_copy_to_stream;
+public extern __global__ fn stream_encoding;
+public extern __global__ fn stream_filter_append;
+public extern __global__ fn stream_filter_prepend;
+public extern __global__ fn stream_filter_register;
+public extern __global__ fn stream_filter_remove;
+public extern __global__ fn stream_get_contents;
+public extern __global__ fn stream_get_filters;
+public extern __global__ fn stream_get_line;
+public extern __global__ fn stream_get_meta_data;
+public extern __global__ fn stream_get_transports;
+public extern __global__ fn stream_get_wrappers;
+public extern __global__ fn stream_is_local;
+public extern __global__ fn stream_notification_callback;
+public extern __global__ fn stream_register_wrapper;
+public extern __global__ fn stream_resolve_include_path;
+public extern __global__ fn stream_select;
+public extern __global__ fn stream_set_blocking;
+public extern __global__ fn stream_set_chunk_size;
+public extern __global__ fn stream_set_read_buffer;
+public extern __global__ fn stream_set_timeout;
+public extern __global__ fn stream_set_write_buffer;
+public extern __global__ fn stream_socket_accept;
+public extern __global__ fn stream_socket_client;
+public extern __global__ fn stream_socket_enable_crypto;
+public extern __global__ fn stream_socket_get_name;
+public extern __global__ fn stream_socket_pair;
+public extern __global__ fn stream_socket_recvfrom;
+public extern __global__ fn stream_socket_sendto;
+public extern __global__ fn stream_socket_server;
+public extern __global__ fn stream_socket_shutdown;
+public extern __global__ fn stream_supports_lock;
+public extern __global__ fn stream_wrapper_register;
+public extern __global__ fn stream_wrapper_restore;
+public extern __global__ fn stream_wrapper_unregister;
 
-private extern __global__ const PHP_EOL;
-private extern __global__ fn fclose;
+extern __global__ const PHP_EOL;
+extern __global__ fn fclose;
 
-private extern __global__ fn is_resource;
-private extern __global__ fn get_resource_type;
+extern __global__ fn is_resource;
+extern __global__ fn get_resource_type;
 
 /**
  * implements a static from() method for
@@ -104,12 +104,12 @@ trait From {
  * Basic stream abstraction.
  * Base for all other stream-related modules in the stdlib
  */
-class Stream {
+public class Stream {
   
   use From;
   
   // @var resource
-  protected const hnd;
+  protected hnd;
   
   // @var whenever close() was called
   protected closed = false;
@@ -337,7 +337,7 @@ trait Write {
 /**
  * input-stream
  */
-iface IStream {
+public iface IStream {
   /**
    * reads up to `len` bytes from this stream
    *
@@ -358,7 +358,7 @@ iface IStream {
 /**
  * output-stream
  */
-iface OStream {
+public iface OStream {
   /**
    * writes a string to this stream
    *
@@ -405,27 +405,27 @@ extern __global__ const STDIN;
 extern __global__ const STDOUT;
 extern __global__ const STDERR;
 
-const sin = new IStreamImpl(STDIN);
-const sout = new OStreamImpl(STDOUT);
-const serr = new OStreamImpl(STDERR);
+public const stdin = new IStreamImpl(STDIN);
+public const stdout = new OStreamImpl(STDOUT);
+public const stderr = new OStreamImpl(STDERR);
 
 // ---------------------------------------
 // ---------------------------------------
 
 // file stream
 
-extern __global__ const LOCK_SH;
-extern __global__ const LOCK_EX;
-extern __global__ const LOCK_UN;
+public extern __global__ const LOCK_SH;
+public extern __global__ const LOCK_EX;
+public extern __global__ const LOCK_UN;
 
-extern __global__ const SEEK_SET;
-extern __global__ const SEEK_CUR;
-extern __global__ const SEEK_END;
+public extern __global__ const SEEK_SET;
+public extern __global__ const SEEK_CUR;
+public extern __global__ const SEEK_END;
 
 // note: this class is not really limited to files ...
 // more concrete stream-types coming soon
 // note: no public constructor!
-class FStream : Stream ~ IStream, OStream {
+public class FStream : Stream ~ IStream, OStream {
   
   use From;
   use Read;

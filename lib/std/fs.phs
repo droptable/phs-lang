@@ -22,17 +22,17 @@ module std::fs;
 
 use std::io::FStream;
 
-extern __global__ const FILE_USE_INCLUDE_PATH;
-extern __global__ const FILE_NO_DEFAULT_CONTEXT;
-extern __global__ const FILE_APPEND;
-extern __global__ const FILE_IGNORE_NEW_LINES ;
-extern __global__ const FILE_SKIP_EMPTY_LINES;
-extern __global__ const FILE_BINARY;
-extern __global__ const FILE_TEXT;
+public extern __global__ const FILE_USE_INCLUDE_PATH;
+public extern __global__ const FILE_NO_DEFAULT_CONTEXT;
+public extern __global__ const FILE_APPEND;
+public extern __global__ const FILE_IGNORE_NEW_LINES ;
+public extern __global__ const FILE_SKIP_EMPTY_LINES;
+public extern __global__ const FILE_BINARY;
+public extern __global__ const FILE_TEXT;
 
-extern __global__ const FNM_NOESCAPE;
-extern __global__ const FNM_PERIOD;
-extern __global__ const FNM_CASEFOLD;
+public extern __global__ const FNM_NOESCAPE;
+public extern __global__ const FNM_PERIOD;
+public extern __global__ const FNM_CASEFOLD;
 
 public extern __global__ fn basename;
 public extern __global__ fn chgrp;
@@ -74,8 +74,8 @@ public extern __global__ fn lstat;
 public extern __global__ fn mkdir;
 public extern __global__ fn move_uploaded_file;
 
-extern __global__ const INI_SCANNER_NORMAL;
-extern __global__ const INI_SCANNER_RAW;
+public extern __global__ const INI_SCANNER_NORMAL;
+public extern __global__ const INI_SCANNER_RAW;
     
 public extern __global__ fn parse_ini_file;
 public extern __global__ fn parse_ini_string;
@@ -96,33 +96,33 @@ public extern __global__ fn touch;
 public extern __global__ fn umask;
 public extern __global__ fn unlink;
 
-extern __global__ const GLOB_BRACE;
-extern __global__ const GLOB_ONLYDIR;
-extern __global__ const GLOB_MARK;
-extern __global__ const GLOB_NOSORT;
-extern __global__ const GLOB_NOCHECK;
-extern __global__ const GLOB_NOESCAPE;
-extern __global__ const GLOB_AVAILABLE_FLAGS;
+public extern __global__ const GLOB_BRACE;
+public extern __global__ const GLOB_ONLYDIR;
+public extern __global__ const GLOB_MARK;
+public extern __global__ const GLOB_NOSORT;
+public extern __global__ const GLOB_NOCHECK;
+public extern __global__ const GLOB_NOESCAPE;
+public extern __global__ const GLOB_AVAILABLE_FLAGS;
 
 public extern __global__ fn glob;
 
-extern __global__ const PATHINFO_DIRNAME;
-extern __global__ const PATHINFO_BASENAME;
-extern __global__ const PATHINFO_EXTENSION;
-extern __global__ const PATHINFO_FILENAME;
+public extern __global__ const PATHINFO_DIRNAME;
+public extern __global__ const PATHINFO_BASENAME;
+public extern __global__ const PATHINFO_EXTENSION;
+public extern __global__ const PATHINFO_FILENAME;
 
 public extern __global__ fn pathinfo;
 
 // ---------------------------------------
 
-private extern __global__ fn fopen;
+extern __global__ fn fopen;
 
 extern __global__ const DIRECTORY_SEPARATOR;
-private extern __global__ fn implode;
+extern __global__ fn implode;
 
-private extern __global__ fn opendir;
-private extern __global__ fn readdir;
-private extern __global__ fn closedir;
+extern __global__ fn opendir;
+extern __global__ fn readdir;
+extern __global__ fn closedir;
 
 /**
  * join a list of segments using the directory-separator
@@ -146,7 +146,7 @@ fn iterdir(path) {
   let i;
   let k = 0;
   
-  while (false != i = readdir(d))
+  while (false != (i = readdir(d)))
     yield (k++): i;
   
   closedir(d);
@@ -254,7 +254,7 @@ fn rmdir_r(string path) {
   return true;
 }
 
-class FsError : Error {}
+public class FsError : Error {}
 
 /**
  * opens a stream using fopen()
@@ -264,7 +264,7 @@ class FsError : Error {}
  * @throws FsError
  * @return resource
  */
-private fn open(path, mode) {
+fn open(const path, const mode) {
   let hnd = fopen(path, mode);
   if (hnd) return hnd;
   throw new FsError("unable to open %s with mode %s", path, mode);
@@ -274,7 +274,7 @@ private fn open(path, mode) {
  * file-system stream
  * basically a FStream with a public constructor 
  */
-class FsStream : FStream {
+public class FsStream : FStream {
   
   private path;
   private mode;
@@ -337,7 +337,7 @@ class FsStream : FStream {
 /**
  * basic file
  */
-class File {  
+public class File {  
   
   private path;
   

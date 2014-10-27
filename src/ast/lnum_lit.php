@@ -1,0 +1,18 @@
+<?php
+
+namespace phs\ast;
+
+class LNumLit extends Expr
+{
+  public $data;
+  
+  public function __construct($data)
+  {
+    $this->data = $data;
+  }
+
+  public function __clone()
+  {
+    parent::__clone();
+  }
+}
