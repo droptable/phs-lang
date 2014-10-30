@@ -932,7 +932,7 @@ trait Reduce
              $this->get_value($pair->key->expr)->is_unkn()) ||
             ($pair->key instanceof StrLit &&
              count($pair->key->parts) > 0) ||
-            $this->get_value($pair->value)->is_unkn()) {
+            $this->get_value($pair->arg)->is_unkn()) {
           $okay = false;
           break;
         }
@@ -975,7 +975,7 @@ trait Reduce
             $key = $pair->key->data; 
           }
               
-          $dict[$key] = $this->get_value($pair->value);
+          $dict[$key] = $this->get_value($pair->arg);
         }
         
         $node->value = new Value(VAL_KIND_DICT, $dict);
@@ -2010,7 +2010,7 @@ class ReduceTask extends Visitor implements Task
         else
           $this->visit($pair->key);
         
-        $this->visit($pair->value);
+        $this->visit($pair->arg);
       }
       
     $this->reduce_obj_lit($node);

@@ -71,6 +71,9 @@ class ValidateTask extends Visitor implements Task
   // @var Session
   private $sess;
   
+  // @var bool
+  private $dict;
+  
   // @var array
   private $stack;
   
@@ -907,7 +910,10 @@ class ValidateTask extends Visitor implements Task
           Logger::error('not have an initializer');
         }
         
+        $dict = $this->dict;
+        $this->dict = true;
         $this->visit($var->init);
+        $this->dict = $dict;
       }
   }
   
@@ -1225,7 +1231,12 @@ class ValidateTask extends Visitor implements Task
    */
   public function visit_expr_stmt($node) 
   {
+    $dict = $this->dict;
+    $this->dict = true;
+    
     $this->visit($node->expr);  
+    
+    $this->dict = $dict;
   }
   
   /**
@@ -1236,6 +1247,7 @@ class ValidateTask extends Visitor implements Task
    */
   public function visit_paren_expr($node)
   {
+    $this->dict = false;
     $this->visit($node->expr);
   }
   
@@ -1247,6 +1259,7 @@ class ValidateTask extends Visitor implements Task
    */
   public function visit_tuple_expr($node)
   {
+    $this->dict = false;
     foreach ($node->seq as $expr)
       $this->visit($expr);
   }
@@ -1259,6 +1272,7 @@ class ValidateTask extends Visitor implements Task
    */
   public function visit_fn_expr($node) 
   {
+    $this->dict = false;
     $this->check_params($node->params);
     $this->enter('fn');
     $this->visit($node->body);
@@ -1273,6 +1287,7 @@ class ValidateTask extends Visitor implements Task
    */
   public function visit_bin_expr($node) 
   {
+    $this->dict = false;
     $this->visit($node->left);
     $this->visit($node->right);
   }
@@ -1285,6 +1300,7 @@ class ValidateTask extends Visitor implements Task
    */
   public function visit_check_expr($node) 
   {
+    $this->dict = false;
     $this->visit($node->left);
     $this->visit($node->right); 
   }
@@ -1297,6 +1313,7 @@ class ValidateTask extends Visitor implements Task
    */
   public function visit_cast_expr($node) 
   {
+    $this->dict = false;
     $this->visit($node->expr);
     $this->visit($node->type); 
   }
@@ -1309,6 +1326,7 @@ class ValidateTask extends Visitor implements Task
    */
   public function visit_update_expr($node) 
   {
+    $this->dict = false;
     $this->visit($node->expr);  
   }
   
@@ -1329,7 +1347,7 @@ class ValidateTask extends Visitor implements Task
       Logger::error_at($left->loc, 'invalid assignment left-hand-side');
     
     $this->visit($node->left);
-    $this->visit($node->right);  
+    $this->visit($node->right); 
   }
   
   /**
@@ -1372,6 +1390,7 @@ class ValidateTask extends Visitor implements Task
    */
   public function visit_cond_expr($node) 
   {
+    $this->dict = false;
     $this->visit($node->test);
     
     if ($node->then)
@@ -1429,6 +1448,7 @@ class ValidateTask extends Visitor implements Task
    */
   public function visit_unary_expr($node) 
   {
+    $this->dict = false;
     $this->visit($node->expr);  
   }
   
@@ -1534,6 +1554,19 @@ class ValidateTask extends Visitor implements Task
    */
   public function visit_obj_lit($node) 
   {
+    if (!$this->dict) {
+      Logger::warn_at($node->loc, 'dict-literals are currently not well \\');
+      Logger::warn('supported inside expressions');
+      Logger::info('try to hoist the literal to one of the following \\');
+      Logger::info('statements:');
+      Logger::info('variable-declaration: let a = { ... }');
+      Logger::info('return-statement:     return { ... }');
+      Logger::info('yield-statement:      yield { ... }');
+      Logger::info('or directly inside an expression-statement:');
+      Logger::info('variable-assignment:  a = { ... }');
+      Logger::info('call-expression:      a({ ... })');
+    }
+    
     if (!$node->pairs)
       return;
     
@@ -1541,7 +1574,7 @@ class ValidateTask extends Visitor implements Task
       if ($pair->key instanceof ObjKey)
         $this->visit($pair->key->expr);
       
-      $this->visit($pair->value);
+      $this->visit($pair->arg);
     }
   }
   

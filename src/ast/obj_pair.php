@@ -5,18 +5,18 @@ namespace phs\ast;
 class ObjPair extends Node
 {
   public $key;
-  public $value;
+  public $arg;
   
-  public function __construct($key, $value)
+  public function __construct($key, $arg)
   {
     $this->key = $key;
-    $this->value = $value;
+    $this->arg = $arg;
   }
 
   public function __clone()
   {
     $this->key = clone $this->key;
-    $this->value = clone $this->value;
+    $this->arg = clone $this->arg;
     
     parent::__clone();
   }

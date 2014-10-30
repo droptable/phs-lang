@@ -672,6 +672,9 @@ class FnSymbol extends Symbol
   // @var boolean  this is a function-expression
   public $expr;
   
+  // @var boolean  whenever this symbol is nested
+  public $nested;
+  
   // @var array  parameters
   public $params;
   
@@ -768,6 +771,7 @@ class FnSymbol extends Symbol
     $sym = new FnSymbol($id, $node->loc, $flags);
     $sym->expr = $node instanceof FnExpr;
     $sym->node = $node;
+    $sym->nested = false;
     return $sym;
   }
 }

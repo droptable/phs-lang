@@ -121,7 +121,7 @@ class NodeCollector extends AutoVisitor
       $this->scope->add($fsym);
     
     if ($node instanceof FnDecl)
-      $node->nested = $this->level > 0;
+      $fsym->nested = $node->nested = $this->level > 0;
     
     if ($node->params)
       foreach ($node->params as $param) {

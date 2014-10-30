@@ -117,7 +117,6 @@
 %token T_TBOOL    /* bool boolean */
 %token T_TFLOAT   /* float double */
 %token T_TSTRING  /* string */
-%token T_TREGEXP  /* regexp */
 
 /* parse-time constants */
 %token T_CDIR
@@ -1093,7 +1092,6 @@ type_id
   | T_TBOOL   { $$ = @TypeId($1->type); }
   | T_TFLOAT  { $$ = @TypeId($1->type); }
   | T_TSTRING { $$ = @TypeId($1->type); }
-  | T_TREGEXP { $$ = @TypeId($1->type); }
   ;
 
 ident
@@ -1245,7 +1243,6 @@ rid
   | T_TBOOL     { $$ = $1; }
   | T_TFLOAT    { $$ = $1; }
   | T_TSTRING   { $$ = $1; }
-  | T_TREGEXP   { $$ = $1; }
   | T_CDIR      { $$ = $1; }
   | T_CFILE     { $$ = $1; }
   | T_CLINE     { $$ = $1; }

@@ -1890,7 +1890,7 @@ class AstFormatter extends Visitor
           $this->visit($pair->key);
         
         $this->emit(': ');
-        $this->visit($pair->value);
+        $this->visit($pair->arg);
         if ($idx + 1 < $len)
           $this->emitln(',');
       }

@@ -1,8 +1,10 @@
 <?php
 
-/* this parser-skeleton is based on the awesome 
-   work of nikic (https://github.com/nikic) 
-   with some extensions (error-recovery and location-tracking) */
+/**
+ * this parser-skeleton is based on the awesome
+ * work of nikic (https://github.com/nikic)
+ * with some extensions (error-recovery and location-tracking) 
+ */
 
 /**
  * This is an automatically GENERATED file, which should not be manually edited.
@@ -453,7 +455,8 @@ class #(-p)
                 }
               }
 
-              $this->report_error($this->yyloc, self::$terminals[$tokid], $expn, $expa);       
+              $this->report_error($this->yyloc, 
+                self::$terminals[$tokid], $expn, $expa);       
             case 1:
             case 2:
               $yyerrflag = 3;  

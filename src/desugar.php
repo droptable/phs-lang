@@ -929,7 +929,7 @@ class DesugarTask extends Visitor implements Task
       if ($pair->key instanceof ObjKey)
         $this->visit($pair->key->expr);
       
-      $this->visit($pair->value);
+      $this->visit($pair->arg);
     }
   }
   

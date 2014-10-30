@@ -41,10 +41,14 @@ class Dict extends Obj
    * constructor
    *
    */
-  public function __construct()
+  public function __construct(array $dict = [])
   {
     parent::__construct();
-    // empty
+    
+    // this can be a performance problem
+    // TODO: find a way to optimize this
+    foreach ($dict as $key => &$val)
+      $this->{$key} = &$val;
   }
   
   /**
@@ -56,7 +60,7 @@ class Dict extends Obj
   {
     foreach (get_dict_vars($this) as $key => &$val)
       if (is_object($val))
-        $this->$key = clone $val;
+        $this->{$key} = clone $val;
   }
   
   /**
@@ -67,18 +71,13 @@ class Dict extends Obj
    */
   public static function from($val)
   {
-    $dct = new static;
+    if ($val instanceof self)
+      return $val;
     
     if (is_array($val))
-      foreach ($val as $k => $v);
-        $dct->{$k} = $v;
+      return new static($val);
     
-    // elseif ...
-    
-    else
-      throw new Exception("unable to create dict from " . gettype($val));
-    
-    return $dct;
+    throw new Exception("unable to create dict from " . gettype($val));
   }
   
   /**

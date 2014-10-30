@@ -785,7 +785,7 @@ abstract class AutoVisitor extends Visitor
       if ($pair->key instanceof ObjKey)
         $this->visit($pair->key->expr);
       
-      $this->visit($pair->value);
+      $this->visit($pair->arg);
     }
   }
   

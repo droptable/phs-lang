@@ -9,6 +9,13 @@ use phs\ast\DtorDecl;
 use phs\ast\Name;
 use phs\ast\Ident;
 use phs\ast\TypeId;
+use phs\ast\CallExpr;
+use phs\ast\VarDecl;
+use phs\ast\StrLit;
+use phs\ast\NewExpr;
+use phs\ast\AssignExpr;
+use phs\ast\ObjLit;
+use phs\ast\ObjKey;
 
 /** code generator */
 class CodeGenerator extends AutoVisitor
@@ -33,6 +40,15 @@ class CodeGenerator extends AutoVisitor
   
   // @var int
   private $nest;
+  
+  // @var bool  ignore values
+  private $ignv;
+  
+  // @var bool  hoist strings
+  private $hstr;
+  
+  // @var array  hoisted strings
+  private $strs;
   
   // @var int  used to generate temporary variables
   private static $temp = 0;
@@ -61,6 +77,9 @@ class CodeGenerator extends AutoVisitor
       $this->buff = '';
       $this->tabs = 0;
       $this->nest = 0;
+      $this->hstr = true;
+      $this->strs = [];
+      $this->ignv = false;
       $this->fhnd = fopen($src->get_dest(), 'w+');
             
       // module-generation specific
@@ -131,37 +150,7 @@ class CodeGenerator extends AutoVisitor
   public function quote($val)
   {
     $val = $this->filter($val);
-    $str = '"';
-    $esc = false;
-    
-    for ($i = 0, $l = strlen($val); $i < $l; ++$i) {
-      $cur = $val[$i];
-      
-      if ($cur === '\\')
-        $esc = !$esc;
-      elseif ($cur === '"') {
-        if ($esc) 
-          $esc = false;
-        else
-          $str .= '\\';
-      } else {
-        switch ($cur) {
-          case "\n": $cur = '\\n'; break; 
-          case "\r": $cur = '\\r'; break;          
-          case "\t": $cur = '\\t'; break;         
-          case "\f": $cur = '\\f'; break;          
-          case "\v": $cur = '\\v'; break;          
-          case "\e": $cur = '\\e'; break;
-          case '\\': $cur = '\\\\'; break;
-          case '"': $cur = "\\\""; break;
-        }
-      }
-      
-      $str .= $cur;
-    }
-    
-    $str .= '"';
-    return $str;
+    return '"' . $this->format_str($val) . '"';
   }
   
   /**
@@ -197,6 +186,352 @@ class CodeGenerator extends AutoVisitor
       $this->tabs--;
       $this->emitln();
     }
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * collects chained callees e.g.: foo()()
+   *
+   * @param  Node $node
+   * @return array
+   */
+  public function collect_callees($node)
+  {
+    $list = [];
+    $call = $node;
+    
+    for (;;) {
+      $list[] = $call;
+      
+      if ($call->callee instanceof CallExpr)
+        $call = $call->callee;
+      else
+        break;
+    }
+    
+    return $list;
+  }
+  
+  /**
+   * formats a value to a soon-to-be-quoted string
+   *
+   * @param  string $val
+   * @param  string $dlm
+   * @return string
+   */
+  public function format_str($val, $dlm = '"')
+  {
+    $esc = false;
+    $str = '';
+    
+    for ($i = 0, $l = strlen($val); $i < $l; ++$i) {
+      $cur = $val[$i];
+      
+      if ($cur === '\\')
+        $esc = !$esc;
+      elseif ($cur === '"') {
+        if ($esc) 
+          $esc = false;
+        else
+          $str .= '\\';
+      } else {
+        switch ($cur) {
+          case "\n": $cur = '\\n'; break; 
+          case "\r": $cur = '\\r'; break;          
+          case "\t": $cur = '\\t'; break;         
+          case "\f": $cur = '\\f'; break;          
+          case "\v": $cur = '\\v'; break;          
+          case "\e": $cur = '\\e'; break;
+          case '\\': $cur = '\\\\'; break;
+          case $dlm: $cur = "\\$dlm"; break;
+        }
+      }
+      
+      $str .= $cur;
+    }
+    
+    return $str;
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * emits a operator
+   *
+   * @param  Token  $op 
+   * @param  boolean $bin
+   */
+  public function emit_op($op, $bin = false)
+  {
+    $val = $op->value;
+    
+    switch ($op->type) {
+      case T_ACONCAT:
+        $val = '.=';
+        break;
+      case T_CONCAT:
+        if ($bin === true)
+          $val = '.';
+        break;
+    }
+    
+    $this->emit($val);
+  }
+  
+  /**
+   * emits a string literal
+   *
+   * @param  StrLit $node
+   * @param  bool   $cat   concatenate strings if necessary
+   */
+  public function emit_str($node, $cat = true)
+  {
+    assert($node instanceof StrLit);
+    
+    $idx = 1;
+    
+    if ($node->data === '' && $node->parts)
+      // first slice is empty: skip it
+      $idx = 0;
+    else    
+      // emit first slice
+      $this->emit_str_fmt($node->data);
+    
+    if ($node->parts)
+      foreach ($node->parts as $part) {
+        if ($idx > 0) 
+          if ($cat === true)
+            $this->emit(' . ');
+          else
+            $this->emit(', ');
+        
+        if ($part instanceof StrLit)
+          $this->emit_str_fmt($part->data);
+        else {
+          if ($cat === true) {
+            $this->emit('(');
+            $this->visit($part);
+            $this->emit(')');
+          } else
+            $this->visit($part);
+        }
+        
+        $idx++;
+      }
+  }
+  
+  /**
+   * emits a formated string (with quotes and stuff)
+   *
+   * @param  string $val
+   */
+  public function emit_str_fmt($val)
+  {
+    // scan string to decide which delimiter must be used
+    $dlm = "'";
+    $len = strlen($val);
+    
+    if (strpos($val, "\n") !== false ||
+        strpos($val, "\r") !== false ||
+        strpos($val, "\t") !== false ||
+        strpos($val, "\f") !== false ||
+        strpos($val, "\v") !== false ||
+        strpos($val, "\e") !== false)
+      $dlm = '"';
+    
+    $str = '';
+    for ($idx = 0; $idx < $len; ++$idx) {
+      $cur = $val[$idx];
+      
+      switch ($cur) {
+        case "\n": $cur = '\\n'; break;
+        case "\r": $cur = '\\r'; break;
+        case "\t": $cur = '\\t'; break;
+        case "\f": $cur = '\\f'; break;
+        case "\v": $cur = '\\v'; break;
+        case "\e": $cur = '\\e'; break;
+        case '\\': $cur = '\\\\'; break;
+        case $dlm: 
+          $cur = '\\';
+          $cur .= $dlm;
+          break;
+      }
+      
+      $str .= $cur;
+    }
+    
+    // finally
+    $this->emit($dlm, $str, $dlm);
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * emits a value
+   *
+   * @param  Value $value
+   * @return boolean
+   */
+  public function emit_value(Value $value = null)
+  {
+    if ($this->ignv || !$value || $value->is_unkn()) 
+      return false;
+     
+    switch ($value->kind) {
+      case VAL_KIND_INT:
+      case VAL_KIND_FLOAT:
+        $this->emit((string) $value->data);
+        break;
+        
+      case VAL_KIND_STR:
+        $this->emit_str_value($value->data);
+        break;
+        
+      case VAL_KIND_BOOL:
+        $this->emit_bool_value($value->data);
+        break;
+        
+      case VAL_KIND_LIST:
+        $this->emit_list_value($value->data);
+        break;
+        
+      case VAL_KIND_TUPLE:
+        $this->emit_tuple_value($value->data);
+        break;
+        
+      case VAL_KIND_DICT:
+        $this->emit_dict_Value($value->data);
+        break;
+        
+      case VAL_KIND_NULL:
+        $this->emit('null');
+        break;
+        
+      case VAL_KIND_NEW:
+      case VAL_KIND_SYMBOL:
+        return false;
+      
+      default:
+        assert(0);
+    }
+    
+    return true;
+  }
+  
+  /**
+   * emits a string value
+   *
+   * @param  string $val
+   * @return void
+   */
+  public function emit_str_value($val)
+  {
+    $buf = '"' . $this->format_str($val) . '"';
+    
+    if ($this->hstr) {
+      $this->emit('\\');
+      $this->emit(array_push($this->strs, $buf) - 1);
+    } else
+      $this->emit($buf);
+  }
+  
+  /**
+   * emits a boolean value
+   *
+   * @param  boolean $val
+   * @return void
+   */
+  private function emit_bool_value($val) 
+  {
+    $this->emit($val ? 'true' : 'false');
+  }
+  
+  /**
+   * emits a list value
+   *
+   * @param  array $list
+   * @return void
+   */
+  private function emit_list_value($list)
+  {
+    $this->emit('new \\List_(');
+    
+    if (!empty ($list)) {
+      $this->emitln();
+      $this->indent();
+    
+      foreach ($list as $idx => $item) {
+        if ($idx > 0) $this->emitln(',');
+        $this->emit_value($item);
+      }
+      
+      $this->dedent();
+      $this->emitln();
+    }
+    
+    $this->emit(')');
+  }
+  
+  /**
+   * emits a tuple value
+   *
+   * @param  array $list
+   * @return void
+   */
+  private function emit_tuple_value($list)
+  {
+    if (empty ($list)) {
+      $this->emit('[]');
+      return;
+    }
+    
+    $this->emitln('[');
+    $this->indent();
+    
+    foreach ($list as $idx => $item) {
+      if ($idx > 0)
+        $this->emitln(',');
+      
+      $this->emit_value($item);
+    }
+    
+    $this->dedent();
+    $this->emit(']');
+  }
+  
+  /**
+   * emits a list value
+   *
+   * @param  array $list
+   * @return void
+   */
+  private function emit_dict_value($dict)
+  {
+    $this->emit('new \\Dict(');
+    
+    if (!empty ($dict)) {    
+      $this->emitln('[');
+      $this->indent();
+      
+      $idx = 0;
+      foreach ($dict as $key => $val) {
+        if ($idx++ > 0)
+          $this->emitln(',');
+        
+        // PHP converts number-like keys to integers
+        // ... and you can't do anything against it
+        
+        $this->emit_str_value((string)$key);
+        $this->emit(' => ');
+        $this->emit_value($val);
+      }
+      
+      $this->dedent();
+      $this->emit(']');
+    }
+    
+    $this->emit(')');
   }
   
   /* ------------------------------------ */
@@ -239,6 +574,9 @@ class CodeGenerator extends AutoVisitor
   public function emit_fn_decl($node)
   {
     $fsym = $node->symbol;
+    
+    if ($fsym->flags & SYM_FLAG_EXTERN)
+      return;
     
     $this->emit('function ', $fsym->id);
     $this->emit_fn_params($node);
@@ -339,9 +677,9 @@ class CodeGenerator extends AutoVisitor
   {
     static $ttos = [
       T_TINT => 'int',
-      T_TFLOAT => 'float',
       T_TBOOL => 'bool',
-      T_TSTRING => 'string',
+      T_TFLOAT => 'float',
+      T_TSTRING => 'string'
     ];
     
     $fsym = $node->symbol;
@@ -430,8 +768,152 @@ class CodeGenerator extends AutoVisitor
   
   /* ------------------------------------ */
   
-  public function visit_fn_args($args) {}
-  public function visit_fn_params($params) {}
+  /**
+   * hoist dict expressions
+   *
+   * @param  Node $node
+   * @param  string $temp
+   * @return string
+   */
+  public function hoist_dict_expr($node, $temp = null)
+  {
+    if (!($node instanceof ObjLit))
+      return null;
+    
+    $decr = false;
+    
+    if ($temp === null) {
+      $temp = '_T' . (self::$temp++);
+      $decr = true;
+    }
+    
+    $this->emitln('$', $temp, ' = new \\Dict;');
+    
+    foreach ($node->pairs as $pair) {
+      $hdct = null;
+      
+      if ($pair->arg instanceof ObjLit)
+        // hoist value first
+        $hdct = $this->hoist_dict_expr($pair->arg);
+      elseif ($pair->arg instanceof CallExpr) {
+        // hoist call
+        $ctmp = '_T' . (self::$temp++);
+        $this->visit_top_call_expr($pair->arg, $ctmp);
+        $this->emitln(';');
+        self::$temp--;
+        $hdct = '$' . $ctmp;
+      }
+      
+      $this->emit('$', $temp, '->');
+      
+      if ($pair->key instanceof ObjKey) {
+        // computed
+        $this->emit('{');
+        $this->visit($pair->key->expr);
+        $this->emit('}');
+      } else
+        $this->emit(ident_to_str($pair->key));
+        
+      $this->emit(' = ');
+      
+      if ($hdct !== null)
+        $this->emit($hdct);
+      else
+        $this->visit($pair->arg);
+      
+      $this->emitln(';');
+      
+      if ($hdct !== null)
+        $this->emitln('unset (', $hdct, ');');
+    }
+    
+    if ($decr === true)
+      self::$temp--;
+    
+    return '$' . $temp;
+  }
+  
+  /**
+   * hoist dict arguments
+   *
+   * @param  array $node
+   * @return array  
+   */
+  public function hoist_dict_args($node)
+  {
+    if (!$node) return $node;
+    
+    $args = [];
+    $tmpd = 0;
+    
+    foreach ($node as $arg) {
+      // hoist obj-literal
+      if ($arg instanceof ObjLit) {
+        $arg = $this->hoist_dict_expr($arg);
+        self::$temp++; // keep `temp` incremented for now
+        $tmpd++;
+        
+      // hoist call
+      } elseif ($arg instanceof CallExpr) {
+        $temp = '_T' . (self::$temp++);
+        $this->visit_top_call_expr($arg, $temp);
+        $this->emitln(';');
+        $arg = '$' . $temp;
+        $tmpd++;
+      }
+      
+      // else
+      // don't touch $arg
+      
+      $args[] = $arg;
+    }
+    
+    self::$temp -= $tmpd;
+    return $args;
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * Visitor#visit_fn_args()
+   *
+   * @param  array $args
+   */
+  public function visit_fn_args($args) 
+  {
+    $this->emit('(');
+    
+    if (!empty($args)) {
+      $len = count($args);
+      foreach ($args as $idx => $arg) {
+        if ($idx > 0) $this->emit(', ');
+        
+        // due to "hoist_dict_args()"
+        if (is_string($arg))
+          $this->emit($arg);
+        
+        elseif ($arg instanceof RestArg) {
+          $this->emit('...');
+          $this->visit($arg->expr);
+        } 
+        
+        else
+          $this->visit($arg);
+      }
+    }
+    
+    $this->emit(')');
+  }
+  
+  /**
+   * Visitor#visit_fn_params()
+   *
+   * @param  array $params
+   */
+  public function visit_fn_params($params) 
+  {
+    // handled by emit_fn_params()
+  }
   
   /* ------------------------------------ */
   
@@ -482,20 +964,11 @@ class CodeGenerator extends AutoVisitor
     
     $this->emitln('{');
     $this->indent();
-    
     $this->visit($node->body);
+    $this->dedent();
+    $this->emitln('}');
     
     // unset vars  
-    // 
-    // note: PHP awesomely handles captured variables as one might expect.
-    // there is no need to write workarounds for code like:
-    // 
-    // $foo = 1;
-    // $bar = function() use (&$foo) { echo $foo; };
-    // unset ($foo); // <- no problem, just decreases its refcount :-)
-    // $bar(); // 1
-    //     
-    // therefore block-scope can be safely simulated with unset()
     $scope = $node->scope;
     if ($scope->count()) {
       $this->emit('unset (');
@@ -509,9 +982,6 @@ class CodeGenerator extends AutoVisitor
       $this->emitln(';');
     }
     
-    $this->dedent();
-    $this->emitln('}');
-    
     $this->nest--;
   }
   
@@ -521,7 +991,12 @@ class CodeGenerator extends AutoVisitor
   }
   
   public function visit_class_decl($n) {}
-  public function visit_nested_mods($n) {}
+  
+  public function visit_nested_mods($node) 
+  {
+    // noop
+  }
+  
   public function visit_ctor_decl($n) {}
   public function visit_dtor_decl($n) {}
   public function visit_getter_decl($n) {}
@@ -544,8 +1019,16 @@ class CodeGenerator extends AutoVisitor
         // no declaration needed
         continue;
       
+      $temp = $this->hoist_dict_expr($var->init);
       $this->emit('$', $var->symbol->id, ' = ');
-      $this->visit($var->init);
+      
+      if ($temp !== null) {
+        $this->emit($temp);
+        $this->emitln(';');
+        $this->emit('unset (', $temp, ')');
+      } else
+        $this->visit($var->init);
+      
       $this->emitln(';');
     }
   }
@@ -624,7 +1107,16 @@ class CodeGenerator extends AutoVisitor
     $this->emit(') ');
     $this->visit($node->stmt);  
     
-    // TODO: unset vars
+    if ($node->init instanceof VarDecl) {
+      $this->emit('unset (');
+      
+      foreach ($node->init->vars as $idx => $var) {
+        if ($idx > 0) $this->emit(', ');
+        $this->emit('$', $var->symbol->id);
+      }
+      
+      $this->emit(');');
+    }
   }
   
   public function visit_for_in_stmt($node) 
@@ -652,20 +1144,289 @@ class CodeGenerator extends AutoVisitor
     $this->emitln(');');
   }
   
-  public function visit_try_stmt($n) {}
-  public function visit_php_stmt($n) {}
-  public function visit_goto_stmt($n) {}
-  public function visit_test_stmt($n) {}
+  public function visit_try_stmt($node) 
+  {
+    // TODO: implement try-catch-finally
+  }
+  
+  public function visit_php_stmt($node) 
+  {
+    $this->emitln('/* inline php {{ */');
+    $this->indent();
+    
+    // TODO: resolve usage!
+    $this->emit_str($node->code);
+    
+    $this->dedent();
+    $this->emitln('/* inline php }} */');
+  }
+  
+  public function visit_goto_stmt($node) 
+  {
+    $this->emitln('goto ', ident_to_str($node->id), ';');  
+  }
+  
+  public function visit_test_stmt($node) 
+  {
+    // if INCLUDE_TESTS
+    // ...
+    // TODO: implement
+  }
+  
   public function visit_break_stmt($n) {}
   public function visit_continue_stmt($n) {}
-  public function visit_print_stmt($n) {}
-  public function visit_throw_stmt($n) {}
-  public function visit_while_stmt($n) {}
-  public function visit_assert_stmt($n) {}
-  public function visit_switch_stmt($n) {}
-  public function visit_return_stmt($n) {}
-  public function visit_expr_stmt($n) {}
-  public function visit_paren_expr($n) {}
+  
+  public function visit_print_stmt($node) 
+  {
+    $this->emit('echo ');
+    
+    foreach ($node->expr as $i => $expr) {
+      if ($i > 0) $this->emit(', ');
+      
+      if ($expr instanceof StrLit)
+        $this->emit_str($expr, false);
+      else
+        $this->visit($expr);
+    }
+    
+    $this->emitln(', \\PHP_EOL;');
+  }
+  
+  public function visit_throw_stmt($node) 
+  {
+    $this->emit('throw ');
+    $this->visit($node->expr);
+    $this->emitln(';');  
+  }
+  
+  public function visit_while_stmt($node) 
+  {
+    $this->emit('while (');
+    $this->visit($node->test);
+    $this->emit(') ');
+    $this->visit($node->stmt);   
+  }
+  
+  public function visit_assert_stmt($node) 
+  {
+    $this->emit('\\assert(');
+    $this->visit($node->expr);
+    
+    if ($node->message) {
+      $this->emit(', ');
+      $this->visit($node->message);
+    }
+    
+    $this->emitln(');');  
+  }
+  
+  public function visit_switch_stmt($node) 
+  {
+    $this->emit('switch (');
+    $this->visit($node->test);
+    $this->emitln(') {');
+    $this->indent();
+    
+    foreach ($node->cases as $case) {
+      $len = count($case->labels);
+      foreach ($case->labels as $idx => $label) {
+        if ($label->expr === null)
+          $this->emit('default:');
+        else {
+          $this->emit('case ');
+          $this->visit($label->expr);
+          $this->emit(':');
+        }
+        
+        if ($idx + 1 < $len)
+          $this->emitln();
+      }
+      
+      $this->indent();
+      $this->visit($case->body);
+      $this->dedent();
+    }
+    
+    $this->dedent();
+    $this->emitln('}');
+  }
+  
+  public function visit_return_stmt($node) 
+  {
+    $this->emit('return');
+    
+    if ($node->expr) {
+      $this->emit(' ');
+      $this->visit($node->expr);
+    }
+    
+    $this->emitln(';');
+  }
+  
+  public function visit_expr_stmt($node) 
+  {
+    if ($node->expr)
+      foreach ($node->expr as $expr) {
+        /* specialized call */
+        if ($expr instanceof CallExpr)
+          $this->visit_top_call_expr($expr);
+        
+        /* specialized assign */
+        elseif ($expr instanceof AssignExpr)
+          $this->visit_top_assign_expr($expr);
+        
+        /* everything else */
+        else
+          $this->visit($expr);
+        
+        $this->emitln(';');
+      }
+    else
+      $this->emitln(';');
+  }
+  
+  /**
+   * specialized version of Visitor#visit_call_expr()
+   *
+   * @param  Node $node
+   * @param  string  $temp
+   */
+  public function visit_top_call_expr($node, $temp = null)
+  {
+    /* chained call */
+    if ($node->callee instanceof CallExpr) {
+      // this is a optimized form of what 
+      // visit_call_expr() already does with chained calls
+      
+      $decr = $temp === null;
+      $list = $this->collect_callees($node);
+      $temp = $temp ?: '_T' . (self::$temp++);
+      $init = array_pop($list);
+      
+      // special dict-argument-handler
+      $args = $this->hoist_dict_args($init->args);
+      
+      // foo()() ->
+      // $_T = foo();
+      // $_T = $_T();
+      // ...
+      $this->emit('$', $temp, ' = ');
+      $this->visit($init->callee);
+      $this->visit_fn_args($args);
+      
+      $tmpd = [];
+      foreach ($args as $arg)
+        if (is_string($arg))
+          $tmpd[] = $arg;
+        
+      while (!empty ($list)) {
+        $this->emitln(';');
+        $this->emit('$', $temp, ' = $', $temp);
+        
+        $call = array_pop($list);
+        $args = $this->hoist_dict_args($call->args);
+        $this->visit_fn_args($args);
+        
+        foreach ($args as $arg)
+          if (is_string($arg))
+            $tmpd[] = $arg;
+      }
+      
+      if ($decr === true) {
+        self::$temp--;
+        $tmpd[] = '$' . $temp;
+      }
+      
+      if (!empty ($tmpd)) {
+        $this->emitln(';');
+        $this->emit('unset (');
+        foreach ($tmpd as $idx => $temp) {
+          if ($idx > 0) $this->emit(', ');
+          $this->emit($temp);
+        }
+        $this->emit(')');
+      }
+      
+    /* normal call */
+    } else {
+      $args = $this->hoist_dict_args($node->args);
+      
+      if ($temp !== null)
+        $this->emit('$', $temp, ' = ');
+      
+      $this->visit($node->callee);
+      $this->visit_fn_args($args);
+      
+      $tmpd = [];
+      foreach ($args as $arg)
+        if (is_string($arg))
+          $tmpd[] = $arg;
+        
+      if (!empty ($tmpd)) {
+        $this->emitln(';');
+        $this->emit('unset (');
+        foreach ($tmpd as $idx => $temp) {
+          if ($idx > 0) $this->emit(', ');
+          $this->emit($temp);
+        }
+        $this->emit(')');
+      }
+    }
+  }
+  
+  /**
+   * specialized version of Visitor#visit_assign_expr()
+   *
+   * @param  Node $node
+   */
+  public function visit_top_assign_expr($node)
+  {
+    /* hoist dictionary literals */
+    if ($node->right instanceof ObjLit) {
+      $temp = $this->hoist_dict_expr($node->right);
+      $this->visit($node->left);
+      $this->emit_op($node->op);
+      
+      if ($temp !== null) {
+        $this->emit($temp);
+        $this->emitln(';');
+        $this->emit('unset (', $temp, ')');
+      } else
+        $this->visit($node->right);
+      
+    /* call */
+    } elseif ($node->right instanceof CallExpr) {
+      // layout call
+      if (($node->left instanceof Name ||
+           $node->left instanceof Ident) &&
+          $node->op->type === T_ASSIGN &&
+          $node->left->symbol instanceof VarSymbol) {
+        $temp = $node->left->symbol->id;
+        $this->visit_top_call_expr($node->right, $temp);
+        
+      // hoist call
+      } else {
+        $temp = '_T' . (self::$temp++);
+        $this->visit_top_call_expr($node->right, $temp);
+        $this->visit($node->left);
+        $this->emit_op($node->op);
+        $this->emitln('$', $temp, ';');
+        $this->emit('unset ($', $temp, ')');
+        self::$temp--;
+      }
+      
+    /* not special */ 
+    } else
+      $this->visit_assign_expr($node);
+  }
+  
+  public function visit_paren_expr($node) 
+  {
+    $this->emit('(');
+    $this->visit($node->expr);
+    $this->emit(')');  
+  }
+  
   public function visit_tuple_expr($n) {}
   
   public function visit_fn_expr($node) 
@@ -673,36 +1434,297 @@ class CodeGenerator extends AutoVisitor
     $this->emit_fn_expr($node);
   }
   
-  public function visit_bin_expr($n) {}
-  public function visit_check_expr($n) {}
+  public function visit_bin_expr($node) 
+  {
+    if ($this->emit_value($node->value))
+      return;
+    
+    $this->visit($node->left);
+    $this->emit(' ');
+    $this->emit($node->op->value);
+    $this->emit(' ');
+    $this->visit($node->right);    
+  }
+  
+  public function visit_check_expr($node) 
+  {
+    if ($this->emit_value($node->value))
+      return;
+    
+    $this->visit($node->left);
+    $this->emit(' ');
+    $this->emit($node->op->value);
+    $this->emit(' ');
+    $this->visit($node->right); 
+  }
+  
   public function visit_cast_expr($n) {}
-  public function visit_update_expr($n) {}
-  public function visit_assign_expr($n) {}
-  public function visit_member_expr($n) {}
-  public function visit_offset_expr($n) {}
-  public function visit_cond_expr($n) {}
-  public function visit_call_expr($n) {}
+  
+  public function visit_update_expr($node) 
+  {
+    if ($node->prefix)
+      $this->emit($node->op->value);
+    
+    $this->visit($node->expr);
+    
+    if (!$node->prefix)
+      $this->emit($node->op->value);
+  }
+  
+  public function visit_assign_expr($node) 
+  {
+    $this->visit($node->left);
+    $this->emit(' ');
+    $this->emit_op($node->op);
+    $this->emit(' ');
+    $this->visit($node->right);  
+  }
+  
+  public function visit_member_expr($node) 
+  {
+    if ($this->emit_value($node->value))
+      return;
+    
+    $paren = false;
+    if ($node->object instanceof NewExpr) {
+      $paren = true;
+      $this->emit('(');
+    }
+    
+    $this->visit($node->object);
+    
+    if ($paren)
+      $this->emit(')');
+    
+    $this->emit('->');
+    
+    if ($node->computed)
+      $this->emit('{'); 
+    
+    $this->visit($node->member);
+    
+    if ($node->computed)
+      $this->emit('}');
+  }
+  
+  public function visit_offset_expr($node) 
+  {
+    if ($this->emit_value($node->value))
+      return;
+    
+    $this->visit($node->object);
+    $this->emit('[');
+    $this->visit($node->offset);
+    $this->emit(']');
+  }
+  
+  public function visit_cond_expr($node) 
+  {
+    if ($this->emit_value($node->value))
+      return;
+    
+    $this->visit($node->test);
+    $this->emit(' ? ');
+    
+    if ($node->then)
+      $this->visit($node->then);
+    
+    $this->emit(' : ');
+    $this->visit($node->els);
+  }
+  
+  public function visit_call_expr($node) 
+  {
+    if ($node->callee instanceof CallExpr) {
+      // foo()() is not possible in PHP
+      // therefore we have to generate a workaround      
+      
+      $list = $this->collect_callees($node);
+      $temp = '_T' . (self::$temp++);
+      $init = array_pop($list);
+      
+      // foo()() ->
+      // [
+      //   0 => $_T = foo(), 
+      //   0 => $_T = $_T() 
+      // ][0]
+      $this->emitln('[ /* chained call */');
+      $this->indent();
+      $this->emit('0 => ($', $temp, ' = ');
+      
+      $this->visit($init->callee);
+      $this->visit_fn_args($init->args);
+      
+      while (!empty ($list)) {
+        $this->emitln('),');
+        $this->emit('0 => ($', $temp, ' = $', $temp);
+        $this->visit_fn_args(array_pop($list)->args);
+      }
+      
+      $this->emit(')');
+      $this->dedent();
+      $this->emit('][0]');
+      
+      self::$temp--;
+    } else {
+      $this->visit($node->callee);
+      $this->visit_fn_args($node->args);
+    }
+  }
+  
   public function visit_yield_expr($n) {}
   public function visit_unary_expr($n) {}
   public function visit_new_expr($n) {}
   public function visit_del_expr($n) {}
-  public function visit_lnum_lit($n) {}
-  public function visit_dnum_lit($n) {}
-  public function visit_snum_lit($n) {}
+  
+  public function visit_lnum_lit($node) 
+  {
+    $this->emit($node->data);  
+  }
+  
+  public function visit_dnum_lit($node) 
+  {
+    $this->emit($node->data);  
+  }
+  
+  public function visit_snum_lit($node) 
+  {
+    // TODO: implement snums
+  }
+  
   public function visit_regexp_lit($n) {}
+  
+  
   public function visit_arr_gen($n) {}
-  public function visit_arr_lit($n) {}
-  public function visit_obj_lit($n) {}
-  public function visit_name($n) {}
-  public function visit_ident($n) {}
-  public function visit_this_expr($n) {}
-  public function visit_super_expr($n) {}
-  public function visit_self_expr($n) {}
-  public function visit_null_lit($n) {}
-  public function visit_true_lit($n) {}
-  public function visit_false_lit($n) {}
-  public function visit_str_lit($n) {}
-  public function visit_kstr_lit($n) {}
-  public function visit_type_id($n) {}
-  public function visit_engine_const($n) {}
+  
+  public function visit_arr_lit($node) 
+  {
+    if ($this->emit_Value($node->value))
+      return;
+    
+    $this->emit('new \\List_(');
+    
+    if (!empty ($node->items)) {    
+    $this->emit('[');
+    $this->tabs++;
+    $this->emitln('');
+    
+    $len = count($node->items);
+    foreach ($node->items as $idx => $item) {
+      $this->visit($item);
+      
+      if ($idx + 1 < $len)
+        $this->emitln(', ');
+    }  
+    
+    $this->tabs--;
+    $this->emitln('');
+    $this->emit(']');
+    }
+    
+    $this->emit(')');
+  }
+  
+  public function visit_obj_lit($node) 
+  {
+    if ($this->emit_value($node->value))
+      return;
+    
+    $this->emit('new \\Dict(');
+    
+    if (!empty ($node->pairs)) {
+      $this->emitln('[');
+      $this->indent();
+      
+      foreach ($node->pairs as $idx => $pair) {
+        if ($idx > 0) $this->emitln(', ');
+        if ($pair->key instanceof ObjKey) {
+          $this->emit('(');
+          $this->visit($pair->key->expr);
+          $this->emit(')');
+        } else
+          $this->emitqs(ident_to_str($pair->key));
+        
+        $this->emit(' => ');
+        $this->visit($pair->arg);
+      }
+      
+      $this->dedent();
+      $this->emit(']');
+    }
+    
+    $this->emit(')');  
+  }
+  
+  public function visit_name($node) 
+  {
+    $sym = $node->symbol;
+    
+    if ($sym instanceof VarSymbol ||
+        ($sym instanceof FnSymbol && $sym->nested))
+      $this->emit('$', $sym->id);
+    else
+      $this->emit('\\', path_to_ns($sym->path()));
+  }
+  
+  public function visit_ident($node) 
+  {
+    $sym = $node->symbol;
+    
+    if ($sym instanceof VarSymbol ||
+        ($sym instanceof FnSymbol && $sym->nested))
+      $this->emit('$', $sym->id);
+    else
+      $this->emit('\\', path_to_ns($sym->path()));  
+  }
+  
+  public function visit_this_expr($node) 
+  {
+    $this->emit('$this');
+  }
+  
+  public function visit_super_expr($node) 
+  {
+    $this->emit('parent');  
+  }
+  
+  public function visit_self_expr($node) 
+  {
+    $this->emit('self');  
+  }
+  
+  public function visit_null_lit($node) 
+  {
+    $this->emit('null');  
+  }
+  
+  public function visit_true_lit($node) 
+  {
+    $this->emit('true');  
+  }
+  
+  public function visit_false_lit($node) 
+  {
+    $this->emit('false');  
+  }
+  
+  public function visit_str_lit($node) 
+  {
+    $this->emit_str($node);
+  }
+  
+  public function visit_kstr_lit($node) 
+  {
+    $this->emitqs($node->data);  
+  }
+  
+  public function visit_type_id($node) 
+  {
+    // noop  
+  }
+  
+  public function visit_engine_const($node) 
+  {
+    $this->emitqs($node->data);
+  }
 }
