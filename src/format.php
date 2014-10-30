@@ -1038,6 +1038,26 @@ class AstFormatter extends Visitor
   }
   
   /**
+   * Visitor#visit_var_list()
+   *
+   * @param  Node  $node
+   * @return void
+   */
+  public function visit_var_list($node) 
+  {
+    $this->emit('let (');
+      
+    foreach ($node->vars as $idx => $var) {
+      if ($idx > 0) $this->emit(', ');
+      $this->emit(ident_to_str($var));
+    }
+    
+    $this->emit(' ) = ');
+    $this->visit($node->expr);
+    $this->emitln(';');
+  }
+  
+  /**
    * Visitor#visit_use_decl()
    *
    * @param  Node  $node

@@ -131,6 +131,7 @@ abstract class Visitor
   public function visit_iface_decl($n) {}
   public function visit_fn_decl($n) {}
   public function visit_var_decl($n) {}
+  public function visit_var_list($n) {}
   public function visit_use_decl($n) {}
   public function visit_require_decl($n) {}
   public function visit_label_decl($n) {}
@@ -343,6 +344,17 @@ abstract class AutoVisitor extends Visitor
     foreach ($node->vars as $var)
       if ($var->init)
         $this->visit($var->init);  
+  }
+  
+  /**
+   * Visitor#visit_var_list()
+   *
+   * @param  Node  $node
+   * @return void
+   */
+  public function visit_var_list($node) 
+  {
+    $this->visit($node->expr);
   }
   
   /**

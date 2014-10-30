@@ -33,6 +33,7 @@ require_once 'ast/trait_decl.php';
 require_once 'ast/iface_decl.php';
 require_once 'ast/var_item.php';
 require_once 'ast/var_decl.php';
+require_once 'ast/var_list.php';
 require_once 'ast/fn_decl.php';
 require_once 'ast/fn_expr.php';
 require_once 'ast/param.php';

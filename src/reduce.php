@@ -1494,6 +1494,17 @@ class ReduceTask extends Visitor implements Task
   }
   
   /**
+   * Visitor#visit_var_list()
+   *
+   * @param  Node  $node
+   * @return void
+   */
+  public function visit_var_list($node) 
+  {
+    $this->visit($node->expr);  
+  }
+  
+  /**
    * Visitor#visit_use_decl()
    *
    * @param Node $node

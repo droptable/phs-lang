@@ -463,13 +463,23 @@ class ValidateTask extends Visitor implements Task
    */
   private function has_private_mod($mods)
   {
-    if (!$mods) return false;
+    // private by default
+    if (!$mods) return true;
     
-    foreach ($mods as $mod)
+    $other = false;
+    
+    foreach ($mods as $mod) {
       if ($mod->type === T_PRIVATE) 
         return true;
+      
+      if ($mod->type === T_PUBLIC ||
+          $mod->type === T_PROTECTED) {
+        $other = true;
+        break;
+      }
+    }
     
-    return false;
+    return !$other;
   }
   
   /**
@@ -915,6 +925,24 @@ class ValidateTask extends Visitor implements Task
         $this->visit($var->init);
         $this->dict = $dict;
       }
+  }
+  
+  /**
+   * Visitor#visit_var_list()
+   *
+   * @param  Node  $node
+   * @return void
+   */
+  public function visit_var_list($node) 
+  {
+    if ($this->within('iface', [ '*' ]) || 
+        $this->within('trait', [ '*' ]) || 
+        $this->within('class', [ '*' ])) {
+      Logger::error_at($node->loc, 'variable list (unpacking) is not \\');
+      Logger::error('allowed directly in classes, interfaces or traits');
+    }
+    
+    $this->visit($node->expr);
   }
   
   /**

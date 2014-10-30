@@ -242,6 +242,20 @@ class NodeCollector extends AutoVisitor
   }
   
   /**
+   * AutoVisitor#visit_var_list()
+   *
+   * @param  Node $node
+   */
+  public function visit_var_list($node)
+  {
+    foreach ($node->vars as $var) {
+      $sym = $var->symbol = VarSymbol::from($var);
+      $sym->value = Value::$UNDEF;
+      $this->scope->add($sym);
+    }
+  }
+  
+  /**
    * AutoVisitor#visit_fn_expr()
    *
    * @param  Node $node

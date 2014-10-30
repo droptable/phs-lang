@@ -672,6 +672,12 @@ class FnSymbol extends Symbol
   // @var boolean  this is a function-expression
   public $expr;
   
+  // @var boolean
+  public $ctor;
+  
+  // @var boolean
+  public $dtor;
+  
   // @var boolean  whenever this symbol is nested
   public $nested;
   
@@ -770,6 +776,8 @@ class FnSymbol extends Symbol
     
     $sym = new FnSymbol($id, $node->loc, $flags);
     $sym->expr = $node instanceof FnExpr;
+    $sym->ctor = $node instanceof CtorDecl;
+    $sym->dtor = $node instanceof DtorDecl;
     $sym->node = $node;
     $sym->nested = false;
     return $sym;
@@ -839,16 +847,17 @@ class VarSymbol extends Symbol
    * 
    * @todo VarItem and EnumVar should implement a shared interface
    * 
-   * @param  VarItem|EnumVar $var
+   * @param  VarItem|EnumVar|Ident $var
    * @param  mixed  $mods
    * @return VarSymbol
    */
-  public static function from($var, $mods)
+  public static function from($var, $mods = SYM_FLAG_NONE)
   {
     assert($var instanceof VarItem ||
-           $var instanceof EnumVar);
+           $var instanceof EnumVar ||
+           $var instanceof Ident);
     
-    $id = ident_to_str($var->id);
+    $id = ident_to_str($var instanceof Ident ? $var : $var->id);
     $flags = is_int($mods) ? $mods : mods_to_sym_flags($mods);
     
     $sym = new VarSymbol($id, $var->loc, $flags);

@@ -567,6 +567,83 @@ class CodeGenerator extends AutoVisitor
   /* ------------------------------------ */
   
   /**
+   * emits member modifiers
+   *
+   * @param  Symbol $sym
+   */
+  public function emit_member_mods(Symbol $sym)
+  {
+    if ($sym->flags & SYM_FLAG_PUBLIC)
+      $this->emit('public ');
+    elseif ($sym->flags & SYM_FLAG_PRIVATE)
+      $this->emit('private ');
+    elseif ($sym->flags & SYM_FLAG_PROTECTED)
+      $this->emit('protected ');
+    
+    if ($sym->flags & SYM_FLAG_STATIC)
+      $this->emit('static ');
+    
+    if ($sym instanceof FnSymbol) { 
+      if ($sym->flags & SYM_FLAG_ABSTRACT)
+        $this->emit('abstract ');
+      elseif ($sym->flags & SYM_FLAG_FINAL)
+        $this->emit('final ');
+    }
+  }
+  
+  /**
+   * emits a function-member (function declaration)
+   * 
+   * @param  FnSymbol  $fsym
+   */
+  public function emit_fn_member(FnSymbol $fsym)
+  {
+    $this->emit_member_mods($fsym);
+    
+    $this->emit('function ');
+    
+    if ($fsym->ctor)
+      $this->emit('__construct');
+    elseif ($fsym->dtor)
+      $this->emit('__destruct');
+    else
+      $this->emit($fsym->id);
+    
+    $this->emit_fn_params($fsym->node);
+    
+    if (!($fsym->flags & SYM_FLAG_ABSTRACT)) {
+      if ($fsym->ctor)
+        $this->emitln('{}');
+      else
+        $this->emit_fn_body($fsym->node);
+    }
+  }
+  
+  /**
+   * emits a variable member
+   *
+   * @param  VarSymbol $vsym
+   */
+  public function emit_var_member(VarSymbol $vsym)
+  {
+    $this->emit_member_mods($vsym);
+    
+    $this->emit('$', $vsym->id);
+    
+    // init with primitive value
+    if ($vsym->value && $vsym->value->is_primitive()) {
+      $this->emit(' = ');
+      $this->emit_value($sym->value);
+    }
+    
+    // non-primitive values are initialized in the constructor
+    
+    $this->emitln(';');
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
    * emits a function-declaration
    *
    * @param  Node $node
@@ -753,7 +830,7 @@ class CodeGenerator extends AutoVisitor
     $this->emit_fn_checks($node);
     
     // visit block-body directly
-    $this->nest++;
+    $this->nest++;    
     $this->visit($node->body->body);
     $this->nest--;
     
@@ -990,7 +1067,59 @@ class CodeGenerator extends AutoVisitor
     // TODO: implement enums
   }
   
-  public function visit_class_decl($n) {}
+  public function visit_class_decl($node) 
+  {
+    $csym = $node->symbol;
+    
+    if ($csym->flags & SYM_FLAG_EXTERN)
+      return;
+    
+    if ($csym->flags & SYM_FLAG_ABSTRACT)
+      $this->emit('abstract ');
+    elseif ($csym->flags & SYM_FLAG_FINAL)
+      $this->emit('final ');
+    
+    $this->emit('class ', $csym->id);
+    
+    if ($csym->super) {
+      $this->emit(' extends \\');
+      $this->emit(path_to_ns($csym->super->symbol->path()));
+    }
+    
+    if ($csym->ifaces) {
+      $this->emit(' implements ');
+      foreach ($csym->ifaces as $idx => $iface) {
+        if ($idx > 0) $this->emit(', ');
+        $this->emit('\\', path_to_ns($iface->symbol->path()));  
+      }
+    }
+    
+    $this->emitln(' {');
+    $this->indent();
+    
+    $vars = [];
+    $funs = [];
+    
+    foreach ($csym->members->iter() as $msym)
+      if ($msym instanceof VarSymbol)
+        $vars[] = $msym;
+      else
+        $funs[] = $msym;
+    
+    // 1. emit properties
+    foreach ($vars as $var) 
+      $this->emit_var_member($var);
+    
+    if (!empty ($vars))
+      $this->emitln();
+    
+    // 2. emit methods
+    foreach ($funs as $fun)
+      $this->emit_fn_member($fun);
+    
+    $this->dedent();
+    $this->emitln('}');
+  }
   
   public function visit_nested_mods($node) 
   {
@@ -1031,6 +1160,20 @@ class CodeGenerator extends AutoVisitor
       
       $this->emitln(';');
     }
+  }
+  
+  public function visit_var_list($node)
+  {
+    $this->emit('list (');
+      
+    foreach ($node->vars as $idx => $var) {
+      if ($idx > 0) $this->emit(', ');
+      $this->emit('$', $var->symbol->id);
+    }
+    
+    $this->emit(') = ');
+    $this->visit($node->expr);
+    $this->emitln(';');
   }
   
   public function visit_use_decl($node) 
@@ -1427,7 +1570,20 @@ class CodeGenerator extends AutoVisitor
     $this->emit(')');  
   }
   
-  public function visit_tuple_expr($n) {}
+  public function visit_tuple_expr($node) 
+  {
+    if ($this->emit_value($node->value))
+      return;
+    
+    $this->emit('[ ');
+    
+    foreach ($node->seq as $idx => $item) {
+      if ($idx > 0) $this->emit(', ');
+      $this->visit($item);
+    }
+    
+    $this->emit(' ]');
+  }
   
   public function visit_fn_expr($node) 
   {
@@ -1498,13 +1654,12 @@ class CodeGenerator extends AutoVisitor
     
     $this->emit('->');
     
-    if ($node->computed)
+    if ($node->computed) {
       $this->emit('{'); 
-    
-    $this->visit($node->member);
-    
-    if ($node->computed)
+      $this->visit($node->member);
       $this->emit('}');
+    } else
+      $this->emit(ident_to_str($node->member));
   }
   
   public function visit_offset_expr($node) 
@@ -1599,27 +1754,19 @@ class CodeGenerator extends AutoVisitor
   
   public function visit_arr_lit($node) 
   {
-    if ($this->emit_Value($node->value))
+    if ($this->emit_value($node->value))
       return;
     
     $this->emit('new \\List_(');
     
-    if (!empty ($node->items)) {    
-    $this->emit('[');
-    $this->tabs++;
-    $this->emitln('');
-    
-    $len = count($node->items);
-    foreach ($node->items as $idx => $item) {
-      $this->visit($item);
-      
-      if ($idx + 1 < $len)
-        $this->emitln(', ');
-    }  
-    
-    $this->tabs--;
-    $this->emitln('');
-    $this->emit(']');
+    if (!empty ($node->items)) {
+      $this->emitln();
+      $this->indent();
+      foreach ($node->items as $idx => $item) {
+        if ($idx > 0) $this->emitln(', ');
+        $this->visit($item);
+      }
+      $this->dedent();
     }
     
     $this->emit(')');
@@ -1660,22 +1807,29 @@ class CodeGenerator extends AutoVisitor
   {
     $sym = $node->symbol;
     
-    if ($sym instanceof VarSymbol ||
-        ($sym instanceof FnSymbol && $sym->nested))
-      $this->emit('$', $sym->id);
-    else
-      $this->emit('\\', path_to_ns($sym->path()));
+    if ($sym === null) {
+      echo "\nname ", name_to_str($node), " has no symbol!";
+      assert(0);
+    }
+    
+    if (($sym instanceof VarSymbol) ||
+        ($sym instanceof FnSymbol && $sym->nested)) {
+      $this->emit('$');
+      
+      if (($sym->scope instanceof MemberScope) ||
+          ($sym->scope instanceof InnerScope && 
+           $sym->scope->outer instanceof MemberScope))
+        $this->emit('this->');
+      
+      $this->emit($sym->id);
+    } else
+      $this->emit('\\', path_to_ns($sym->path()));  
   }
   
   public function visit_ident($node) 
   {
-    $sym = $node->symbol;
-    
-    if ($sym instanceof VarSymbol ||
-        ($sym instanceof FnSymbol && $sym->nested))
-      $this->emit('$', $sym->id);
-    else
-      $this->emit('\\', path_to_ns($sym->path()));  
+    Logger::assert_at($node->loc, false, 
+      'visit ident %s ?', ident_to_str(node));
   }
   
   public function visit_this_expr($node) 

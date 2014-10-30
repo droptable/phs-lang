@@ -368,11 +368,16 @@ class ResolveTask extends AutoVisitor implements Task
       foreach ($sym->members->iter(SYM_FN_NS) as $fn) {
         if ($fn instanceof FnSymbol && 
             $fn->flags & SYM_FLAG_ABSTRACT) {
-          Logger::debug('marking %s as abstract', $sym);
           $sym->flags |= SYM_FLAG_ABSTRACT;
           break;
         }
       }
+      
+    if (($sym->flags & SYM_FLAG_ABSTRACT) &&
+        ($sym->flags & SYM_FLAG_FINAL)) {
+      Logger::error_at($sym->loc, '%s cannot be \\', $sym);
+      Logger::error('abstract and final at the same time');
+    }
     
     // mark vars inside as reachable
     foreach ($sym->members->iter(SYM_VAR_NS) as $var)
@@ -1045,6 +1050,15 @@ class ResolveTask extends AutoVisitor implements Task
     }
   }
   
+  public function visit_var_list($node)
+  {
+    foreach ($node->vars as $var)
+      // mark variable as reachable
+      $var->symbol->reachable = true;
+    
+    $this->visit($node->expr);
+  }
+
   public function visit_enum_decl($node)
   {
     foreach ($node->vars as $var) {

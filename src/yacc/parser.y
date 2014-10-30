@@ -513,11 +513,21 @@ comp
   | stmt           { $$ = $1; }
   ;
 
+var_list
+  : ident              { $$ = [ $1 ]; }
+  | var_list ',' ident { $1[] = $3; $$ = $1; }
+  ;
+
 var_decl
-  :  T_LET vars ';' 
+  : T_LET vars ';' 
     { 
       $$ = @VarDecl(null, $2); 
       $this->eat_semis(); 
+    }
+  | T_LET '(' var_list ')' '=' rxpr ';'
+    {
+      $$ = @VarList($3, $6);
+      $this->eat_semis();
     }
   | mods vars ';' 
     { 

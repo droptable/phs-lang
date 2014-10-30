@@ -215,8 +215,10 @@ class MangleTask extends AutoVisitor implements Task
    */
   public function visit_ctor_decl($node)
   {
+    $this->nest++;
     $this->handle($node->scope);
     parent::visit_ctor_decl($node);
+    $this->nest--;
   }
   
   /**
@@ -226,8 +228,10 @@ class MangleTask extends AutoVisitor implements Task
    */
   public function visit_dtor_decl($node)
   {
+    $this->nest++;
     $this->handle($node->scope);
     parent::visit_dtor_decl($node);
+    $this->nest--;
   }
   
   /**
