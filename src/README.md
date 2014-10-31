@@ -1,11 +1,11 @@
-`front/` Syntax & Semantic analysis
-`front/ast` Syntaxtree definitions
-`front/yacc` kmyacc parsergenerator tools (https://github.com/moriyoshi/kmyacc-forked)
-`front/yacc/parser.y` The grammar
-`front/yacc/parser.sk` The parsersekeleton
-`front/yacc/build.php` Script to (re-)generate the parser
+`/ast` Syntaxtree 
 
+`/yacc` kmyacc parsergenerator tools (https://github.com/moriyoshi/kmyacc-forked)
 
-`back/` Optimization and Codegeneration
-`back/target` Targets for the codegenerator
+`/yacc/parser.y` The grammar
+
+`/yacc/parser.sk` The parsersekeleton
+
+`/yacc/build.php` Script to (re-)generate the parser
+
 

@@ -40,6 +40,7 @@ class Dict extends Obj
   /**
    * constructor
    *
+   * @param array  $dict  an array with key-value pairs for this dict
    */
   public function __construct(array $dict = [])
   {
@@ -48,7 +49,7 @@ class Dict extends Obj
     // this can be a performance problem
     // TODO: find a way to optimize this
     foreach ($dict as $key => &$val)
-      $this->{$key} = &$val;
+      $this->{$key} = $val;
   }
   
   /**
@@ -98,7 +99,7 @@ class Dict extends Obj
    */
   public function get($key) 
   {
-    $key = $this->cast($key);
+    $key = (string) $key;
     return isset ($this->{$key}) ? $this->{$key} : null;
   }
   
@@ -110,7 +111,7 @@ class Dict extends Obj
    */
   public function set($key, $val)
   {
-    $key = $this->cast($key);
+    $key = (string) $key;
     $this->{$key} = $val;
   }
   
@@ -122,7 +123,7 @@ class Dict extends Obj
    */
   public function has($key)
   {
-    $key = $this->cast($key);
+    $key = (string) $key;
     return isset ($this->{$key});
   }
   
@@ -135,7 +136,7 @@ class Dict extends Obj
    */
   public function swap($key, $val)
   {
-    $key = $this->cast($key);
+    $key = (string) $key;
     $prv = null;
     
     if (isset ($this->{$key}))
@@ -153,30 +154,11 @@ class Dict extends Obj
    */
   public function delete($key)
   {
-    $key = $this->cast($key);
+    $key = (string) $key;
     if (!isset ($this->{$key}))
       return false;
     
     unset ($this->{$key});
     return true;    
-  }
-  
-  /**
-   * casts a dict-key to string
-   *
-   * @param  mixed $key
-   * @return string
-   * @throws InvalidArgumentException
-   */
-  private function cast($key)
-  {
-    if (is_string($key))
-      return $key;
-    
-    if ((is_int($key) || is_null($key) || is_bool($key) || is_real($key)) || 
-        (is_object($key) && method_exists($key, '__tostring')))
-      return (string) $key;
-              
-    throw new IAEx('invalid dict-key (' . gettype($key) . ')');
   }
 }
