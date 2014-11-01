@@ -716,7 +716,7 @@ class ValidateTask extends Visitor implements Task
     $this->check_params($node->params);
     
     if ($this->has_static_mod($node->mods))
-      Logger::error_at($node->loc, 'constructor can not be static');
+      Logger::error_at($node->loc, 'constructor cannot be static');
     
     if ($node->body) {
       $this->check_super($node->body);

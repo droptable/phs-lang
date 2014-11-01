@@ -537,8 +537,9 @@ var_decl
   ;
     
 var_decl_noin_nosemi
-  : T_LET vars_noin { $$ = @VarDecl(null, $2); }
-  | mods vars_noin  { $$ = @VarDecl($1, $2); }
+  : T_LET vars_noin                      { $$ = @VarDecl(null, $2); }
+  | T_LET '(' var_list ')' '=' rxpr_noin { $$ = @VarList($3, $6); }
+  | mods vars_noin                       { $$ = @VarDecl($1, $2); }
   ;
 
 fn_decl

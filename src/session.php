@@ -120,6 +120,14 @@ class Session
     $obj->resolved = true;
     
     /**
+     * constructor
+     * 
+     */
+    $ctor = new FnSymbol('<ctor>', $loc, $pub);
+    $ctor->ctor = true;
+    $obj->members->ctor = $ctor;
+    
+    /**
      * returns the object-hash
      * 
      * @return string

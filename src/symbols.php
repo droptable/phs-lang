@@ -678,6 +678,12 @@ class FnSymbol extends Symbol
   // @var boolean
   public $dtor;
   
+  // @var boolean
+  public $getter;
+  
+  // @var boolean
+  public $setter;
+  
   // @var boolean  whenever this symbol is nested
   public $nested;
   
@@ -778,6 +784,8 @@ class FnSymbol extends Symbol
     $sym->expr = $node instanceof FnExpr;
     $sym->ctor = $node instanceof CtorDecl;
     $sym->dtor = $node instanceof DtorDecl;
+    $sym->getter = $node instanceof GetterDecl;
+    $sym->setter = $node instanceof SetterDecl;
     $sym->node = $node;
     $sym->nested = false;
     return $sym;

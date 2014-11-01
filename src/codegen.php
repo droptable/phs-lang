@@ -11,11 +11,15 @@ use phs\ast\Ident;
 use phs\ast\TypeId;
 use phs\ast\CallExpr;
 use phs\ast\VarDecl;
+use phs\ast\VarList;
 use phs\ast\StrLit;
 use phs\ast\NewExpr;
 use phs\ast\AssignExpr;
 use phs\ast\ObjLit;
 use phs\ast\ObjKey;
+use phs\ast\SuperExpr;
+
+use phs\util\Set;
 
 /** code generator */
 class CodeGenerator extends AutoVisitor
@@ -50,6 +54,15 @@ class CodeGenerator extends AutoVisitor
   // @var array  hoisted strings
   private $strs;
   
+  // @var boolean  in call expression
+  private $call;
+  
+  // @var int  in-loop
+  private $loop;
+  
+  // @var Set  in-loop locals
+  private $lloc;
+  
   // @var int  used to generate temporary variables
   private static $temp = 0;
   
@@ -77,6 +90,7 @@ class CodeGenerator extends AutoVisitor
       $this->buff = '';
       $this->tabs = 0;
       $this->nest = 0;
+      $this->call = false;
       $this->hstr = true;
       $this->strs = [];
       $this->ignv = false;
@@ -486,18 +500,14 @@ class CodeGenerator extends AutoVisitor
       return;
     }
     
-    $this->emitln('[');
-    $this->indent();
+    $this->emit('[ ');
     
     foreach ($list as $idx => $item) {
-      if ($idx > 0)
-        $this->emitln(',');
-      
+      if ($idx > 0) $this->emit(', ');
       $this->emit_value($item);
     }
     
-    $this->dedent();
-    $this->emit(']');
+    $this->emit(' ]');
   }
   
   /**
@@ -570,8 +580,9 @@ class CodeGenerator extends AutoVisitor
    * emits member modifiers
    *
    * @param  Symbol $sym
+   * @param  bool   $bind
    */
-  public function emit_member_mods(Symbol $sym)
+  public function emit_member_mods(Symbol $sym, $bind = false)
   {
     if ($sym->flags & SYM_FLAG_PUBLIC)
       $this->emit('public ');
@@ -583,7 +594,7 @@ class CodeGenerator extends AutoVisitor
     if ($sym->flags & SYM_FLAG_STATIC)
       $this->emit('static ');
     
-    if ($sym instanceof FnSymbol) { 
+    if (!$bind && $sym instanceof FnSymbol) { 
       if ($sym->flags & SYM_FLAG_ABSTRACT)
         $this->emit('abstract ');
       elseif ($sym->flags & SYM_FLAG_FINAL)
@@ -600,15 +611,7 @@ class CodeGenerator extends AutoVisitor
   {
     $this->emit_member_mods($fsym);
     
-    $this->emit('function ');
-    
-    if ($fsym->ctor)
-      $this->emit('__construct');
-    elseif ($fsym->dtor)
-      $this->emit('__destruct');
-    else
-      $this->emit($fsym->id);
-    
+    $this->emit('function ', $fsym->id);
     $this->emit_fn_params($fsym->node);
     
     if (!($fsym->flags & SYM_FLAG_ABSTRACT)) {
@@ -617,6 +620,20 @@ class CodeGenerator extends AutoVisitor
       else
         $this->emit_fn_body($fsym->node);
     }
+  }
+  
+  /**
+   * emits a function-member binding
+   * 
+   * @param  FnSymbol  $fsym
+   */
+  public function emit_fn_cmbind(FnSymbol $fsym)
+  {
+    if ($fsym->flags & SYM_FLAG_ABSTRACT)
+      return;
+    
+    $this->emit_member_mods($fsym, true);
+    $this->emitln('$', $fsym->id, ';');
   }
   
   /**
@@ -639,6 +656,124 @@ class CodeGenerator extends AutoVisitor
     // non-primitive values are initialized in the constructor
     
     $this->emitln(';');
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * emits a constructor declaration
+   *
+   * @param  FnSymbol $sym 
+   * @param  array    $vars
+   * @param  array    $funs
+   */
+  public function emit_ctor_decl(FnSymbol $sym = null, array $vars, array $funs)
+  {
+    // constructor cannot be abstract
+    if ($sym->flags & SYM_FLAG_ABSTRACT)
+      $sym->flags ^= SYM_FLAG_ABSTRACT;
+    
+    if ($sym === null)
+      // default constructor is public by default
+      $this->emitln('public function __construct() '); 
+    else {
+      $this->emit_member_mods($sym);
+      $this->emit('function __construct');
+      $this->emit_fn_params($sym->node);
+    }
+    
+    $this->emitln('{');
+    $this->indent();
+    
+    if ($sym !== null) {
+      $tprm = [];
+      
+      foreach ($sym->params as $param)
+        if ($param->that)
+          $tprm[$param->rid] = $param;
+      
+      // 1. initialize members
+      foreach ($vars as $var) {
+        // ignore var if a this-param will override it
+        if (isset ($tprm[$var->rid]))
+          continue;
+        
+        if (!$var->value || !$var->node->init ||
+            $var->value->is_none() ||
+            $var->value->is_primitive())
+          continue; // no value or already emitted
+        
+        $init = $var->node->init;
+        $temp = $this->hoist_dict_expr($init);
+        
+        $this->emit('$this->', $var->id, ' = ');
+        
+        if ($temp === null)
+          $this->visit($init);
+        else
+          $this->emit($temp);
+        
+        $this->emitln(';');
+      }
+      
+      // 2. setup this-params
+      foreach ($tprm as $param) {
+        $this->emit('$this->', $param->rid, ' = ');
+        // use a reference to the parameter if the parameter 
+        // itself is not already a reference
+        if (!$param->ref) $this->emit('&');
+        $this->emitln('$', $param->id, ';');
+      }
+    }
+    
+    // 3. bind methods
+    foreach ($funs as $fun) {
+      $this->emit('$this->', $fun->id, ' = [ $this, ');
+      $this->emitln("'", $fun->id, "'", ' ];');
+    }
+    
+    // 4. call super if needed
+    $esup = false;
+    
+    if ($sym === null || !$sym->node->body)
+      $esup = true;
+    else
+      foreach ($sym->node->body->body as $stmt) {
+        if ($stmt instanceof ExprStmt) {
+          foreach ($stmt->expr as $expr) {
+            if ($expr instanceof CallExpr &&
+                $expr->callee instanceof SuperExpr)
+              $esup = true;
+            
+            // super() must be the very first expression
+            break;
+          }
+        }  
+        
+        // super() must be the very first expression
+        break;
+      }
+    
+    if ($esup)
+      $this->emitln('parent::__construct();');
+    
+    // 5. emit actual body
+    if ($sym !== null && $sym->node->body)
+      $this->emit_fn_body($sym->node, false, false, false);
+    
+    $this->dedent();
+    $this->emitln('}'); 
+  }
+  
+  public function emit_dtor_decl(FnSymbol $sym = null)
+  {
+    if ($sym === null)
+      return;
+    
+    $this->emit_member_mods($sym);
+    $this->emit('function __destruct() ');
+    // ignore params, the gc does not pass any
+    $this->emit_fn_body($sym->node);
   }
   
   /* ------------------------------------ */
@@ -711,7 +846,9 @@ class CodeGenerator extends AutoVisitor
   public function emit_fn_globals($node)
   {
     foreach ($node->scope->capt as $sym)
-      if ($sym->scope->is_global())
+      if (($sym instanceof VarSymbol ||
+           $sym instanceof FnSymbol && $sym->nested) &&
+          $sym->scope->is_global())
         $this->emitln('global $', $sym->id, ';');
   }
   
@@ -817,14 +954,19 @@ class CodeGenerator extends AutoVisitor
    * @param  Node $node
    * @param  boolean $expr  this body is part of a function-expression
    * @param  boolean $term  the function needs a terminator (semicolon)
+   * @param  boolean $encl  enclose the body with { } 
    */
-  public function emit_fn_body($node, $expr = false, $term = false)
+  public function emit_fn_body($node, $expr = false, 
+                                      $term = false, 
+                                      $encl = true)
   {
     if ($expr === true)
       $this->emit_fn_captures($node);
     
-    $this->emitln('{');
-    $this->indent();
+    if ($encl === true) {
+      $this->emitln('{');
+      $this->indent();
+    }
     
     $this->emit_fn_globals($node);
     $this->emit_fn_checks($node);
@@ -834,11 +976,13 @@ class CodeGenerator extends AutoVisitor
     $this->visit($node->body->body);
     $this->nest--;
     
-    $this->dedent();
-    $this->emit('}');
-    
-    if ($term === true)
-      $this->emit(';');
+    if ($encl === true) {
+      $this->dedent();
+      $this->emit('}');
+      
+      if ($term === true)
+        $this->emit(';');
+    }
     
     $this->emitln();
   }
@@ -994,6 +1138,11 @@ class CodeGenerator extends AutoVisitor
   
   /* ------------------------------------ */
   
+  /**
+   * Visitor#visit_unit()
+   *
+   * @param  Node  $node
+   */
   public function visit_unit($node) 
   {
     $this->emit_ns_beg();
@@ -1001,6 +1150,11 @@ class CodeGenerator extends AutoVisitor
     $this->emit_ns_end();
   }
   
+  /**
+   * Visitor#visit_module()
+   *
+   * @param  Node  $node
+   */
   public function visit_module($node) 
   {
     $pmod = null;
@@ -1030,11 +1184,21 @@ class CodeGenerator extends AutoVisitor
       $this->emit_ns_beg();
   }
   
+  /**
+   * Visitor#visit_content()
+   *
+   * @param  Node  $node
+   */
   public function visit_content($node) 
   {
     $this->visit($node->body);  
   } 
   
+  /**
+   * Visitor#visit_block()
+   *
+   * @param  Node  $node
+   */
   public function visit_block($node) 
   {
     $this->nest++;
@@ -1062,11 +1226,21 @@ class CodeGenerator extends AutoVisitor
     $this->nest--;
   }
   
+  /**
+   * Visitor#visit_enum_decl()
+   *
+   * @param  Node  $node
+   */
   public function visit_enum_decl($node) 
   {
     // TODO: implement enums
   }
   
+  /**
+   * Visitor#visit_class_decl()
+   *
+   * @param  Node  $node
+   */
   public function visit_class_decl($node) 
   {
     $csym = $node->symbol;
@@ -1081,9 +1255,9 @@ class CodeGenerator extends AutoVisitor
     
     $this->emit('class ', $csym->id);
     
-    if ($csym->super) {
+    if ($csym->members->super) {
       $this->emit(' extends \\');
-      $this->emit(path_to_ns($csym->super->symbol->path()));
+      $this->emit(path_to_ns($csym->members->super->host->path()));
     }
     
     if ($csym->ifaces) {
@@ -1103,17 +1277,33 @@ class CodeGenerator extends AutoVisitor
     foreach ($csym->members->iter() as $msym)
       if ($msym instanceof VarSymbol)
         $vars[] = $msym;
-      else
+      elseif ($msym instanceof FnSymbol &&
+              !$msym->ctor && !$msym->dtor &&
+              !$msym->getter && !$msym->setter)
         $funs[] = $msym;
     
     // 1. emit properties
     foreach ($vars as $var) 
       $this->emit_var_member($var);
     
-    if (!empty ($vars))
+    // 2. emit method-bindings
+    foreach ($funs as $fun)
+      $this->emit_fn_cmbind($fun);
+    
+    if (!empty ($vars) || !empty ($funs))
       $this->emitln();
     
-    // 2. emit methods
+    // 3. emit constructor
+    $this->emit_ctor_decl($csym->members->ctor, $vars, $funs);
+    
+    // 4. emit destructor
+    $this->emit_dtor_decl($csym->members->dtor);
+    
+    // 5. emit getter
+    
+    // 6. emit setter
+    
+    // 7. emit methods
     foreach ($funs as $fun)
       $this->emit_fn_member($fun);
     
@@ -1121,18 +1311,64 @@ class CodeGenerator extends AutoVisitor
     $this->emitln('}');
   }
   
+  /**
+   * Visitor#visit_nested_mods()
+   *
+   * @param  Node  $node
+   */
   public function visit_nested_mods($node) 
   {
     // noop
   }
   
+  /**
+   * Visitor#visit_ctor_decl()
+   *
+   * @param  Node  $node
+   */
   public function visit_ctor_decl($n) {}
+
+  /**
+   * Visitor#visit_dtor_decl()
+   *
+   * @param  Node  $node
+   */
   public function visit_dtor_decl($n) {}
+
+  /**
+   * Visitor#visit_getter_decl()
+   *
+   * @param  Node  $node
+   */
   public function visit_getter_decl($n) {}
+
+  /**
+   * Visitor#visit_setter_decl()
+   *
+   * @param  Node  $node
+   */
   public function visit_setter_decl($n) {}
+
+  /**
+   * Visitor#visit_trait_decl()
+   *
+   * @param  Node  $node
+   */
   public function visit_trait_decl($n) {}
+
+  /**
+   * Visitor#visit_iface_decl()
+   *
+   * @param  Node  $node
+   */
   public function visit_iface_decl($n) {}
     
+
+  /**
+   * Visitor#visit_fn_decl()
+   *
+   * @param  Node  $node
+   */
   public function visit_fn_decl($node) 
   {
     if ($node->nested)
@@ -1140,7 +1376,12 @@ class CodeGenerator extends AutoVisitor
     else
       $this->emit_fn_decl($node);
   }
-  
+
+  /**
+   * Visitor#visit_var_decl()
+   *
+   * @param  Node  $node
+   */
   public function visit_var_decl($node) 
   {
     foreach ($node->vars as $var) {
@@ -1162,6 +1403,11 @@ class CodeGenerator extends AutoVisitor
     }
   }
   
+  /**
+   * Visitor#visit_var_list()
+   *
+   * @param  Node  $node
+   */
   public function visit_var_list($node)
   {
     $this->emit('list (');
@@ -1176,11 +1422,21 @@ class CodeGenerator extends AutoVisitor
     $this->emitln(';');
   }
   
+  /**
+   * Visitor#visit_use_decl()
+   *
+   * @param  Node  $node
+   */
   public function visit_use_decl($node) 
   {
     // noop  
   }
   
+  /**
+   * Visitor#visit_require_decl()
+   *
+   * @param  Node  $node
+   */
   public function visit_require_decl($node) 
   {
     $this->emit('require_once ');
@@ -1188,12 +1444,22 @@ class CodeGenerator extends AutoVisitor
     $this->emitln(';');
   }
   
+  /**
+   * Visitor#visit_label_decl()
+   *
+   * @param  Node  $node
+   */
   public function visit_label_decl($node) 
   {
     $this->emitln(ident_to_str($node->id), ':');
     $this->visit($node->stmt);
   }
   
+  /**
+   * Visitor#visit_do_stmt()
+   *
+   * @param  Node  $node
+   */
   public function visit_do_stmt($node) 
   {
     $this->emit('do ');
@@ -1204,6 +1470,11 @@ class CodeGenerator extends AutoVisitor
     $this->emitln(');');  
   }
   
+  /**
+   * Visitor#visit_if_stmt()
+   *
+   * @param  Node  $node
+   */
   public function visit_if_stmt($node) 
   {
     $this->emit('if (');
@@ -1226,18 +1497,31 @@ class CodeGenerator extends AutoVisitor
       $this->emit(' else ');
       $this->visit($node->els->stmt);
     }
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_for_stmt()
+   *
+   * @param  Node  $node
+   */
   public function visit_for_stmt($node) 
   {
-    $this->emit('for (');
-      
-    if ($node->init) {
+    if ($node->init && 
+        ($node->init instanceof VarDecl ||
+         $node->init instanceof VarList)) {
+      // hoist declaration
       $this->visit($node->init);
-      $this->buff = rtrim($this->buff, "\n ");
-      $this->emit(' ');
-    } else
-      $this->emit('; ');
+      $this->emit('for (; ');
+    } else {
+      $this->emit('for (');
+      
+      if ($node->init) {
+        $this->visit($node->init);
+        $this->buff = rtrim($this->buff, "\n ");
+        $this->emit(' ');
+      } else
+        $this->emit('; ');
+    }
     
     if ($node->test) {
       $this->visit($node->test);
@@ -1246,11 +1530,17 @@ class CodeGenerator extends AutoVisitor
     } else
       $this->emit('; ');
     
-    $this->visit($node->each);
+    if ($node->each)
+      foreach ($node->each as $idx => $expr) {
+        if ($idx > 0) $this->emit(', ');
+        $this->visit($expr);
+      }
+      
     $this->emit(') ');
     $this->visit($node->stmt);  
     
-    if ($node->init instanceof VarDecl) {
+    if ($node->init instanceof VarDecl ||
+        $node->init instanceof VarList) {
       $this->emit('unset (');
       
       foreach ($node->init->vars as $idx => $var) {
@@ -1260,8 +1550,13 @@ class CodeGenerator extends AutoVisitor
       
       $this->emit(');');
     }
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_for_in_stmt()
+   *
+   * @param  Node  $node
+   */
   public function visit_for_in_stmt($node) 
   {
     $this->emit('foreach (');
@@ -1285,13 +1580,23 @@ class CodeGenerator extends AutoVisitor
     
     $this->emit('$', $arg->symbol->id);
     $this->emitln(');');
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_try_stmt()
+   *
+   * @param  Node  $node
+   */
   public function visit_try_stmt($node) 
   {
     // TODO: implement try-catch-finally
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_php_stmt()
+   *
+   * @param  Node  $node
+   */
   public function visit_php_stmt($node) 
   {
     $this->emitln('/* inline php {{ */');
@@ -1302,23 +1607,49 @@ class CodeGenerator extends AutoVisitor
     
     $this->dedent();
     $this->emitln('/* inline php }} */');
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_goto_stmt()
+   *
+   * @param  Node  $node
+   */
   public function visit_goto_stmt($node) 
   {
     $this->emitln('goto ', ident_to_str($node->id), ';');  
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_test_stmt()
+   *
+   * @param  Node  $node
+   */
   public function visit_test_stmt($node) 
   {
     // if INCLUDE_TESTS
     // ...
     // TODO: implement
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_break_stmt()
+   *
+   * @param  Node  $node
+   */
   public function visit_break_stmt($n) {}
+
+  /**
+   * Visitor#visit_continue_stmt()
+   *
+   * @param  Node  $node
+   */
   public function visit_continue_stmt($n) {}
-  
+
+  /**
+   * Visitor#visit_print_stmt()
+   *
+   * @param  Node  $node
+   */
   public function visit_print_stmt($node) 
   {
     $this->emit('echo ');
@@ -1333,23 +1664,38 @@ class CodeGenerator extends AutoVisitor
     }
     
     $this->emitln(', \\PHP_EOL;');
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_throw_stmt()
+   *
+   * @param  Node  $node
+   */
   public function visit_throw_stmt($node) 
   {
     $this->emit('throw ');
     $this->visit($node->expr);
     $this->emitln(';');  
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_while_stmt()
+   *
+   * @param  Node  $node
+   */
   public function visit_while_stmt($node) 
   {
     $this->emit('while (');
     $this->visit($node->test);
     $this->emit(') ');
     $this->visit($node->stmt);   
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_assert_stmt()
+   *
+   * @param  Node  $node
+   */
   public function visit_assert_stmt($node) 
   {
     $this->emit('\\assert(');
@@ -1361,8 +1707,13 @@ class CodeGenerator extends AutoVisitor
     }
     
     $this->emitln(');');  
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_switch_stmt()
+   *
+   * @param  Node  $node
+   */
   public function visit_switch_stmt($node) 
   {
     $this->emit('switch (');
@@ -1392,8 +1743,13 @@ class CodeGenerator extends AutoVisitor
     
     $this->dedent();
     $this->emitln('}');
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_return_stmt()
+   *
+   * @param  Node  $node
+   */
   public function visit_return_stmt($node) 
   {
     $this->emit('return');
@@ -1404,8 +1760,13 @@ class CodeGenerator extends AutoVisitor
     }
     
     $this->emitln(';');
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_expr_stmt()
+   *
+   * @param  Node  $node
+   */
   public function visit_expr_stmt($node) 
   {
     if ($node->expr)
@@ -1454,7 +1815,9 @@ class CodeGenerator extends AutoVisitor
       // $_T = $_T();
       // ...
       $this->emit('$', $temp, ' = ');
+      $this->call = true;
       $this->visit($init->callee);
+      $this->call = false;
       $this->visit_fn_args($args);
       
       $tmpd = [];
@@ -1489,6 +1852,12 @@ class CodeGenerator extends AutoVisitor
         }
         $this->emit(')');
       }
+    
+    /* super call */
+    } elseif ($node->callee instanceof SuperExpr) {
+      $args = $this->hoist_dict_args($node->args);
+      $this->emit('parent::__construct');
+      $this->visit_fn_args($args);    
       
     /* normal call */
     } else {
@@ -1497,13 +1866,16 @@ class CodeGenerator extends AutoVisitor
       if ($temp !== null)
         $this->emit('$', $temp, ' = ');
       
+      $this->call = true;
       $this->visit($node->callee);
+      $this->call = false;
       $this->visit_fn_args($args);
       
       $tmpd = [];
-      foreach ($args as $arg)
-        if (is_string($arg))
-          $tmpd[] = $arg;
+      if ($args)
+        foreach ($args as $arg)
+          if (is_string($arg))
+            $tmpd[] = $arg;
         
       if (!empty ($tmpd)) {
         $this->emitln(';');
@@ -1561,19 +1933,37 @@ class CodeGenerator extends AutoVisitor
     /* not special */ 
     } else
       $this->visit_assign_expr($node);
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_paren_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_paren_expr($node) 
   {
+    $call = $this->call;
+    $this->call = false;
+    
     $this->emit('(');
     $this->visit($node->expr);
     $this->emit(')');  
-  }
-  
+    
+    $this->call = $call;
+  }  
+
+  /**
+   * Visitor#visit_tuple_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_tuple_expr($node) 
   {
     if ($this->emit_value($node->value))
       return;
+    
+    $call = $this->call;
+    $this->call = false;
     
     $this->emit('[ ');
     
@@ -1583,13 +1973,25 @@ class CodeGenerator extends AutoVisitor
     }
     
     $this->emit(' ]');
-  }
-  
+    
+    $this->call = $call;
+  }  
+
+  /**
+   * Visitor#visit_fn_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_fn_expr($node) 
   {
     $this->emit_fn_expr($node);
   }
   
+  /**
+   * Visitor#visit_bin_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_bin_expr($node) 
   {
     if ($this->emit_value($node->value))
@@ -1597,11 +1999,16 @@ class CodeGenerator extends AutoVisitor
     
     $this->visit($node->left);
     $this->emit(' ');
-    $this->emit($node->op->value);
+    $this->emit_op($node->op, true);
     $this->emit(' ');
     $this->visit($node->right);    
   }
   
+  /**
+   * Visitor#visit_check_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_check_expr($node) 
   {
     if ($this->emit_value($node->value))
@@ -1614,8 +2021,18 @@ class CodeGenerator extends AutoVisitor
     $this->visit($node->right); 
   }
   
+  /**
+   * Visitor#visit_cast_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_cast_expr($n) {}
-  
+
+  /**
+   * Visitor#visit_update_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_update_expr($node) 
   {
     if ($node->prefix)
@@ -1627,6 +2044,11 @@ class CodeGenerator extends AutoVisitor
       $this->emit($node->op->value);
   }
   
+  /**
+   * Visitor#visit_assign_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_assign_expr($node) 
   {
     $this->visit($node->left);
@@ -1636,6 +2058,11 @@ class CodeGenerator extends AutoVisitor
     $this->visit($node->right);  
   }
   
+  /**
+   * Visitor#visit_member_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_member_expr($node) 
   {
     if ($this->emit_value($node->value))
@@ -1647,32 +2074,52 @@ class CodeGenerator extends AutoVisitor
       $this->emit('(');
     }
     
+    $call = $this->call;
+    $this->call = false;
+    
     $this->visit($node->object);
     
     if ($paren)
       $this->emit(')');
     
     $this->emit('->');
-    
+        
     if ($node->computed) {
       $this->emit('{'); 
       $this->visit($node->member);
       $this->emit('}');
     } else
       $this->emit(ident_to_str($node->member));
+    
+    $this->call = $call;
   }
-  
+
+  /**
+   * Visitor#visit_offset_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_offset_expr($node) 
   {
     if ($this->emit_value($node->value))
       return;
     
+    $call = $this->call;
+    $this->call = false;
+    
     $this->visit($node->object);
     $this->emit('[');
     $this->visit($node->offset);
     $this->emit(']');
+    
+    $this->call = $call;
   }
   
+  /**
+   * Visitor#visit_cond_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_cond_expr($node) 
   {
     if ($this->emit_value($node->value))
@@ -1688,8 +2135,14 @@ class CodeGenerator extends AutoVisitor
     $this->visit($node->els);
   }
   
+  /**
+   * Visitor#visit_call_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_call_expr($node) 
   {
+    /* chained call */
     if ($node->callee instanceof CallExpr) {
       // foo()() is not possible in PHP
       // therefore we have to generate a workaround      
@@ -1707,7 +2160,9 @@ class CodeGenerator extends AutoVisitor
       $this->indent();
       $this->emit('0 => ($', $temp, ' = ');
       
+      $this->call = true;
       $this->visit($init->callee);
+      $this->call = false;
       $this->visit_fn_args($init->args);
       
       while (!empty ($list)) {
@@ -1721,37 +2176,103 @@ class CodeGenerator extends AutoVisitor
       $this->emit('][0]');
       
       self::$temp--;
+      
+    /* normal call */
     } else {
+      $this->call = true;
       $this->visit($node->callee);
+      $this->call = false;
       $this->visit_fn_args($node->args);
     }
   }
   
+  /**
+   * Visitor#visit_yield_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_yield_expr($n) {}
+
+  /**
+   * Visitor#visit_unary_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_unary_expr($n) {}
-  public function visit_new_expr($n) {}
+
+  /**
+   * Visitor#visit_new_expr()
+   *
+   * @param  Node  $node
+   */
+  public function visit_new_expr($node) 
+  {
+    $this->call = true;
+    
+    $this->emit('new ');
+    $this->visit($node->name);
+    $this->visit_fn_args($node->args);
+    
+    $this->call = false;
+  }
+
+  /**
+   * Visitor#visit_del_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_del_expr($n) {}
   
+
+  /**
+   * Visitor#visit_lnum_lit()
+   *
+   * @param  Node  $node
+   */
   public function visit_lnum_lit($node) 
   {
     $this->emit($node->data);  
   }
   
+  /**
+   * Visitor#visit_dnum_lit()
+   *
+   * @param  Node  $node
+   */
   public function visit_dnum_lit($node) 
   {
     $this->emit($node->data);  
   }
   
+  /**
+   * Visitor#visit_snum_lit()
+   *
+   * @param  Node  $node
+   */
   public function visit_snum_lit($node) 
   {
-    // TODO: implement snums
+    Logger::assert_at($node->loc, false, 'snum-lit!');
   }
   
-  public function visit_regexp_lit($n) {}
-  
-  
+  /**
+   * Visitor#visit_regexp_lit()
+   *
+   * @param  Node  $node
+   */
+  public function visit_regexp_lit($n) {}  
+
+  /**
+   * Visitor#visit_arr_gen()
+   *
+   * @param  Node  $node
+   */
   public function visit_arr_gen($n) {}
   
+  /**
+   * Visitor#visit_arr_lit()
+   *
+   * @param  Node  $node
+   */
   public function visit_arr_lit($node) 
   {
     if ($this->emit_value($node->value))
@@ -1772,6 +2293,11 @@ class CodeGenerator extends AutoVisitor
     $this->emit(')');
   }
   
+  /**
+   * Visitor#visit_obj_lit()
+   *
+   * @param  Node  $node
+   */
   public function visit_obj_lit($node) 
   {
     if ($this->emit_value($node->value))
@@ -1803,14 +2329,17 @@ class CodeGenerator extends AutoVisitor
     $this->emit(')');  
   }
   
+  /**
+   * Visitor#visit_name()
+   *
+   * @param  Node  $node
+   */
   public function visit_name($node) 
   {
     $sym = $node->symbol;
     
-    if ($sym === null) {
-      echo "\nname ", name_to_str($node), " has no symbol!";
-      assert(0);
-    }
+    Logger::assert_at($node->loc, $sym !== null,
+      'name %s has no symbol!', name_to_str($node));
     
     if (($sym instanceof VarSymbol) ||
         ($sym instanceof FnSymbol && $sym->nested)) {
@@ -1822,61 +2351,127 @@ class CodeGenerator extends AutoVisitor
         $this->emit('this->');
       
       $this->emit($sym->id);
-    } else
-      $this->emit('\\', path_to_ns($sym->path()));  
+    } else {
+      // quote paths if they're accessed in read-mode
+      $quote = '';
+      if ($sym instanceof IfaceSymbol ||
+          $sym instanceof TraitSymbol ||
+          (($sym instanceof FnSymbol || 
+            $sym instanceof ClassSymbol) && 
+           !$this->call))
+        $quote = "'";
+        
+      $this->emit($quote, '\\', 
+        path_to_ns($sym->path()), $quote);
+    }
   }
   
+  /**
+   * Visitor#visit_ident()
+   *
+   * @param  Node  $node
+   */
   public function visit_ident($node) 
   {
     Logger::assert_at($node->loc, false, 
       'visit ident %s ?', ident_to_str(node));
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_this_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_this_expr($node) 
   {
     $this->emit('$this');
   }
   
+  /**
+   * Visitor#visit_super_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_super_expr($node) 
   {
     $this->emit('parent');  
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_self_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_self_expr($node) 
   {
     $this->emit('self');  
   }
   
+  /**
+   * Visitor#visit_null_lit()
+   *
+   * @param  Node  $node
+   */
   public function visit_null_lit($node) 
   {
     $this->emit('null');  
   }
   
+  /**
+   * Visitor#visit_true_lit()
+   *
+   * @param  Node  $node
+   */
   public function visit_true_lit($node) 
   {
     $this->emit('true');  
   }
   
+  /**
+   * Visitor#visit_false_lit()
+   *
+   * @param  Node  $node
+   */
   public function visit_false_lit($node) 
   {
     $this->emit('false');  
   }
   
+  /**
+   * Visitor#visit_str_lit()
+   *
+   * @param  Node  $node
+   */
   public function visit_str_lit($node) 
   {
     $this->emit_str($node);
   }
   
+  /**
+   * Visitor#visit_kstr_lit()
+   *
+   * @param  Node  $node
+   */
   public function visit_kstr_lit($node) 
   {
     $this->emitqs($node->data);  
   }
   
+  /**
+   * Visitor#visit_type_id()
+   *
+   * @param  Node  $node
+   */
   public function visit_type_id($node) 
   {
     // noop  
   }
   
+  /**
+   * Visitor#visit_engine_const()
+   *
+   * @param  Node  $node
+   */
   public function visit_engine_const($node) 
   {
     $this->emitqs($node->data);

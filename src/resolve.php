@@ -965,12 +965,22 @@ class ResolveTask extends AutoVisitor implements Task
     $this->scope->enter();
   }
   
+  /**
+   * Visitor#visit_block()
+   *
+   * @param  Node  $node
+   */
   public function visit_block($node)
   {
     assert($node->scope);
     $this->enter($node->scope, $node->body);
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_class_decl()
+   *
+   * @param  Node  $node
+   */
   public function visit_class_decl($node)
   {
     assert($node->scope !== null);
@@ -985,13 +995,23 @@ class ResolveTask extends AutoVisitor implements Task
     
     $this->cclass = null;
     $this->scope = $prev;
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_trait_decl()
+   *
+   * @param  Node  $node
+   */
   public function visit_trait_decl($node)
   {
     // noop
   }
   
+  /**
+   * Visitor#visit_iface_decl()
+   *
+   * @param  Node  $node
+   */
   public function visit_iface_decl($node)
   {
     assert($node->scope !== null);
@@ -1003,22 +1023,37 @@ class ResolveTask extends AutoVisitor implements Task
     $this->resolve_members($node->symbol);
     
     $this->scope = $prev;
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_fn_decl()
+   *
+   * @param  Node  $node
+   */
   public function visit_fn_decl($node)
   {
     assert($node->scope !== null);
     assert($node->symbol !== null);
     
     $this->enter_fn($node);
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_fn_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_fn_expr($node)
   {
     assert($node->scope !== null);
     $this->enter_fn($node);
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_fn_params()
+   *
+   * @param  Node  $node
+   */
   public function visit_fn_params($params)
   {
     if (!$params) return;
@@ -1029,8 +1064,13 @@ class ResolveTask extends AutoVisitor implements Task
       
       $param->symbol->reachable = true;
     }
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_var_decl()
+   *
+   * @param  Node  $node
+   */
   public function visit_var_decl($node)
   {
     foreach ($node->vars as $var) {
@@ -1050,6 +1090,11 @@ class ResolveTask extends AutoVisitor implements Task
     }
   }
   
+  /**
+   * Visitor#visit_var_list()
+   *
+   * @param  Node  $node
+   */
   public function visit_var_list($node)
   {
     foreach ($node->vars as $var)
@@ -1059,6 +1104,11 @@ class ResolveTask extends AutoVisitor implements Task
     $this->visit($node->expr);
   }
 
+  /**
+   * Visitor#visit_enum_decl()
+   *
+   * @param  Node  $node
+   */
   public function visit_enum_decl($node)
   {
     foreach ($node->vars as $var) {
@@ -1069,8 +1119,13 @@ class ResolveTask extends AutoVisitor implements Task
       $var->symbol->reachable = true;
       $var->symbol->assign = true;
     }
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_require_decl()
+   *
+   * @param  Node  $node
+   */
   public function visit_require_decl($node)
   {
     $this->visit($node->expr);
@@ -1082,7 +1137,12 @@ class ResolveTask extends AutoVisitor implements Task
     } else
       $this->process_require($node, $path->data, $node->php, $node->loc);
   }
-  
+
+  /**
+   * Visitor#visit_for_in_stmt()
+   *
+   * @param  Node  $node
+   */
   public function visit_for_in_stmt($node)
   {
     $prev = $this->scope;
@@ -1107,6 +1167,11 @@ class ResolveTask extends AutoVisitor implements Task
     $this->scope = $prev;
   }
   
+  /**
+   * Visitor#visit_for_stmt()
+   *
+   * @param  Node  $node
+   */
   public function visit_for_stmt($node)
   {
     $prev = $this->scope;
@@ -1121,7 +1186,12 @@ class ResolveTask extends AutoVisitor implements Task
     $this->scope->leave();
     $this->scope = $prev;
   }
-    
+  
+  /**
+   * Visitor#visit_assign_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_assign_expr($node)
   {
     $this->visit($node->left);
@@ -1143,27 +1213,46 @@ class ResolveTask extends AutoVisitor implements Task
         $lsym->assign = true;
       }
     }
-  }
-    
+  }    
+
+  /**
+   * Visitor#visit_new_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_new_expr($node)
   {
     $name = $node->name;
+    $this->visit($name);
     
-    if ($name instanceof Name ||
-        $name instanceof Ident ||
+    if ((($name instanceof Name ||
+          $name instanceof Ident) &&
+         !($name->symbol instanceof VarSymbol)) ||
         $name instanceof TypeId ||
         $name instanceof SelfExpr)
       $this->resolve_type($name, TYC_NEW);
     
     // else: name is a expression
-  }
-  
+    
+    $this->visit_fn_args($node->args);
+  }  
+
+  /**
+   * Visitor#visit_cast_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_cast_expr($node) 
   {
     $this->visit($node->expr);
     $this->resolve_type($node->type, TYC_CAST);
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_call_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_call_expr($node)
   {
     $this->visit($node->callee);
@@ -1180,29 +1269,26 @@ class ResolveTask extends AutoVisitor implements Task
         
         // TODO: implement default-constructors?
         
-        $super = $this->cclass->super;
+        $super = $this->cclass->members->super;
         $found = false;
         $sctor = null;
         
-        for (;;) {
-          if ($super->symbol->members->ctor) {
+        while ($super) {
+          if ($super->ctor) {
             $found = true;
-            $sctor = $super->symbol->members->ctor;
+            $sctor = $super->ctor;
             break;
           }
           
-          if ($super->symbol->super)
-            $super = $super->symbol->super;
-          else
-            break;
+          $super = $super->super;
         }
         
         if (!$found) {
-          Logger::error_at($node->loc, 'can not forward constructor-call \\');
+          Logger::error_at($node->loc, 'cannot forward constructor-call \\');
           Logger::error('via super(), because no parent-class has a own \\');
           Logger::error('constructor');
         } elseif ($sctor->flags & SYM_FLAG_PRIVATE) {
-          Logger::error_at($node->loc, 'can not forward constructor-call \\');
+          Logger::error_at($node->loc, 'cannot forward constructor-call \\');
           Logger::error('via super() to %s, because \\', $super->symbol);
           Logger::error('is was declared private');
           Logger::info_at($sctor->loc, 'resolved parent-constructor is here');
@@ -1210,8 +1296,13 @@ class ResolveTask extends AutoVisitor implements Task
           $node->callee->symbol = $sctor;
       }
     }
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_member_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_member_expr($node)
   {
     $this->visit($node->object);
@@ -1286,20 +1377,35 @@ class ResolveTask extends AutoVisitor implements Task
     return;
   }
   
+  /**
+   * Visitor#visit_offset_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_offset_expr($node)
   {
     $this->visit($node->object);
     $this->visit($node->offset);
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_this_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_this_expr($node)
   {
     if (!$this->cclass)
       Logger::error_at($node->loc, '`this` outside of class or trait');
     
     $node->symbol = $this->cclass;
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_super_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_super_expr($node)
   {
     if (!$this->cclass)
@@ -1309,8 +1415,13 @@ class ResolveTask extends AutoVisitor implements Task
       $node->symbol = $this->cclass->super->symbol;
     else
       $node->symbol = $this->cclass;
-  }
-  
+  }  
+
+  /**
+   * Visitor#visit_self_expr()
+   *
+   * @param  Node  $node
+   */
   public function visit_self_expr($node)
   {
     if (!$this->cclass)
@@ -1319,18 +1430,33 @@ class ResolveTask extends AutoVisitor implements Task
     $node->symbol = $this->cclass;
   }
   
+  /**
+   * Visitor#visit_name()
+   *
+   * @param  Node  $node
+   */
   public function visit_name($node)
   {
     $res = $this->lookup_name($node);
     $this->process_lookup($node, $res);
   }
   
+  /**
+   * Visitor#visit_ident()
+   *
+   * @param  Node  $node
+   */
   public function visit_ident($node)
   {
     $res = $this->lookup_ident($node);
     $this->process_lookup($node, $res);
   }
   
+  /**
+   * Visitor#visit_engine_const()
+   *
+   * @param  Node  $node
+   */
   public function visit_engine_const($node)
   {
     if ($node->value && $node->value->is_some())
