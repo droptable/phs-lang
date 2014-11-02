@@ -22,6 +22,12 @@ abstract class Source
   // @var string root-directory
   private $root;
   
+  // @var string  temporary path
+  private $temp;
+  
+  // @var string  relative destination in the bundle
+  protected $dest;
+  
   /**
    * should return all possible (sub-) sources.
    *
@@ -103,11 +109,42 @@ abstract class Source
   abstract public function get_data();
   
   /**
-   * should return a destination path for this source
+   * returns the destination path for this source
    * 
    * @return string
    */
-  abstract public function get_dest();
+  public function get_dest()
+  {
+    if ($this->dest === null) {
+      $root = $this->get_root();
+      $path = $this->get_path();
+      
+      // this must be true, if not = error in Session/Bundle
+      assert(strpos($path, $root) === 0);
+      
+      $path = ltrim(substr($path, strlen($root)), '\\/');
+      
+      if (substr($path, -4) === '.phs')
+        $path = substr($path, 0, -3) . 'php';
+      
+      $this->dest = $path;
+    }
+    
+    return $this->dest;
+  }
+  
+  /**
+   * returns the temporary output path
+   *
+   * @return string
+   */
+  public function get_temp()
+  {
+    if ($this->temp === null)
+      $this->temp = tempnam(getcwd(), '~phsc');
+    
+    return $this->temp;
+  }
   
   /**
    * creates a file or text-source
@@ -134,9 +171,6 @@ class TextSource extends Source
   
   // path: can be empty
   private $path;
-  
-  // the destination
-  private $dest;
   
   // the data to compile/inject
   private $data;
@@ -167,15 +201,6 @@ class TextSource extends Source
   }
   
   /**
-   * @see Source#get_dest()
-   * @return string
-   */
-  public function get_dest() 
-  {
-    return $this->dest;
-  }
-  
-  /**
    * @see Source#get_data()
    * @return string
    */
@@ -193,9 +218,6 @@ class FileSource extends Source
   
   // the path
   private $path;
-  
-  // the destination
-  private $dest;
   
   /**
    * constructor
@@ -245,18 +267,6 @@ class FileSource extends Source
       return null;
     
     return file_get_contents($this->path);
-  }
-  
-  /**
-   * @see Source#get_dest()
-   * @return string
-   */
-  public function get_dest()
-  {
-    if (!$this->dest)
-      $this->dest = tempnam(getcwd(), '~phsc');
-    
-    return $this->dest;
   }
 }
 

@@ -906,7 +906,7 @@ class Lexer
 
     'do' => T_DO,
     'if' => T_IF,
-    'elsif' => T_ELSIF,
+    'elif' => T_ELSIF,
     'else' => T_ELSE,
     'for' => T_FOR,
     'try' => T_TRY,

@@ -496,6 +496,20 @@ trait Reduce
   } 
   
   /**
+   * reduces a in-operation
+   *
+   * @param  Node  $node
+   * @param  Value $lval
+   * @param  Value $rval
+   * @return Value
+   */
+  protected function reduce_in_op($node, $lval, $rval)
+  {
+    // TODO
+    return Value::$UNDEF;
+  }
+  
+  /**
    * reduces a check_expr
    *
    * @param Node $node

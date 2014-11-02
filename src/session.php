@@ -17,6 +17,7 @@ require_once 'glob.php';
 require_once 'ast.php';
 require_once 'scope.php';
 require_once 'compile.php';
+require_once 'bundle.php';
 
 use phs\ast\Node;
 use phs\ast\Unit;
@@ -43,8 +44,11 @@ class Session
   // @var int  current kind of file
   private $kind;
   
-  // @var Source  source root-directory (used to pack)
+  // @var string  source root-directory (used to pack)
   private $sroot;
+  
+  // @var Source  main source
+  public $main;
   
   // @var Dict  use-lookup cache dict
   public $udct;
@@ -149,6 +153,10 @@ class Session
   public function add_source(Source $src)
   {
     if ($src->check() && $this->srcs->add($src)) {
+      // first source-file = main
+      if ($this->main === null)
+        $this->main = $src;
+      
       if ($this->started)
         // in compilation: source may be added from a
         // require-declaration -> compile it now
@@ -237,27 +245,17 @@ class Session
     // ---------------------------------------
     // step 3: pack sources into a phar
     
-    goto out;
+    $bnd = new Bundle($this);
     
-    Logger::debug('phar lib/');
     foreach ($this->libs as $lib)
-      logger::debug('%s', basename($lib->get_dest()));
-    
-    logger::debug('phar src/');
-    foreach ($this->srcs as $src)
-      Logger::debug('%s', basename($src->get_dest()));
-    
-    // ---------------------------------------
-    // step 4: cleanup
-    /*
-    foreach ($this->libs as $lib)
-      unlink($lib->get_dest());
+      $bnd->add_library($lib);
     
     foreach ($this->srcs as $src)
-      unlink($src->get_dest());
-    */
-   
-    out:
+      $bnd->add_source($src);
+    
+    $bnd->deploy();
+    $bnd->cleanup();
+    
     Logger::debug('complete');
     return;
   

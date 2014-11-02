@@ -616,9 +616,13 @@ param
   | hint '&' T_REST ident            { $$ = @RestParam($1, $4, true); }
   | '&' T_REST ident                 { $$ = @RestParam(null, $3, true); }
   | '&' ident                        { $$ = @Param(true, null, null, $2, null, false); }
+  | '&' ident '?'                    { $$ = @Param(true, null, null, $2, null, true); }
   | hint '&' ident                   { $$ = @Param(true, null, $1, $3, null, false); }
+  | hint '&' ident '?'               { $$ = @Param(true, null, $1, $3, null, true); }
   | mods '&' ident                   { $$ = @Param(true, $1, null, $3, null, false); }
+  | mods '&' ident '?'               { $$ = @Param(true, $1, null, $3, null, true); }
   | mods hint '&' ident              { $$ = @Param(true, $1, $2, $4, null, false); }
+  | mods hint '&' ident '?'          { $$ = @Param(true, $1, $2, $4, null, true); }
   ;
   
 hint_opt
