@@ -6,6 +6,9 @@ class BreakStmt extends Stmt
 {
   public $id;
   
+  // @var int  level to break (gets resolved later)
+  public $level;
+  
   public function __construct($id)
   {
     $this->id = $id;

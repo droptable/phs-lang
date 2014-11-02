@@ -17,7 +17,9 @@ use phs\ast\NewExpr;
 use phs\ast\AssignExpr;
 use phs\ast\ObjLit;
 use phs\ast\ObjKey;
+use phs\ast\SelfExpr;
 use phs\ast\SuperExpr;
+use phs\ast\YieldExpr;
 
 use phs\util\Set;
 
@@ -57,6 +59,9 @@ class CodeGenerator extends AutoVisitor
   // @var boolean  in call expression
   private $call;
   
+  // @var boolean  in member expression
+  private $member;
+  
   // @var int  in-loop
   private $loop;
   
@@ -94,6 +99,7 @@ class CodeGenerator extends AutoVisitor
       $this->hstr = true;
       $this->strs = [];
       $this->ignv = false;
+      $this->member = false;
       $this->fhnd = fopen($src->get_dest(), 'w+');
             
       // module-generation specific
@@ -471,18 +477,11 @@ class CodeGenerator extends AutoVisitor
   {
     $this->emit('new \\List_(');
     
-    if (!empty ($list)) {
-      $this->emitln();
-      $this->indent();
-    
+    if (!empty ($list))    
       foreach ($list as $idx => $item) {
-        if ($idx > 0) $this->emitln(',');
+        if ($idx > 0) $this->emit(', ');
         $this->emit_value($item);
       }
-      
-      $this->dedent();
-      $this->emitln();
-    }
     
     $this->emit(')');
   }
@@ -625,15 +624,23 @@ class CodeGenerator extends AutoVisitor
   /**
    * emits a function-member binding
    * 
+   * @param  ClassSymbol  $csym
    * @param  FnSymbol  $fsym
    */
-  public function emit_fn_cmbind(FnSymbol $fsym)
+  public function emit_fn_cmbind(ClassSymbol $csym, FnSymbol $fsym)
   {
     if ($fsym->flags & SYM_FLAG_ABSTRACT)
       return;
     
     $this->emit_member_mods($fsym, true);
-    $this->emitln('$', $fsym->id, ';');
+    $this->emit('$', $fsym->id);
+    
+    if ($fsym->flags & SYM_FLAG_STATIC) {
+      $this->emit(' = [ \'\\', path_to_ns($csym->path()));
+      $this->emit('\', \'', $fsym->id, '\' ]');  
+    }
+    
+    $this->emitln(';');
   }
   
   /**
@@ -663,32 +670,34 @@ class CodeGenerator extends AutoVisitor
   /**
    * emits a constructor declaration
    *
-   * @param  FnSymbol $sym 
+   * @param  ClassSymbol $csym
+   * @param  FnSymbol $ctor 
    * @param  array    $vars
    * @param  array    $funs
    */
-  public function emit_ctor_decl(FnSymbol $sym = null, array $vars, array $funs)
+  public function emit_ctor_decl(ClassSymbol $csym, FnSymbol $ctor = null, 
+                                 array $vars, array $funs)
   {
     // constructor cannot be abstract
-    if ($sym->flags & SYM_FLAG_ABSTRACT)
-      $sym->flags ^= SYM_FLAG_ABSTRACT;
+    if ($ctor && $ctor->flags & SYM_FLAG_ABSTRACT)
+      $ctor->flags ^= SYM_FLAG_ABSTRACT;
     
-    if ($sym === null)
+    if ($ctor === null)
       // default constructor is public by default
       $this->emitln('public function __construct() '); 
     else {
-      $this->emit_member_mods($sym);
+      $this->emit_member_mods($ctor);
       $this->emit('function __construct');
-      $this->emit_fn_params($sym->node);
+      $this->emit_fn_params($ctor->node);
     }
     
     $this->emitln('{');
     $this->indent();
     
-    if ($sym !== null) {
+    if ($ctor !== null) {
       $tprm = [];
       
-      foreach ($sym->params as $param)
+      foreach ($ctor->params as $param)
         if ($param->that)
           $tprm[$param->rid] = $param;
       
@@ -727,7 +736,13 @@ class CodeGenerator extends AutoVisitor
     }
     
     // 3. bind methods
+    $super = $csym->members->super;
+    
     foreach ($funs as $fun) {
+      if (($fun->flags & SYM_FLAG_STATIC) ||
+          $super && $super->has($fun->id))
+        continue;
+      
       $this->emit('$this->', $fun->id, ' = [ $this, ');
       $this->emitln("'", $fun->id, "'", ' ];');
     }
@@ -735,10 +750,10 @@ class CodeGenerator extends AutoVisitor
     // 4. call super if needed
     $esup = false;
     
-    if ($sym === null || !$sym->node->body)
+    if ($ctor === null || !$ctor->node->body)
       $esup = true;
     else
-      foreach ($sym->node->body->body as $stmt) {
+      foreach ($ctor->node->body->body as $stmt) {
         if ($stmt instanceof ExprStmt) {
           foreach ($stmt->expr as $expr) {
             if ($expr instanceof CallExpr &&
@@ -758,22 +773,31 @@ class CodeGenerator extends AutoVisitor
       $this->emitln('parent::__construct();');
     
     // 5. emit actual body
-    if ($sym !== null && $sym->node->body)
-      $this->emit_fn_body($sym->node, false, false, false);
+    if ($ctor !== null && $ctor->node->body)
+      $this->emit_fn_body($ctor->node, false, false, false);
     
     $this->dedent();
     $this->emitln('}'); 
   }
   
-  public function emit_dtor_decl(FnSymbol $sym = null)
+  /**
+   * emits a destructor
+   *
+   * @param  ClassSymbol $csym
+   * @param  FnSymbol    $dtor
+   */
+  public function emit_dtor_decl(ClassSymbol $csym, FnSymbol $dtor = null)
   {
-    if ($sym === null)
+    if ($dtor === null)
       return;
     
-    $this->emit_member_mods($sym);
+    if ($dtor && $dtor->flags & SYM_FLAG_ABSTRACT)
+      $dtor->flags ^= SYM_FLAG_ABSTRACT;
+    
+    $this->emit_member_mods($dtor);
     $this->emit('function __destruct() ');
     // ignore params, the gc does not pass any
-    $this->emit_fn_body($sym->node);
+    $this->emit_fn_body($dtor->node);
   }
   
   /* ------------------------------------ */
@@ -1288,16 +1312,16 @@ class CodeGenerator extends AutoVisitor
     
     // 2. emit method-bindings
     foreach ($funs as $fun)
-      $this->emit_fn_cmbind($fun);
+      $this->emit_fn_cmbind($csym, $fun);
     
     if (!empty ($vars) || !empty ($funs))
       $this->emitln();
     
     // 3. emit constructor
-    $this->emit_ctor_decl($csym->members->ctor, $vars, $funs);
+    $this->emit_ctor_decl($csym, $csym->members->ctor, $vars, $funs);
     
     // 4. emit destructor
-    $this->emit_dtor_decl($csym->members->dtor);
+    $this->emit_dtor_decl($csym, $csym->members->dtor);
     
     // 5. emit getter
     
@@ -1636,14 +1660,30 @@ class CodeGenerator extends AutoVisitor
    *
    * @param  Node  $node
    */
-  public function visit_break_stmt($n) {}
+  public function visit_break_stmt($node) 
+  {
+    $this->emit('break');
+    
+    if ($node->level > 1)
+      $this->emit(' ', $node->level);
+    
+    $this->emitln(';');
+  }
 
   /**
    * Visitor#visit_continue_stmt()
    *
    * @param  Node  $node
    */
-  public function visit_continue_stmt($n) {}
+  public function visit_continue_stmt($node) 
+  {
+    $this->emit('continue');
+    
+    if ($node->level > 1)
+      $this->emit(' ', $node->level);
+    
+    $this->emitln(';');
+  }
 
   /**
    * Visitor#visit_print_stmt()
@@ -1654,6 +1694,14 @@ class CodeGenerator extends AutoVisitor
   {
     $this->emit('echo ');
     
+    // empty string just for a new line
+    // -> ignore
+    if (count($node->expr) === 1 && 
+        $node->expr[0] instanceof StrLit &&
+        empty ($node->expr[0]->parts) &&
+        $node->expr[0]->data === '')
+      goto out;
+    
     foreach ($node->expr as $i => $expr) {
       if ($i > 0) $this->emit(', ');
       
@@ -1663,7 +1711,10 @@ class CodeGenerator extends AutoVisitor
         $this->visit($expr);
     }
     
-    $this->emitln(', \\PHP_EOL;');
+    $this->emit(', ');
+    
+    out:
+    $this->emitln('\\PHP_EOL;');
   }  
 
   /**
@@ -2026,7 +2077,37 @@ class CodeGenerator extends AutoVisitor
    *
    * @param  Node  $node
    */
-  public function visit_cast_expr($n) {}
+  public function visit_cast_expr($node) 
+  {
+    if ($node->type instanceof TypeId) {
+      $this->emit('(');
+      
+      switch ($node->type->type) {
+        case T_TINT:
+          $this->emit('int');
+          break;
+        case T_TBOOL:
+          $this->emit('bool');
+          break;
+        case T_TFLOAT:
+          $this->emit('float');
+          break;
+        case T_TSTRING:
+          $this->emit('string');
+          break;
+        default:
+          assert(0);
+      }
+      
+      $this->emit(')');
+      $this->visit($node->expr);
+    } else {
+      $this->emit('\\', path_to_ns($node->type->symbol->path()));
+      $this->emit('::from(');
+      $this->visit($node->expr);
+      $this->emit(')');
+    }
+  }
 
   /**
    * Visitor#visit_update_expr()
@@ -2055,7 +2136,17 @@ class CodeGenerator extends AutoVisitor
     $this->emit(' ');
     $this->emit_op($node->op);
     $this->emit(' ');
+    
+    $paren = false;
+    if ($node->right instanceof YieldExpr) {
+      $paren = true;
+      $this->emit('(');
+    }
+    
     $this->visit($node->right);  
+    
+    if ($paren)
+      $this->emit(')');
   }
   
   /**
@@ -2077,12 +2168,21 @@ class CodeGenerator extends AutoVisitor
     $call = $this->call;
     $this->call = false;
     
+    $memb = $this->member;
+    $this->member = true;
+    
     $this->visit($node->object);
     
     if ($paren)
       $this->emit(')');
     
-    $this->emit('->');
+    if ($node->object instanceof SelfExpr ||
+        $node->object instanceof SuperExpr ||
+        ($node->object instanceof Name &&
+         $node->object->symbol instanceof ClassSymbol))
+      $this->emit('::');
+    else
+      $this->emit('->');
         
     if ($node->computed) {
       $this->emit('{'); 
@@ -2092,6 +2192,7 @@ class CodeGenerator extends AutoVisitor
       $this->emit(ident_to_str($node->member));
     
     $this->call = $call;
+    $this->member = $memb;
   }
 
   /**
@@ -2191,14 +2292,28 @@ class CodeGenerator extends AutoVisitor
    *
    * @param  Node  $node
    */
-  public function visit_yield_expr($n) {}
+  public function visit_yield_expr($node) 
+  {
+    $this->emit('yield ');
+    
+    if ($node->key) {
+      $this->visit($node->key);
+      $this->emit(' => ');
+    }
+    
+    $this->visit($node->arg);
+  }
 
   /**
    * Visitor#visit_unary_expr()
    *
    * @param  Node  $node
    */
-  public function visit_unary_expr($n) {}
+  public function visit_unary_expr($node) 
+  {
+    $this->emit($node->op->value);
+    $this->visit($node->expr);
+  }
 
   /**
    * Visitor#visit_new_expr()
@@ -2221,7 +2336,12 @@ class CodeGenerator extends AutoVisitor
    *
    * @param  Node  $node
    */
-  public function visit_del_expr($n) {}
+  public function visit_del_expr($node) 
+  {
+    $this->emit('unset (');
+    $this->visit($node->expr);
+    $this->emit(')');
+  }
   
 
   /**
@@ -2280,15 +2400,11 @@ class CodeGenerator extends AutoVisitor
     
     $this->emit('new \\List_(');
     
-    if (!empty ($node->items)) {
-      $this->emitln();
-      $this->indent();
+    if (!empty ($node->items))
       foreach ($node->items as $idx => $item) {
-        if ($idx > 0) $this->emitln(', ');
+        if ($idx > 0) $this->emit(', ');
         $this->visit($item);
       }
-      $this->dedent();
-    }
     
     $this->emit(')');
   }
@@ -2352,17 +2468,28 @@ class CodeGenerator extends AutoVisitor
       
       $this->emit($sym->id);
     } else {
-      // quote paths if they're accessed in read-mode
-      $quote = '';
-      if ($sym instanceof IfaceSymbol ||
-          $sym instanceof TraitSymbol ||
-          (($sym instanceof FnSymbol || 
-            $sym instanceof ClassSymbol) && 
-           !$this->call))
-        $quote = "'";
+      if (($sym->scope instanceof MemberScope) ||
+          ($sym->scope instanceof InnerScope && 
+           $sym->scope->outer instanceof MemberScope)) {
+        if ($sym->flags & SYM_FLAG_STATIC)
+          $this->emit('static::');
+        else
+          $this->emit('$this->');
         
-      $this->emit($quote, '\\', 
-        path_to_ns($sym->path()), $quote);
+        $this->emit($sym->id);
+      } else {
+        // quote paths if they're accessed in read-mode
+        $quote = '';
+        if ($sym instanceof IfaceSymbol ||
+            $sym instanceof TraitSymbol ||
+            (($sym instanceof FnSymbol || 
+              $sym instanceof ClassSymbol) && 
+             !$this->call))
+          $quote = "'";
+        
+        $this->emit($quote, '\\', 
+          path_to_ns($sym->path()), $quote);
+      }
     }
   }
   
@@ -2394,7 +2521,10 @@ class CodeGenerator extends AutoVisitor
    */
   public function visit_super_expr($node) 
   {
-    $this->emit('parent');  
+    if ($this->member)
+      $this->emit('parent');
+    else
+      $this->emit('\'\\', path_to_ns($node->symbol->path()), '\'');
   }  
 
   /**
@@ -2404,7 +2534,10 @@ class CodeGenerator extends AutoVisitor
    */
   public function visit_self_expr($node) 
   {
-    $this->emit('self');  
+    if ($this->member || $this->call)
+      $this->emit('static');
+    else
+      $this->emit('\'\\', path_to_ns($node->symbol->path()), '\'');
   }
   
   /**

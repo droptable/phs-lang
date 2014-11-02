@@ -6,6 +6,9 @@ class ContinueStmt extends Stmt
 {
   public $id;
   
+  // @var int  level to continue (gets resolved later)
+  public $level;
+  
   public function __construct($id)
   {
     $this->id = $id;

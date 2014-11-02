@@ -113,6 +113,7 @@ class Session
      * every class has `Obj` as a superclass.
      * 
      * @see lib/run.php
+     * @see lib/run/obj.php
      */
     $obj = new ClassSymbol('Obj', $loc, $non);
     $obj->members = new MemberScope($obj, $this->scope);

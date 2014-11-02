@@ -28,6 +28,11 @@ use phs\ast\TraitDecl;
 use phs\ast\SelfExpr;
 use phs\ast\ThisExpr;
 use phs\ast\SuperExpr;
+use phs\ast\DoStmt;
+use phs\ast\ForStmt;
+use phs\ast\ForInStmt;
+use phs\ast\WhileStmt;
+use phs\ast\SwitchStmt;
 
 use phs\util\Set;
 use phs\util\Map;
@@ -77,7 +82,7 @@ class ResolveTask extends AutoVisitor implements Task
   
   // @var GlobScope
   private $sglob;
-  
+    
   // @var ClassSymbol  current class
   // to resolve `this` and `super`
   private $cclass;
@@ -87,6 +92,13 @@ class ResolveTask extends AutoVisitor implements Task
   
   // @var NodeCollector  used for applied trait-members
   private $ncol;
+  
+  // @var array  loop-labels
+  // to resolve break/continue with labels
+  private $labels;
+  
+  // @var array  label stack
+  private $lstack;
   
   /**
    * constructor
@@ -113,8 +125,52 @@ class ResolveTask extends AutoVisitor implements Task
     $this->upath = dirname($unit->loc->file);
     $this->sunit = $unit->scope; 
     $this->fnstk = [];
+    $this->labels = [];
+    $this->lstack = [];
     
     $this->enter($this->sunit, $unit);
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * increments all active lables
+   *
+   */
+  private function inc_labels()
+  {
+    foreach ($this->labels as &$level)
+      ++$level;
+  }
+  
+  /**
+   * decrements all active labels
+   *
+   */
+  private function dec_labels()
+  {
+    foreach ($this->labels as &$level)
+      --$level;
+  }
+  
+  /**
+   * verifies a label break/continue
+   *
+   * @param  Node $node
+   */
+  private function verify_label($node)
+  {
+    $lid = ident_to_str($node->id);
+    
+    if (!isset ($this->labels[$lid])) {
+      // note: the label exists and is reachable ...
+      // checked in validate.php
+      Logger::error_at($node->loc, 'cannot break/continue \\');
+      Logger::error('label `%s` \\', $lid);
+      Logger::error('because this label does not identify a loop \\');
+      Logger::error('or switch statement');
+    } else
+      $node->level = $this->labels[$lid];
   }
   
   /* ------------------------------------ */
@@ -159,6 +215,7 @@ class ResolveTask extends AutoVisitor implements Task
       $this->scope->delegate($node->symbol->origin->scope);
     
     array_push($this->fnstk, $node->symbol);
+    array_push($this->lstack, $this->labels);
     
     $this->visit_fn_params($node->params);
     
@@ -170,6 +227,7 @@ class ResolveTask extends AutoVisitor implements Task
     $this->scope = $prev;
     
     array_pop($this->fnstk);
+    $this->labels = array_pop($this->lstack);
   }
   
   /* ------------------------------------ */
@@ -1137,6 +1195,39 @@ class ResolveTask extends AutoVisitor implements Task
     } else
       $this->process_require($node, $path->data, $node->php, $node->loc);
   }
+  
+  /**
+   * Visitor#visit_label_decl()
+   *
+   * @param  Node $node
+   */
+  public function visit_label_decl($node) 
+  {
+    $stmt = $node->stmt;
+    
+    if ($stmt instanceof DoStmt ||
+        $stmt instanceof ForStmt ||
+        $stmt instanceof ForInStmt ||
+        $stmt instanceof WhileStmt ||
+        $stmt instanceof SwitchStmt) {
+      $lid = ident_to_str($node->id);
+      $this->labels[$lid] = 0;
+    }
+    
+    $this->visit($stmt);
+  }
+  
+  /**
+   * Visitpr#visit_do_stmt()
+   *
+   * @param  Node $node
+   */
+  public function visit_do_stmt($node) 
+  {
+    $this->inc_labels();
+    parent::visit_do_stmt($node);
+    $this->dec_labels();
+  }
 
   /**
    * Visitor#visit_for_in_stmt()
@@ -1145,6 +1236,8 @@ class ResolveTask extends AutoVisitor implements Task
    */
   public function visit_for_in_stmt($node)
   {
+    $this->inc_labels();
+    
     $prev = $this->scope;
     $this->scope = $node->scope;
     $this->scope->enter();
@@ -1165,6 +1258,8 @@ class ResolveTask extends AutoVisitor implements Task
     
     $this->scope->leave();
     $this->scope = $prev;
+    
+    $this->dec_labels();
   }
   
   /**
@@ -1174,6 +1269,8 @@ class ResolveTask extends AutoVisitor implements Task
    */
   public function visit_for_stmt($node)
   {
+    $this->inc_labels();
+    
     $prev = $this->scope;
     $this->scope = $node->scope;
     $this->scope->enter();
@@ -1185,6 +1282,54 @@ class ResolveTask extends AutoVisitor implements Task
     
     $this->scope->leave();
     $this->scope = $prev;
+    
+    $this->dec_labels();
+  }
+  
+  /**
+   * Visitor#visit_break_stmt()
+   *
+   * @param  Node  $node
+   */
+  public function visit_break_stmt($node) 
+  {
+    if ($node->id)
+      $this->verify_label($node);
+  }
+  
+  /**
+   * Visitor#visit_continue_stmt()
+   *
+   * @param  Node  $node
+   */
+  public function visit_continue_stmt($node) 
+  {
+    if ($node->id)
+      $this->verify_label($node);
+  }
+  
+  /**
+   * Visitor#visit_while_stmt()
+   *
+   * @param  Node $node
+   */
+  public function visit_while_stmt($node) 
+  {
+    $this->inc_labels();
+    parent::visit_while_stmt($node);
+    $this->dec_labels();  
+  }
+  
+  /**
+   * Visitor#visit_switch_stmt()
+   *
+   * @param  Node $node
+   */
+  public function visit_switch_stmt($node) 
+  {
+    $this->inc_labels();
+    parent::visit_switch_stmt($node);
+    $this->dec_labels();
   }
   
   /**

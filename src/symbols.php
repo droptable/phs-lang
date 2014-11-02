@@ -226,6 +226,9 @@ abstract class Symbol
     
     if ($self === true)
       $abs[] = $this->id;
+    
+    if ($this->flags & SYM_FLAG_GLOBAL)
+      return $abs;
         
     // don't compute a path for parameters
     if ($this->flags & SYM_FLAG_PARAM)

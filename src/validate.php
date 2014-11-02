@@ -77,6 +77,9 @@ class ValidateTask extends Visitor implements Task
   // @var array
   private $stack;
   
+  // @var bool  
+  private $super;
+  
   // @var int
   private $inmod = 0;
   
@@ -119,6 +122,7 @@ class ValidateTask extends Visitor implements Task
   {
     $this->stack = [ 'unit' ];
     $this->nmods = [];
+    $this->super = false;
     $this->visit($unit);
     $this->check_jumps();
   }
@@ -1444,11 +1448,17 @@ class ValidateTask extends Visitor implements Task
       Logger::info_at($node->loc, ' did you mean `new self(...)` ?');
     }
     
-    if ($node->callee instanceof SuperExpr && !$this->within('ctor'))
-      Logger::error_at($node->loc, 'explicit super-call outside of constructor');
+    if ($node->callee instanceof SuperExpr) {
+      if (!$this->within('ctor'))
+        Logger::error_at($node->loc, 'explicit super-call outside of constructor');
+      
+      $this->super = true;
+    }
     
     $this->visit($node->callee);
     $this->check_args($node->args);
+    
+    $this->super = false;
   }
   
   /**
@@ -1636,7 +1646,15 @@ class ValidateTask extends Visitor implements Task
    */
   public function visit_this_expr($node) 
   {
-    // noop  
+    if ($this->super) {
+      Logger::error_at($node->loc, 'access to `this` is not allowed \\');
+      Logger::error('inside a super-call');
+      Logger::info('why? because `this` must be initialized during the \\');
+      Logger::info('constructor call-chain first to work properly');
+      Logger::info('therefore access to `this` is only allowed directly \\');
+      Logger::info('within the constructor-bodies or after all \\');
+      Logger::info('constructors where called');
+    }
   }
   
   /**

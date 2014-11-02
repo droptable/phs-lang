@@ -1033,7 +1033,7 @@ nxpr
   | nxpr '.' '{' rxpr '}' { $$ = @MemberExpr($1, $4, true); }
   | nxpr '[' rxpr ']'     { $$ = @OffsetExpr($1, $3); }
   | nxpr '[' error ']'    { $$ = null; }
-  | atom                  { $$ = $1; }
+  | name                  { $$ = $1; }
   ;
   
 pxpr
@@ -1095,7 +1095,6 @@ name
 type_name
   : name    { $$ = $1; }
   | type_id { $$ = $1; }
-  | T_SELF  { $$ = @SelfExpr; }
   ;
 
 type_id
@@ -1103,6 +1102,7 @@ type_id
   | T_TBOOL   { $$ = @TypeId($1->type); }
   | T_TFLOAT  { $$ = @TypeId($1->type); }
   | T_TSTRING { $$ = @TypeId($1->type); }
+  | T_SELF    { $$ = @SelfExpr; }
   ;
 
 ident
