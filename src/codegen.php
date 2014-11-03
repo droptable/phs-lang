@@ -21,6 +21,7 @@ use phs\ast\SelfExpr;
 use phs\ast\SuperExpr;
 use phs\ast\YieldExpr;
 use phs\ast\RestArg;
+use phs\ast\ExprStmt;
 
 use phs\util\Set;
 
@@ -775,6 +776,7 @@ class CodeGenerator extends AutoVisitor
     $this->indent();
     
     if ($ctor !== null) {
+      $this->emit_fn_checks($ctor->node);
       $tprm = [];
       
       foreach ($ctor->params as $param)
@@ -852,7 +854,7 @@ class CodeGenerator extends AutoVisitor
     
     // 5. emit actual body
     if ($ctor !== null && $ctor->node->body)
-      $this->emit_fn_body($ctor->node, false, false, false);
+      $this->emit_fn_body($ctor->node, false, false, false, false);
     
     $this->dedent();
     $this->emitln('}'); 
@@ -922,9 +924,15 @@ class CodeGenerator extends AutoVisitor
   {
     $fsym = $node->symbol;
     
-    $this->emit('$', $fsym->id, ' = function');
+    if (substr($fsym->id, 0, 1) !== '~')
+      $this->emit('$', $fsym->id, ' = ');
+    
+    $this->emit('function');
     $this->emit_fn_params($node);
     $this->emit_fn_body($node, true, $decl);
+    
+    if ($decl === false)
+      $this->buff = rtrim($this->buff, "\n ");
   }
   
   /**
@@ -979,11 +987,13 @@ class CodeGenerator extends AutoVisitor
    */
   public function emit_fn_captures($node)
   {
+    $fsym = $node->symbol;
     $capt = [];
     
-    if ($node instanceof FnExpr || $node->nested)
+    if (($node instanceof FnExpr && 
+         substr($fsym->id, 0, 1) !== '~') || $node->nested)
       // capture self
-      $capt[] = $node->symbol;
+      $capt[] = $fsym;
     
     foreach ($node->scope->capt as $csym)
       if (!$csym->scope->is_global())
@@ -1083,7 +1093,8 @@ class CodeGenerator extends AutoVisitor
    */
   public function emit_fn_body($node, $expr = false, 
                                       $term = false, 
-                                      $encl = true)
+                                      $encl = true,
+                                      $chks = true)
   {
     if ($expr === true)
       $this->emit_fn_captures($node);
@@ -1094,7 +1105,9 @@ class CodeGenerator extends AutoVisitor
     }
     
     $this->emit_fn_globals($node);
-    $this->emit_fn_checks($node);
+    
+    if ($chks)
+      $this->emit_fn_checks($node);
     
     // visit block-body directly
     $this->nest++;    
