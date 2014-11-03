@@ -7,8 +7,8 @@ class RequireDecl extends Node
   public $php;
   public $expr;
   
-  // @var string  the computed path
-  public $path;
+  // @var Source  the resolved source
+  public $source;
   
   public function __construct($php, $expr)
   {

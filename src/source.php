@@ -28,6 +28,9 @@ abstract class Source
   // @var string  relative destination in the bundle
   protected $dest;
   
+  // @var boolean  whenever this file was imported
+  public $import = false;
+  
   /**
    * should return all possible (sub-) sources.
    *

@@ -1,6 +1,6 @@
 /*!
  * This file is part of the PHS Standard Library
- * Copyright (c) 2014 Andre "asc" Schmidt 
+ * Copyright (c) 2014 The PHS Team
  * 
  * All rights reserved.
  * 
@@ -51,15 +51,11 @@ public fn empty(n) =>
  * @param  string path
  * @return mixed
  */
-public fn include(path) {
-  extern retv;
-  
-  __php__ {
-    use path;
-    "$retv = require_once $path;"
+public fn include(extern path) {
+  // TODO: extern parameters are marked for deprecation
+  __php__ { 
+    "return include_once $path;" 
   }
-  
-  return retv;
 }
 
 // ---------------------------------------

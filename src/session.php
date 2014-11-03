@@ -193,6 +193,8 @@ class Session
    */
   public function add_import(Source $src)
   {
+    $src->import = true;
+    
     if ($this->kind === KIND_SRC)
       $this->add_source($src);
     else
@@ -242,7 +244,7 @@ class Session
     if ($this->aborted)
       goto err;
     
-    goto out;
+    //goto out;
      
     // ---------------------------------------
     // step 3: pack sources into a phar
@@ -273,27 +275,39 @@ class Session
    * @param  int    $kind
    */
   protected function analyze(Source $src, $kind)
-  {
-    Logger::debug('analyze file %s', $src->get_path());
-    
+  {    
     // new kind -> update source-root for follow-ups in add_import()
     if ($this->kind !== $kind)
       $this->sroot = $src->use_root();
     
     // update source-root
     $src->set_root($this->sroot);
-        
-    $this->kind = $kind;
     
-    foreach ($src->iter() as $file) {
-      $unit = null;
+    $root = $src->get_root();
+    $path = $src->get_path();
+    
+    if (strpos($path, $root) !== 0) {
+      $loc = $src->loc;
+      Logger::error_at($loc, 'unable to import %s', $path);
+      Logger::error_at($loc, 'current root-path is %s', $root); 
+      Logger::info('you either have to copy this file into the shown \\');
+      Logger::info('root-path or add it as a library which \\');
+      Logger::info('gets included automatically for you');     
+    } else {
+      Logger::debug('analyze file %s', $src->get_path());
       
-      if (!$file->php) {
-        $unit = $this->comp->analyze($file);
+      $this->kind = $kind;
+      
+      foreach ($src->iter() as $file) {
+        $unit = null;
         
-        if ($unit)
-          $src->unit = $unit; 
-      }      
+        if (!$file->php) {
+          $unit = $this->comp->analyze($file);
+          
+          if ($unit)
+            $src->unit = $unit; 
+        }      
+      }
     }
   }
   

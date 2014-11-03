@@ -461,6 +461,18 @@ class Scope extends SymbolMap
     return false;
   }
   
+  /**
+   * checks if this scope has local symbols
+   *
+   * @return boolean
+   */
+  public function has_locals()
+  {
+    foreach ($this->iter() as $sym)
+      if (!($sym->flags & SYM_FLAG_EXTERN))
+        return true;
+  }
+  
   /* ------------------------------------ */
   
   public static function in_same_scope(Symbol $sym, Scope $scp)

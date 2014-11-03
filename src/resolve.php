@@ -292,7 +292,7 @@ class ResolveTask extends AutoVisitor implements Task
     $this->sess->add_import($fsrc);
     
     if ($node)
-      $node->path = $fsrc->get_rpath();
+      $node->source = $fsrc;
   }
     
   /**
@@ -1328,6 +1328,34 @@ class ResolveTask extends AutoVisitor implements Task
     $this->inc_labels();
     parent::visit_switch_stmt($node);
     $this->dec_labels();
+  }
+  
+  /**
+   * Visitor#visit_php_stmt()
+   *
+   * @param  Node $node
+   */
+  public function visit_php_stmt($node)
+  {
+    if ($node->usage)
+      foreach ($node->usage as $usage)
+        foreach ($usage->items as $item) {
+          // lookup ident
+          $res = $this->lookup_ident($item->id);
+          if ($this->process_lookup($item->id, $res)) {
+            $sym = &$res->unwrap();
+            if (!($sym instanceof VarSymbol) &&
+                !($sym instanceof FnSymbol && $sym->nested)) {
+              Logger::error_at($item->loc, 'php-statements can only \\');
+              Logger::error('use variables or local functions');
+              Logger::info_at($item->loc, 'attempt to use %s', $sym);
+              Logger::info('it would be possible to use all kinds of \\');
+              Logger::info('symbols in a php-use statement, but \\');
+              Logger::info('it is currently not possible to generate \\');
+              Logger::info('php-code with the correct symbol-names in place');
+            }
+          }
+        }
   }
   
   /**

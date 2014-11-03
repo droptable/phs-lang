@@ -1,7 +1,7 @@
 <?php
 /*!
- * This file is part of the PHS Standard Library
- * Copyright (c) 2014 Andre "asc" Schmidt 
+ * This file is part of the PHS Runtime Library
+ * Copyright (c) 2014 The PHS Team
  * 
  * All rights reserved.
  * 

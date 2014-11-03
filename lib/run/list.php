@@ -1,7 +1,7 @@
 <?php
 /*!
- * This file is part of the PHS Standard Library
- * Copyright (c) 2014 Andre "asc" Schmidt 
+ * This file is part of the PHS Runtime Library
+ * Copyright (c) 2014 The PHS Team
  * 
  * All rights reserved.
  * 
@@ -20,7 +20,7 @@
  */
 
 /** list - note: the "_" is required */
-class List_ extends Obj implements ArrayAccess
+class List_ extends Obj implements Inable, ArrayAccess
 {
   // internal array
   private $mem;
@@ -133,6 +133,23 @@ class List_ extends Obj implements ArrayAccess
       return true;
     }
     
+    return false;
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * Inable#contains()
+   *
+   * @param  mixed $val
+   * @return boolean
+   */
+  public function contains($val)
+  {
+    foreach ($this->mem as $val)
+      if ($val === $ndl)
+        return true;
+      
     return false;
   }
   
@@ -392,7 +409,7 @@ class List_ extends Obj implements ArrayAccess
    */
   public function join($sep = ',')
   {
-    implode($sep, $this->mem);
+    return implode($sep, $this->mem);
   }
   
   
@@ -564,7 +581,7 @@ class List_ extends Obj implements ArrayAccess
   public function map(callable $fun)
   {
     $lst = new static;
-    $lst->mem = array_map($fun, $this->mem)
+    $lst->mem = array_map($fun, $this->mem);
     return $lst;
   }
   

@@ -20,6 +20,7 @@ use phs\ast\ObjKey;
 use phs\ast\SelfExpr;
 use phs\ast\SuperExpr;
 use phs\ast\YieldExpr;
+use phs\ast\RestArg;
 
 use phs\util\Set;
 
@@ -119,7 +120,7 @@ class CodeGenerator extends AutoVisitor
    */
   private function flush($path)
   {
-    static $ns_re = '/^namespace\s+(?:\w+(?:\\\w+)*\s+)?\{[ \n]*\}(?:[ ]*\n)?/m';
+    static $ns_re = '/^namespace\s+(?:\w+(?:[\\\\]\w+)*\s+)?\{[ \n]*?\}(?:[ ]*\n)?/m';
     static $hs_re = '';
     
     $buff = $this->buff;
@@ -296,6 +297,12 @@ class CodeGenerator extends AutoVisitor
         if ($bin === true)
           $val = '.';
         break;
+      case T_EQ:
+        $val = '===';
+        break;
+      case T_NEQ:
+        $val = '!==';
+        break;
     }
     
     $this->emit($val);
@@ -306,8 +313,9 @@ class CodeGenerator extends AutoVisitor
    *
    * @param  StrLit $node
    * @param  bool   $cat   concatenate strings if necessary
+   * @param  bool   $fmt   format string and wrap in quotes
    */
-  public function emit_str($node, $cat = true)
+  public function emit_str($node, $cat = true, $fmt = true)
   {
     assert($node instanceof StrLit);
     
@@ -316,9 +324,13 @@ class CodeGenerator extends AutoVisitor
     if ($node->data === '' && $node->parts)
       // first slice is empty: skip it
       $idx = 0;
-    else    
+    else {
       // emit first slice
-      $this->emit_str_fmt($node->data);
+      if ($fmt === true)
+        $this->emit_str_fmt($node->data);
+      else
+        $this->emit($node->data);
+    }
     
     if ($node->parts)
       foreach ($node->parts as $part) {
@@ -328,9 +340,12 @@ class CodeGenerator extends AutoVisitor
           else
             $this->emit(', ');
         
-        if ($part instanceof StrLit)
-          $this->emit_str_fmt($part->data);
-        else {
+        if ($part instanceof StrLit) {
+          if ($fmt === true)
+            $this->emit_str_fmt($part->data);
+          else
+            $this->emit($part->data);
+        } else {
           if ($cat === true) {
             $this->emit('(');
             $this->visit($part);
@@ -347,6 +362,7 @@ class CodeGenerator extends AutoVisitor
    * emits a formated string (with quotes and stuff)
    *
    * @param  string $val
+   * @param  bool   $qt   use quotes
    */
   public function emit_str_fmt($val)
   {
@@ -374,7 +390,7 @@ class CodeGenerator extends AutoVisitor
         case "\v": $cur = '\\v'; break;
         case "\e": $cur = '\\e'; break;
         case '\\': $cur = '\\\\'; break;
-        case $dlm: 
+        case $dlm:
           $cur = '\\';
           $cur .= $dlm;
           break;
@@ -409,7 +425,8 @@ class CodeGenerator extends AutoVisitor
     }
     
     if (($sym instanceof VarSymbol) ||
-        ($sym instanceof FnSymbol && $sym->nested)) {
+        ($sym instanceof FnSymbol && $sym->nested && 
+         !($sym->flags & SYM_FLAG_EXTERN))) {
               
       if ($memb === true) {
         if ($sym->flags & SYM_FLAG_STATIC)
@@ -747,7 +764,7 @@ class CodeGenerator extends AutoVisitor
     
     if ($ctor === null)
       // default constructor is public by default
-      $this->emitln('public function __construct() '); 
+      $this->emit('public function __construct() '); 
     else {
       $this->emit_member_mods($ctor);
       $this->emit('function __construct');
@@ -813,9 +830,7 @@ class CodeGenerator extends AutoVisitor
     // 4. call super if needed
     $esup = false;
     
-    if ($ctor === null || !$ctor->node->body)
-      $esup = true;
-    else
+    if ($ctor !== null && $ctor->node->body)
       foreach ($ctor->node->body->body as $stmt) {
         if ($stmt instanceof ExprStmt) {
           foreach ($stmt->expr as $expr) {
@@ -832,7 +847,7 @@ class CodeGenerator extends AutoVisitor
         break;
       }
     
-    if ($esup)
+    if ($esup === false)
       $this->emitln('parent::__construct();');
     
     // 5. emit actual body
@@ -891,10 +906,7 @@ class CodeGenerator extends AutoVisitor
   public function emit_fn_decl($node)
   {
     $fsym = $node->symbol;
-    
-    if ($fsym->flags & SYM_FLAG_EXTERN)
-      return;
-    
+        
     $this->emit('function ', $fsym->id);
     $this->emit_fn_params($node);
     $this->emit_fn_body($node);
@@ -1324,10 +1336,15 @@ class CodeGenerator extends AutoVisitor
     
     // unset vars  
     $scope = $node->scope;
-    if ($scope->count()) {
+    if ($scope->has_locals()) {
       $this->emit('unset (');
-        
-      foreach ($scope->iter() as $idx => $sym) {
+      $locs = [];
+      
+      foreach ($scope->iter() as $sym)
+        if (!($sym->flags & SYM_FLAG_EXTERN))
+          $locs[] = $sym;
+      
+      foreach ($locs as $idx => $sym) {
         if ($idx > 0) $this->emit(', ');
         $this->emit('$', $sym->id);
       }
@@ -1568,6 +1585,11 @@ class CodeGenerator extends AutoVisitor
    */
   public function visit_fn_decl($node) 
   {
+    $fsym = $node->symbol;
+    
+    if ($fsym->flags & SYM_FLAG_EXTERN)
+      return;
+    
     if ($node->nested)
       $this->emit_fn_expr($node, true);
     else
@@ -1637,7 +1659,7 @@ class CodeGenerator extends AutoVisitor
   public function visit_require_decl($node) 
   {
     $this->emit('require_once ');
-    $this->emitqs($node->path);
+    $this->emitqs($node->source->get_dest());
     $this->emitln(';');
   }
   
@@ -1799,8 +1821,37 @@ class CodeGenerator extends AutoVisitor
     $this->emitln('/* inline php {{ */');
     $this->indent();
     
-    // TODO: resolve usage!
-    $this->emit_str($node->code);
+    $unst = [];
+    
+    if ($node->usage)
+      foreach ($node->usage as $usage)
+        foreach ($usage->items as $item) {
+          $this->emit('$');
+          
+          if ($item->alias)
+            $sid = ident_to_str($item->alias);
+          else
+            $sid = ident_to_str($item->id);
+          
+          $unst[] = $sid;
+          $this->emit($sid);           
+          
+          $this->emit(' = &');
+          $this->emit_sym_ref($item->id->symbol);
+          $this->emitln(';');
+        }
+    
+    $this->emit_str($node->code, true, false);
+    
+    if ($unst) {
+      $this->emitln();
+      $this->emit('unset (');
+      foreach ($unst as $idx => $sid) {
+        if ($idx > 0) $this->emit(', ');
+        $this->emit('$', $sid);
+      }
+      $this->emitln(');');
+    }
     
     $this->dedent();
     $this->emitln('/* inline php }} */');

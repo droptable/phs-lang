@@ -33,6 +33,12 @@ class Logger
   // @var bool  continue-flag
   private static $cont = false;
   
+  // @var int   continuation-width
+  private static $clen = 0;
+  
+  // @var string  continuation-output
+  private static $cout;
+  
   // @var bool bail-out flag
   public static $bail = false;
   
@@ -40,7 +46,7 @@ class Logger
   private static $time = false;
   
   // @var int  line-width (length)
-  private static $width = 100;
+  private static $width = 80;
   
   // @var float
   public static $msec;
@@ -312,14 +318,56 @@ class Logger
     $wrap = explode("\n", $text);
     $last = array_pop($wrap);
     $size = count($wrap);
-    
-    if ($size > 0) {
-      if ($skip) {
-        $loop = true;
-        fwrite(self::$dest, $out);
-        fwrite(self::$dest, array_shift($wrap));
+        
+    if ($skip) {
+      $loop = true;
+      fwrite(self::$dest, $out);
+      
+      if ($size > 0)
+        $chnk = array_shift($wrap);
+      else {
+        $chnk = $last;
+        $size = 0;
+        $last = null;
       }
       
+      // split if necessary
+      $slen = strlen($chnk);
+      $bits = [];
+      $smax = self::$width - self::$clen;
+      
+      #echo "\n\n$slen <-> $smax\n\n";
+      
+      
+      if ($slen > $smax) {
+        $sbeg = substr($chnk, 0, $smax);
+        // go back to the last whitespace char like wordwrap()
+        for ($i = $smax - 1; $i >= 0; $i--)
+          if (ctype_space($sbeg[$i]))
+            break;
+        
+        $sbeg = substr($sbeg, 0, $i);
+        $chnk = substr($chnk, $i + 1);
+        
+        $bits[] = $sbeg;
+      }
+      
+      $bits[] = $chnk;
+      
+      #var_dump($bits);
+      #echo "\n\n";
+      
+      fwrite(self::$dest, $bits[0]);
+      
+      if (count($bits) > 1) {
+        $cout = self::$cout;
+        fwrite(self::$dest, "\n{$cout}... {$bits[1]}");
+        self::$clen = strlen($bits[1]);
+      } else 
+        self::$clen += strlen($bits[0]);
+    }
+    
+    if ($size > 0) {      
       foreach ($wrap as $chnk) {
         if ($loop) $chnk = "... $chnk";
         $loop = true;      
@@ -333,7 +381,11 @@ class Logger
     if (!$skip)
       fwrite(self::$dest, "\n");
     
-    fwrite(self::$dest, "$out$last");
+    if ($last !== null) {
+      self::$clen = strlen($last);
+      self::$cout = $out;
+      fwrite(self::$dest, "$out$last");
+    }
     
     if (self::$bail && $lvl === LOG_LEVEL_ERROR && !self::$cont) {
       echo "\n\n";

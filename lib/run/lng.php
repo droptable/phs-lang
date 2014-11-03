@@ -1,6 +1,7 @@
+<?php
 /*!
  * This file is part of the PHS Runtime Library
- * Copyright (c) 2014 The PHS Team
+ * Copyright (c) 2014 The PHS Team 
  * 
  * All rights reserved.
  * 
@@ -18,14 +19,18 @@
  * along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-// language stuff
-require __php__ 'run/lng';
-
-// root-object
-require __php__ 'run/obj';
-
-// dict: used for { ... } literals
-require __php__ 'run/dict';
-
-// list: used for [ ... ] literals
-require __php__ 'run/list';
+/**
+ * enables the "in" operator for objects
+ * 
+ * obj = new SomethingInable;
+ * res = val in obj; // -> res = obj.contains(val)
+ */
+interface Inable {
+  /**
+   * should check if a value exists inside this object
+   *
+   * @param  mixed val
+   * @return boolean
+   */
+  public function contains(val);
+}

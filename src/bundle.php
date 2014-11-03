@@ -92,8 +92,15 @@ class Bundle
     $stub = "#!/usr/bin/env php\n";
     $stub .= "<?php\n";
     $stub .= "Phar::mapPhar('phs');\n";
-    $stub .= "require 'phar://phs/lib/run.php';\n";
-    $stub .= "require 'phar://phs/src/$main';\n";
+    
+    // include libraries
+    foreach ($this->libs as $lib)
+      if ($lib->import === false) {
+        $path = $lib->get_dest();
+        $stub .= "require_once 'phar://phs/lib/$path';\n";
+      }
+      
+    $stub .= "require_once 'phar://phs/src/$main';\n";
     $stub .= "__HALT_COMPILER();";
     $phar->setStub($stub);
     

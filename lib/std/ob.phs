@@ -1,6 +1,6 @@
 /*!
  * This file is part of the PHS Standard Library
- * Copyright (c) 2014 Andre "asc" Schmidt 
+ * Copyright (c) 2014 The PHS Team
  * 
  * All rights reserved.
  * 
@@ -64,5 +64,6 @@ public use self::ob_implicit_flush as implicit_flush;
 public use self::ob_list_handlers as list_handlers;
 public use self::ob_start as start;
 
-fn stream(OStream out, int cs = 0, int flags = PHP_OUTPUT_HANDLER_STDFLAGS) =>
-  start(fn (data) { out.write(data); }, cs, flags);
+public fn stream(OStream out, int cs = 0, 
+                 int flags = PHP_OUTPUT_HANDLER_STDFLAGS) =>
+  start(fn _(data) { out.write(data); }, cs, flags);

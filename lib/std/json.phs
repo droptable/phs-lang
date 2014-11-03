@@ -1,6 +1,6 @@
 /*!
  * This file is part of the PHS Standard Library
- * Copyright (c) 2014 Andre "asc" Schmidt 
+ * Copyright (c) 2014 The PHS Team 
  * 
  * All rights reserved.
  * 
@@ -55,5 +55,5 @@ public extern __global__ const JSON_UNESCAPED_SLASHES;
 public extern __global__ const JSON_UNESCAPED_UNICODE;
 
 public extern __global__ iface JsonSerializable {
-  fn jsonserialize();
+  public fn jsonserialize();
 }

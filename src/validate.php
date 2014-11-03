@@ -284,6 +284,7 @@ class ValidateTask extends Visitor implements Task
               $this->within('iface', [ 'fn' ]))
             goto err;
           
+          // TODO: remove extern parameters?
           break;
           
         case T_GLOBAL:
@@ -947,15 +948,8 @@ class ValidateTask extends Visitor implements Task
     if ($this->within('iface'))
       Logger::error_at($node->loc, 'variables are not allowed inside of iface');
     
-    $extern = $this->has_extern_mod($node->mods);
-    
     foreach ($node->vars as $var)
       if ($var->init !== null) {
-        if ($extern) {
-          Logger::error_at($var->loc, 'extern variable must \\');
-          Logger::error('not have an initializer');
-        }
-        
         $dict = $this->dict;
         $this->dict = true;
         $this->visit($var->init);

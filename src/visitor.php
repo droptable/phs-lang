@@ -52,6 +52,10 @@ abstract class Visitor
     // walk node
     elseif ($node instanceof Node) {
       $m = 'visit_' . $node->kind();
+      if (!method_exists($this, $m)) {
+        echo "\nunable to walk: $m\n";
+        assert(0);
+      }
       assert(method_exists($this, $m));
       if ($node->loc) $this->lloc = $node->loc;
       $this->{$m}($node); 

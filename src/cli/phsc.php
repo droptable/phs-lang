@@ -66,6 +66,7 @@ function main() {
   
   $conf = new Config;
   $conf->set_defaults();
+  $conf->set('log_level', \phs\LOG_LEVEL_WARNING);
    
   init($conf, $root);
   
@@ -82,11 +83,11 @@ function main() {
   }
   
   // phs-runtime
-  #$sess->add_library(new FileSource(__DIR__ . '/../../lib/run.phs'));
+  $sess->add_library(new FileSource(__DIR__ . '/../../lib/run.phs'));
   
   // phs-stdlib
-  #if ($conf->get('nostd', false) === false)
-    #$sess->add_library(new FileSource(__DIR__ . '/../../lib/std.phs'));
+  if ($conf->get('nostd', false) === false)
+    $sess->add_library(new FileSource(__DIR__ . '/../../lib/std.phs'));
   
   $sess->add_source($path);
   $sess->process();
