@@ -82,7 +82,7 @@ function main() {
   }
   
   // phs-runtime
-  $sess->add_library(new FileSource(__DIR__ . '/../../lib/run.phs'));
+  #$sess->add_library(new FileSource(__DIR__ . '/../../lib/run.phs'));
   
   // phs-stdlib
   #if ($conf->get('nostd', false) === false)

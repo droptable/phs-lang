@@ -487,6 +487,23 @@ class ValidateTask extends Visitor implements Task
   }
   
   /**
+   * checks if <protected> modifier is set
+   *
+   * @param  array  $mods
+   * @return boolean
+   */
+  private function has_protected_mod($mods)
+  {
+    if (!$mods) return false;
+    
+    foreach ($mods as $mod)
+      if ($mod->type === T_PROTECTED) 
+        return true;
+    
+    return false;
+  }
+  
+  /**
    * checks members of a <extern> class/trait or iface declaration
    *
    * @param  Node $decl
@@ -839,59 +856,74 @@ class ValidateTask extends Visitor implements Task
     $this->check_params($node->params);
     
     $id = ident_to_str($node->id);
-    
+        
     // #1 iface-method-body check
-    if ($this->within('iface') && $node->body !== null) {
+    if ($this->within('iface', [ '*' ]) && $node->body !== null) {
       Logger::error_at($node->loc, 'iface method `%s` \\', $id);
       Logger::error('must not have a body');
     }
     
     // #2 iface-static-method-check
-    elseif ($this->within('iface') && $this->has_static_mod($node->mods)) {
+    if ($this->within('iface', [ '*' ]) && 
+        $this->has_static_mod($node->mods)) {
       // TODO: php allows this
-      Logger::error_at($node->loc, 'static members inside interfaces are \\ ');
-      Logger::error_at($node->loc, 'currently not supported (`%s`)', $id);
+      Logger::error_at($node->loc, 'static members inside interfaces \\ ');
+      Logger::error('are currently not supported (`%s`)', $id);
     }
     
-    // #3 extern-fn-body check
-    elseif ($this->has_extern_mod($node->mods) && $node->body !== null) {
+    // #3 iface-non-public-method-check
+    if ($this->within('iface', [ '*' ]) &&
+        ($this->has_private_mod($node->mods) ||
+         $this->has_protected_mod($node->mods))) {
+      Logger::error_at($node->loc, 'iface method `%s` \\ ', $id);
+      Logger::error('must be declared public');
+    }
+    
+    // #4 extern-fn-body check
+    if ($this->has_extern_mod($node->mods) && $node->body !== null) {
       Logger::error_at($node->loc, 'extern function \\');
       Logger::error('`%s` must not have a body', $id);
     }
     
-    // #4 non-extern-fn-body check
-    elseif (!$this->within('class') && !$this->within('trait') && 
-            !$this->within('iface') && !$this->has_extern_mod($node->mods) && 
-            $node->body === null) {
+    // #5 non-extern-fn-body check
+    if (!$this->within('class', [ '*' ]) && 
+        !$this->within('trait', [ '*' ]) && 
+        !$this->within('iface', [ '*' ]) && 
+        !$this->has_extern_mod($node->mods) && $node->body === null) {
       Logger::error_at($node->loc, 'non-extern function `%s` \\', $id);
       Logger::error('must have a body');
     }
     
-    // #5 static-fn-abstract check
-    elseif (($this->within('class') || $this->within('trait')) &&
-            $this->has_static_mod($node->mods) && $node->body === null) {
+    // #6 static-fn-abstract check
+    if (($this->within('class', [ '*' ]) || 
+         $this->within('trait', [ '*' ])) &&
+        $this->has_static_mod($node->mods) && $node->body === null) {
       // TODO: php allows this
       Logger::error_at($node->loc, 'static method `%s` \\', $id);
       Logger::error('can not be abstract');
     }
     
-    // #6 final-method-abstract check
-    elseif (($this->within('class') || $this->within('trait') || 
-             $this->within('iface')) && $this->has_final_mod($node->mods) && 
-            $node->body === null) {
+    // #7 final-method-abstract check
+    if (($this->within('class', [ '*' ]) || 
+         $this->within('trait', [ '*' ]) || 
+         $this->within('iface', [ '*' ])) && 
+        $this->has_final_mod($node->mods) && $node->body === null) {
       Logger::error_at($node->loc, 'final method `%s` \\', $id);
       Logger::error('can not be abstract');
     }
     
-    // #7 class-const-method check
-    elseif (($this->within('class') || $this->within('trait') || 
-             $this->within('iface')) && $this->has_const_mod($node->mods)) {
+    // #8 class-const-method check
+    if (($this->within('class', [ '*' ]) || 
+         $this->within('trait', [ '*' ]) || 
+         $this->within('iface', [ '*' ])) && 
+        $this->has_const_mod($node->mods)) {
       Logger::info_at($node->loc, '`const` modifier has no effect here');
     }
     
-    // #8 abstract-private check
-    elseif (($this->within('class') || $this->within('iface')) &&
-            $this->has_private_mod($node->mods) && $node->body === null) {
+    // #9 abstract-private check
+    if (($this->within('class', [ '*' ]) || 
+         $this->within('iface', [ '*' ])) &&
+         $this->has_private_mod($node->mods) && $node->body === null) {
       Logger::error_at($node->loc, 'abstract method can not be private');
     }
     

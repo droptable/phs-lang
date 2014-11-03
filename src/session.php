@@ -242,6 +242,8 @@ class Session
     if ($this->aborted)
       goto err;
     
+    goto out;
+     
     // ---------------------------------------
     // step 3: pack sources into a phar
     
@@ -256,6 +258,7 @@ class Session
     $bnd->deploy();
     $bnd->cleanup();
     
+    out:
     Logger::debug('complete');
     return;
   

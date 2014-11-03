@@ -668,9 +668,9 @@ class CodeGenerator extends AutoVisitor
    * 
    * @param  FnSymbol  $fsym
    */
-  public function emit_fn_member(FnSymbol $fsym)
+  public function emit_fn_member(FnSymbol $fsym, $iface = false)
   {
-    $this->emit_member_mods($fsym);
+    $this->emit_member_mods($fsym, $iface);
     
     $this->emit('function ', $fsym->id);
     $this->emit_fn_params($fsym->node);
@@ -680,7 +680,8 @@ class CodeGenerator extends AutoVisitor
         $this->emitln('{}');
       else
         $this->emit_fn_body($fsym->node);
-    }
+    } else
+      $this->emitln(';');
   }
   
   /**
@@ -860,6 +861,24 @@ class CodeGenerator extends AutoVisitor
     $this->emit('function __destruct() ');
     // ignore params, the gc does not pass any
     $this->emit_fn_body($dtor->node);
+  }
+  
+  /**
+   * emits trait-usage
+   *
+   * @param  array<TraitUsageMap> $traits
+   */
+  public function emit_used_traits(array $traits)
+  {
+    // note: traits are currently empty-declarations
+    // class_uses() will work as expected, but
+    // all methods from traits are copied ahead-of-time
+    
+    foreach ($traits as $trait) {
+      $this->emit('use \\');
+      $this->emit(path_to_ns($trait->trait->symbol->path()));
+      $this->emitln(';');
+    }
   }
   
   /* ------------------------------------ */
@@ -1365,6 +1384,11 @@ class CodeGenerator extends AutoVisitor
     $this->emitln(' {');
     $this->indent();
     
+    if ($csym->traits) {
+      $this->emit_used_traits($csym->traits);      
+      $this->emitln();
+    }
+    
     $vars = [];
     $funs = [];
     
@@ -1401,8 +1425,10 @@ class CodeGenerator extends AutoVisitor
     $this->emit_dtor_decl($csym, $csym->members->dtor);
     
     // 5. emit getter
+    // TODO
     
     // 6. emit setter
+    // TODO
     
     // 7. emit methods
     foreach ($funs as $fun)
@@ -1467,14 +1493,72 @@ class CodeGenerator extends AutoVisitor
    *
    * @param  Node  $node
    */
-  public function visit_trait_decl($n) {}
+  public function visit_trait_decl($node) 
+  {
+    $tsym = $node->symbol;
+    
+    $this->emitln('trait ', $tsym->id, ' {');
+    $this->indent();
+    
+    if ($tsym->traits) {
+      $this->emit_used_traits($tsym->traits);
+      $this->emitln();
+    }
+    
+    // TODO:
+    // trait-functions don't have own scopes,
+    // therefore emit_xyz_member does not work.
+    // this needs to be fixed soon, but 
+    // it's not super relevant to have traits
+    // compiled to php, because "use xyz" is completely
+    // done in the resolver-pass.
+    
+    /*
+    foreach ($tsym->members->iter() as $msym) {
+      if ($msym->origin !== null)
+        continue; // comes from another trait
+        
+      if ($msym instanceof FnSymbol)
+        $this->emit_fn_member($msym);
+      else
+        $this->emit_var_member($msym);
+    } 
+    */
+   
+    $this->dedent();
+    $this->emitln('}');
+  }
 
   /**
    * Visitor#visit_iface_decl()
    *
    * @param  Node  $node
    */
-  public function visit_iface_decl($n) {}
+  public function visit_iface_decl($node) 
+  {
+    $isym = $node->symbol;
+    
+    $this->emit('interface ', $isym->id);
+    
+    if ($isym->ifaces) {
+      $this->emit(' extends ');
+      foreach ($isym->ifaces as $idx => $iface) {
+        if ($idx > 0) $this->emit(', ');
+        $this->emit('\\', path_to_ns($iface->symbol->path()));  
+      }
+    }
+    
+    $this->emitln(' {');
+    $this->indent();
+    
+    foreach ($isym->members->iter() as $fsym) {
+      assert($fsym instanceof FnSymbol);
+      $this->emit_fn_member($fsym, true);
+    }
+    
+    $this->dedent();
+    $this->emitln('}');
+  }
     
 
   /**

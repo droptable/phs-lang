@@ -894,12 +894,10 @@ class ResolveTask extends AutoVisitor implements Task
   {
     $cres = $csym->members->rec($isym->id, $isym->ns);
     
-    if ($cres->is_none() || $cres->unwrap() === $isym) {
+    if ($cres->is_none() || $cres->unwrap() === $isym)
       // mark class as abstract
-      Logger::debug('%s does not implement at least \\', $csym);
-      Logger::debug('one abstract method and therefore declared abstract');
       $csym->flags |= SYM_FLAG_ABSTRACT;
-    } else {
+    else {
       $cmem = &$cres->unwrap();
       
       if ($cmem->flags !== ($isym->flags ^ SYM_FLAG_ABSTRACT) &&
