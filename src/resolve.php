@@ -1118,6 +1118,10 @@ class ResolveTask extends AutoVisitor implements Task
       if ($param->hint)
         $this->resolve_type($param->hint, TYC_HINT);
       
+      if (($param instanceof Param ||
+           $param instanceof ThisParam) && $param->init)
+        $this->visit($param->init);
+      
       $param->symbol->reachable = true;
     }
   }  

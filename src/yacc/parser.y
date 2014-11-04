@@ -448,7 +448,7 @@ ctor_params
 ctor_param
   : param                            { $$ = $1; }
   | hint_opt T_THIS '.' aid          { $$ = @ThisParam($1, $4, null, false); }
-  | hint_opt T_THIS '.' aid '=' rxpr { $$ = @ThisParam($1, $4, $5, false); }
+  | hint_opt T_THIS '.' aid '=' rxpr { $$ = @ThisParam($1, $4, $6, false); }
   |      '&' T_THIS '.' aid          { $$ = @ThisParam(null, $4, null, true); }
   | hint '&' T_THIS '.' aid          { $$ = @ThisParam($1, $5, null, true); }
   ;

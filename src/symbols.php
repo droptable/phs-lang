@@ -894,6 +894,9 @@ class ParamSymbol extends VarSymbol
   // @var TypeId|Name  hint
   public $hint;
   
+  // @var Node initializer
+  public $init;
+  
   /**
    * constructor
    *
@@ -937,6 +940,11 @@ class ParamSymbol extends VarSymbol
     $sym->rest = $node instanceof RestParam;
     $sym->hint = $node->hint;
     $sym->that = $node instanceof ThisParam;
+    $sym->init = null;
+    
+    if ($node instanceof Param || $node instanceof ThisParam)
+      $sym->init = $node->init;
+    
     $sym->node = $node;
     return $sym;
   }

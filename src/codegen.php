@@ -434,7 +434,7 @@ class CodeGenerator extends AutoVisitor
           $this->emit($host, '::$');
         else
           $this->emit('$this->');
-      } else
+      } elseif (!($sym->flags & (SYM_FLAG_EXTERN | SYM_FLAG_CONST)))
         $this->emit('$');
       
       $this->emit($sym->id);
@@ -942,6 +942,13 @@ class CodeGenerator extends AutoVisitor
    */
   public function emit_fn_params($node)
   {
+    static $defs = [
+      T_TINT => '0',
+      T_TBOOL => 'false',
+      T_TFLOAT => '0.',
+      T_TSTRING => "''"
+    ];
+    
     $fsym = $node->symbol;
     
     $this->emit('(');
@@ -959,8 +966,15 @@ class CodeGenerator extends AutoVisitor
       
       $this->emit('$', $psym->id);   
       
-      if ($psym->opt)
-        $this->emit(' = null');
+      if ($psym->opt || $psym->init) {
+        $defv = 'null';
+        
+        if (!$psym->init && /* use null if a initializer is set */
+            $psym->hint && $psym->hint instanceof TypeId)
+          $defv = $defs[$psym->hint->type];
+        
+        $this->emit(' = ', $defv);
+      }
     }
       
     $this->emit(') ');
@@ -976,7 +990,8 @@ class CodeGenerator extends AutoVisitor
     foreach ($node->scope->capt as $sym)
       if (($sym instanceof VarSymbol ||
            $sym instanceof FnSymbol && $sym->nested) &&
-          $sym->scope->is_global())
+          $sym->scope->is_global() &&
+          !($sym->flags & (SYM_FLAG_EXTERN | SYM_FLAG_CONST)))
         $this->emitln('global $', $sym->id, ';');
   }
   
@@ -991,7 +1006,8 @@ class CodeGenerator extends AutoVisitor
     $capt = [];
     
     if (($node instanceof FnExpr && 
-         substr($fsym->id, 0, 1) !== '~') || $node->nested)
+         substr($fsym->id, 0, 1) !== '~') || 
+        ($node instanceof FnDecl && $node->nested))
       // capture self
       $capt[] = $fsym;
     
@@ -1028,9 +1044,26 @@ class CodeGenerator extends AutoVisitor
     
     $fsym = $node->symbol;
     
-    foreach ($fsym->params as $idx => $psym)
+    foreach ($fsym->params as $idx => $psym) {
+      $id = $psym->id;
+      
+      if ($psym->init) {
+        $this->emitln('if ($', $id, ' === null) {');
+        $this->indent();
+        
+        $temp = $this->hoist_dict_expr($psym->init, $id);
+        
+        if ($temp === null) {
+          $this->emit('$', $id, ' = ');
+          $this->visit($psym->init);
+          $this->emitln(';');
+        }
+        
+        $this->dedent();
+        $this->emitln('}');
+      }
+      
       if ($psym->hint && $psym->hint instanceof TypeId) {
-        $id = $psym->id;
         $nr = '';
         $fn = $ttos[$psym->hint->type];
         
@@ -1048,7 +1081,7 @@ class CodeGenerator extends AutoVisitor
           if ($psym->opt)
             $this->emit('$', $id, ' !== null && ');
           
-          $this->emitln('!is_', $fn, '($', $id, '))');
+          $this->emitln('!is_', $fn, '($', $id, ')) {');
           $this->indent();
           $this->emit('throw new \\InvalidArgumentException(', "'");
           $this->emit($fsym->rid, '(): parameter #', $idx + 1, ' ');
@@ -1073,6 +1106,7 @@ class CodeGenerator extends AutoVisitor
           
           $this->emitln(');');
           $this->dedent();
+          $this->emitln('}');
         } else
           $this->emitln('$', $id, ' = (', $fn, ') $', $id, ';');
           
@@ -1081,6 +1115,7 @@ class CodeGenerator extends AutoVisitor
           $this->dedent();
         } 
       }
+    }
   }
   
   /**

@@ -66,4 +66,4 @@ public use self::ob_start as start;
 
 public fn stream(OStream out, int cs = 0, 
                  int flags = PHP_OUTPUT_HANDLER_STDFLAGS) =>
-  start(fn _(data) { out.write(data); }, cs, flags);
+  start(fn (data) { out.write(data); }, cs, flags);

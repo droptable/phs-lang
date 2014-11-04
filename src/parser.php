@@ -2307,7 +2307,7 @@ class Parser
 
   private function yyn103() 
   {
-     $this->yyval = new ast\ThisParam($this->yyastk[$this->yysp-(6-1)], $this->yyastk[$this->yysp-(6-4)], $this->yyastk[$this->yysp-(6-5)], false); 
+     $this->yyval = new ast\ThisParam($this->yyastk[$this->yysp-(6-1)], $this->yyastk[$this->yysp-(6-4)], $this->yyastk[$this->yysp-(6-6)], false); 
   }
 
 
