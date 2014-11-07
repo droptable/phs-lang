@@ -35,7 +35,7 @@ function get_dict_vars(Dict $dict) {
  * dictionary class
  * this class is used for { ... } literals
  */
-class Dict extends Obj
+class Dict extends Obj implements Inable
 {
   /**
    * constructor
@@ -123,6 +123,19 @@ class Dict extends Obj
    */
   public function has($key)
   {
+    $key = (string) $key;
+    return isset ($this->{$key});
+  }
+  
+  /**
+   * @Inable#contains()
+   *
+   * @param  string $key
+   * @return boolean
+   */
+  public function contains($key) 
+  {
+    // inlined from ::has()
     $key = (string) $key;
     return isset ($this->{$key});
   }

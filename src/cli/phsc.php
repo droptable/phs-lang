@@ -1,96 +1,542 @@
+#!/usr/bin/env php
 <?php
 
-define('PHS_DEBUG', true);
+namespace phs;
 
-chdir(__DIR__ . '/..');
+if (PHP_SAPI !== 'cli')
+  exit(__FILE__ . ' is a php-cli application');
 
-require_once 'config.php';
-require_once 'logger.php';
-require_once 'source.php';
-require_once 'session.php';
+const PHS_DEBUG = true;
 
-#require_once 'back/optimizer.php';
-#require_once 'back/codegen.php';
+require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../logger.php';
+require_once __DIR__ . '/../source.php';
+require_once __DIR__ . '/../session.php';
 
-use phs\Config;
-use phs\Logger;
-use phs\Session;
-use phs\FileSource;
+const FLIBS = 0;
+const FSRCS = 1;
 
-assert_options(ASSERT_ACTIVE, true);
-assert_options(ASSERT_BAIL, true);
-assert_options(ASSERT_CALLBACK, function($s, $l, $c, $m = null) {
-  echo "\nassertion failed", $m ? " with message: $m" : '!', "\n";
-  echo "\nfile: $s\nline: $l\n", $c ? "code: $c\n" : ''; 
-  echo "\n";
-  debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
-  exit;
-});
-
-set_error_handler(function($n, $s, $f, $l) {
-  echo "\nerror: $s ($n)\nfile: $f\nline: $l\n\n";
-  debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
-  exit;
-});
-
-function init(Config $conf, $root) {
-  $qarg = in_array('-q', $_SERVER['argv']);
-  
-  if ($qarg || in_array('--nologo', $_SERVER['argv']))
-    $conf->set('nologo', true);
-  
-  if (in_array('--nostd', $_SERVER['argv']))
-    $conf->set('nostd', true);
-  
-  if ($qarg || in_array('--nodebug', $_SERVER['argv']))
-    $conf->set('log_level', phs\LOG_LEVEL_WARNING);
-  
-  if ($conf->get('nologo') === false)
-      echo <<<END_LOGO
-     ___  __ ______
-    / _ \/ // / __/
-   / ___/ _  /\ \  
-  /_/  /_//_/___/   Version 0.1a1
-  
-  Copyright (C) 2014 - The PHS Team.
-  Report bugs to http://ggggg.de/issues
-  
-END_LOGO;
-  
-  Logger::init($conf, $root, !in_array('--nocolors', $_SERVER['argv']));    
-}
-
-function main() {  
-  $path = new FileSource(__DIR__ . '/../test/test.phs');
-  $root = dirname($path->get_path());
-  
+/**
+ * entry-point
+ *
+ * @param  int $argc
+ * @param  array $argv
+ */
+function main($argc, $argv) {
   $conf = new Config;
   $conf->set_defaults();
-  $conf->set('log_level', \phs\LOG_LEVEL_WARNING);
-   
-  init($conf, $root);
   
-  $sess = new Session($conf, $root);
-  Logger::hook(phs\LOG_LEVEL_ERROR, [ $sess, 'abort'] );
+  $files = parse_args($conf, $argc, $argv);
   
-  if ($conf->get('werror') === true)
-    Logger::hook(phs\LOG_LEVEL_WARNING, [ $sess, 'abort' ]);
+  if (!check_conf($conf))
+    exit("use `phsc -?` for help");
   
-  if (in_array('-v', $_SERVER['argv'])) {
-    if ($conf->get('nologo'))
-      print "PHS 0.1a1 (c) 2014 - The PHS Team";
-    exit; 
+  // show version and exit
+  if ($conf->version) {
+    if ($conf->quiet)
+      echo \phs\VERSION;
+    else
+      logo();
+    
+    exit;
   }
   
-  // phs-runtime
-  $sess->add_library(new FileSource(__DIR__ . '/../../lib/run.phs'));
+  if (empty ($files[FSRCS]))
+    exit('nothing to do');
   
-  // phs-stdlib
-  if ($conf->get('nostd', false) === false)
-    $sess->add_library(new FileSource(__DIR__ . '/../../lib/std.phs'));
+  init($conf);
   
-  $sess->add_source($path);
+  $sess = new Session($conf);
+     
+  // runtime library
+  if (!$conf->nort)
+    $sess->add_library_from('run');
+  
+  // standard library
+  if (!$conf->nostd)
+    $sess->add_library_from('std');
+  
+  // user-defined libraries
+  foreach ($files[FLIBS] as $lib)
+    $sess->add_library_from($lib);
+  
+  // user-defined sources
+  foreach ($files[FSRCS] as $src)
+    $sess->add_source_from($src);
+  
   $sess->process();
 }
 
-main();
+main($_SERVER['argc'], $_SERVER['argv']);
+
+/**
+ * initializes the compiler-runtime
+ *
+ * @param  Config $conf
+ */
+function init(Config $conf) {
+  if (PHS_DEBUG === true) {
+    // debug setup
+    assert_options(ASSERT_ACTIVE, true);
+    assert_options(ASSERT_BAIL, true);
+    assert_options(ASSERT_CALLBACK, function($s, $l, $c, $m = null) {
+      echo "\nassertion failed", $m ? " with message: $m" : '!', "\n";
+      echo "\nfile: $s\nline: $l\n", $c ? "code: $c\n" : ''; 
+      echo "\n";
+      debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
+      exit;
+    });
+
+    set_error_handler(function($n, $s, $f, $l) {
+      echo "\nerror: $s ($n)\nfile: $f\nline: $l\n\n";
+      debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
+      exit;
+    });
+  }
+  
+  if (!$conf->quiet) 
+    logo();
+}
+
+/**
+ * shows the phs-logo
+ *
+ */
+function logo() {
+  $ver = VERSION;
+  echo <<<END_LOGO
+     ___  __ ______
+    / _ \/ // / __/
+   / ___/ _  /\ \  
+  /_/  /_//_/___/   Version $ver
+  
+  Copyright (C) 2014 - The PHS Team.
+  Report bugs to https://github.com/droptable/phs-lang/issues
+    
+END_LOGO;
+}
+
+/**
+ * shows command-line options end exit
+ *
+ */
+function usage($logo = true) {
+  if ($logo === true)
+    logo();
+    
+  echo <<<DOC
+
+usage: phsc [ options ] file ... 
+
+options:
+  
+ -?  --help         Shows this info.
+ 
+ -v  --version      Shows the compiler version.
+ 
+ --nort             Does not pack the PHS-Runtime Library into the bundle.
+                    (Use with caution)
+                    
+ --nostd            Does not pack the PHS-Standard Library into the bundle.
+                                   
+ -q  --quiet        Disables unnecessary noise (output) generated by the 
+                    compiler.
+                    Note: This option gets forwarded to PHP if --run is set
+                    
+ -d                 Output dir. (default=current working dir)
+ 
+ -o                 Output file. (default=a.zip)
+                    Note: This option is ignored if --pack is set to 'none'
+                  
+ -m                 All public (reachable) symbols from the main-files
+                    get exported as "extern-declaration" into a single 
+                    file called "lib.phs".
+                     
+                    This file can be used as library in other compilations.
+                    Note: This option disables --pack and --stub.
+                    
+ -s                 Compiles the main-file but does not create a bundle.
+                    Note: This option if for debugging purposes.
+                    Note: This option accepts only one file at a time.
+                    
+ --werr             Handles all warnings as errors.
+ 
+ -i  --inc          Adds a include-path for libraries.
+ 
+ -l  --lib          Adds a library.
+ 
+ -r  --run          Executes the application after compilation.
+                    Note: A PHP >= 5.6 application must be available 
+                          via `php` command.
+                          
+ -c  --check        Checks the syntax of all main-files only.
+                    The compiler stops in this state, no bundle will be 
+                    generated.
+                    
+ -f  --fmt          Parses and re-formats the main-file and dumps it to stdout.
+                    The compiler stops in this state, no bundle will be 
+                    generated.
+                    Note: This option accepts only one file at a time.
+                    
+ --log-ansi         Force-enables ANSI console outputs (colors).
+                    Note: The logger detects ANSI compatible shells 
+                          automatically.
+                          
+                          This option is for unknown shells only where YOU know
+                          for sure that ANSI colors can be displayed.
+                            
+                          In short:
+                          Don't use this option on the windows cmd!
+                          
+ --log-dest         Sets the log destination. (default=stderr)
+                    Possible values: stdout, stderr, {path}
+                    
+ --log-time         Outputs timing-informations for each logging-output.
+                    Useful for compiler benchmarks.
+                    
+ --log-width        Sets the maximum line-width for logging-outputs.
+ 
+ --log-level        Sets the log level. (default=warning)
+                    Possible values: all, debug, info, warning, error
+                    
+ --pack             Sets the bundle-packer. (default=zip)
+                    Possible values: none, zip, phar, file
+                    
+ --stub             Sets the bundle-stub. (default=none)
+                    Possible values: none, run, mod, phar-web, phar-run, {path}
+                    Note: If --pack is set to 'file' no stub will be generated.
+                    Note: 'phar-web' and 'phar-run' override --pack to 'phar'
+                    Note: 'mod' requires the -m option to be set.
+                    
+                    Stub meaning:
+                    
+                      'none'       Generates no stub at all.
+                                   You have to setup the compilation by hand.
+                                   
+                      'run'        Generates a small script with all libraries
+                                   and the main-files included.
+                                   This file will bootstrap your application.                     
+                                   
+                      'phar-run'   Generates a phar-stub just like 'run'.
+                                   Uses Phar::mapPhar().
+                                   
+                      'phar-web'   Generates a phar-stub for the web.
+                                   Uses Phar::webPhar().
+                                   
+                      {path}       A custom script as stub.
+                      
+                      
+examples: 
+  
+  phsc -d ./lib my_own_lib.phs
+  phsc -o my_own_app.phar -i ./lib -l my_own_lib my_own_app.phs
+  php ./my_own_app.phar
+
+DOC;
+  exit;
+}
+
+/**
+ * parses arguments
+ * 
+ * @param  Config $conf
+ * @param  int $argc
+ * @param  array $argv
+ * @return array
+ */
+function parse_args(Config $conf, $argc, $argv) {
+  $libs = [];
+  $srcs = [];
+  
+  if (in_array('-?', $argv) ||
+      in_array('--help', $argv))
+    usage();
+  
+  for ($i = 1; $i < $argc; ++$i) {
+    switch ($argv[$i]) {
+      case '--nort':
+        $conf->nort = true;
+        break;
+      case '--nostd':
+        $conf->nostd = true;
+        break;
+      case '-q':
+      case '-quiet':
+        $conf->quiet = true;
+        $conf->nologo = true;
+        $conf->log_level = LOG_LEVEL_ERROR;
+        break;
+      case '-m':
+        $conf->mod = true;
+        break;
+      case '--werr':
+        $conf->werror = true;
+        break;
+      case '-r':
+      case '--run':
+        $conf->run = true;
+        break;
+      case '-f':
+      case '--fmt':
+        $conf->format = true;
+        break;
+      case '-c':
+        $conf->check = true;
+        break;
+      case '-v':
+      case '--version':
+        $conf->version = true;
+        break;
+      case '--log-ansi':
+        $conf->log_ansi = true;
+        break;
+      case '--log-time':
+        $conf->log_time = true;
+        break;
+      case '-o': case '--out':
+      case '-d': case '--dir':
+      case '-i': case '--inc':
+      case '-l': case '--lib':
+      case '--log-dest':
+      case '--log-level':
+      case '--pack':
+      case '--stub':
+        if ($i + 1 >= $argc)
+          goto verr;
+        
+        $val = $argv[$i + 1];
+        if (substr($val, 0, 1) === '-') {
+          verr:
+          echo "option error: ", $argv[$i], " requires a value\n";
+          exit;
+        }
+        
+        switch ($argv[$i++]) {
+          case '-o': case '--out':
+            $conf->out = $val;
+            break;
+          case '-d': case '--dir':
+            $conf->dir = $val;
+            break;
+          case '-l': case '--lib':
+            $libs[] = $val;
+            break;
+          case '-i': case '--inc': 
+            $conf->lib_paths[] = $val;
+            break;
+          case '--log-dest':
+            $conf->log_dest = $val;
+            break;
+          case '--log-width':
+            $conf->log_width = $val;
+            break;
+          case '--log-level':
+            $conf->log_level = $val;
+            break;
+          case '--pack':
+            $conf->pack = $val;
+            break;
+          case '--stub':
+            $conf->stub = $val;
+            break;
+        }
+        
+        break;
+      default:
+        if (substr($argv[$i], 0, 1) === '-') {
+          echo "unknown option: ", $argv[$i], "\n";
+          usage(false);
+        }
+        
+        $srcs[] = $argv[$i];
+        break;
+    }
+  }
+  
+  return [ $libs, $srcs ];
+}
+
+/**
+ * checks the configuration
+ *
+ * @return bool
+ */
+function check_conf($conf) {
+  $res = true;
+  
+  $flags = [ 
+    'nort', 'nostd', 'quiet', 'werror', 
+    'run', 'format', 'check', 'version', 
+    'log_time'
+  ];
+  
+  foreach ($flags as $flag)
+    if (!is_bool($conf->{$flag})) {
+      echo "invalid option: `", $flag, "`\n";
+      $res = false;
+    }
+  
+  if ($conf->dir === NULL || 
+      $conf->dir === '' || 
+      $conf->dir === '.' ||
+      $conf->dir === './' ||
+      $conf->dir === '.\\')
+    $conf->dir = getcwd();
+  else
+    if ($conf->dir === '..' ||
+        $conf->dir === '../' ||
+        $conf->dir === '..\\')
+      $conf->dir = dirname(getcwd());
+    else {
+      $dir = trim($conf->dir);
+      if (preg_match('/^([.]{1,2}[\\\\\/])/', $dir, $sub)) {
+        $sub = $sub[0];
+        $dir = substr($dir, strlen($sub));
+        $cwd = getcwd();
+        
+        if (substr($sub, 0, 2) === '..')
+          $cwd = dirname($cwd);
+        
+        $dir = $cwd . DIRECTORY_SEPARATOR . $dir;
+      }
+      
+      if ((!is_dir($dir) && !mkdir($dir, 0777, true)) || !is_writable($dir)) {
+        echo "invalid option: `dir` - ", $dir, "\n";
+        echo "unable to access or create directory\n";
+        $res = false;
+      } else
+        $conf->dir = $dir;
+    }
+    
+  if (!is_string($conf->out)) {
+    echo "invalid option: `out` - ", $conf->out, "\n";
+    $res = false;
+  }
+  
+  if (!is_array($conf->lib_paths)) {
+    echo "invalid option: `lib_paths`\n";
+    $res = false;
+  }
+  
+  switch ($conf->log_dest) {
+    case null:
+      $conf->log_dest = 'stderr';
+    case 'stderr':
+    case 'stdout':
+      break;
+      
+    default:
+      if (!is_string($conf->log_dest)) {
+        echo "invalid option: `log_dest` - ", $conf->log_dest, "\n";
+        $res = false;
+      } else {
+        $path = realpath($conf->log_dest);
+        
+        if (is_file($conf->log_dest) && !is_writable($conf->log_dest)) {
+          echo "option `log_dest` - file is not writable: ", $path, "\n";
+          $res = false;
+        } else
+          $conf->log_dest = $path;
+      }
+  }
+  
+  $conf->log_width |= 0;
+  
+  if ($conf->log_width <= 0) {
+    echo "invalid option: `log_width` - expected a number >= 0\n";
+    $res = false;
+  }
+  
+  switch ($conf->log_level) {
+    case 'all':
+    case 'ALL':
+      $conf->log_level = LOG_LEVEL_ALL;
+      break;
+    case 'debug':
+    case 'DEBUG':
+      $conf->log_level = LOG_LEVEL_DEBUG;
+      break;
+    case 'info':
+    case 'INFO':
+      $conf->log_level = LOG_LEVEL_INFO;
+      break;
+    case 'warn':
+    case 'WARN':
+    case 'warning':
+    case 'WARNING':
+      $conf->log_level = LOG_LEVEL_WARNING;
+      break;
+    case 'error':
+    case 'ERROR':
+      $conf->log_level = LOG_LEVEL_ERROR;
+      break;
+    case LOG_LEVEL_ALL:
+    case LOG_LEVEL_DEBUG:
+    case LOG_LEVEL_INFO:
+    case LOG_LEVEL_WARNING:
+    case LOG_LEVEL_ERROR:
+      break;
+    default:
+      echo "invalid option: `log_level` - ", $conf->log_level, "\n";
+      $res = false;
+  }
+  
+  $out_ext = strtolower(strrchr($conf->out, '.'));
+  
+  if ($conf->pack === null) {
+    switch ($out_ext) {
+      case '.phar':
+        $conf->pack = 'phar';
+        break;
+      case '.php':
+        $conf->pack = 'file';
+        break;
+      default:
+        $conf->pack = 'zip';
+    }
+  } else
+    switch ($conf->pack) {
+      case 'none':
+      case 'NONE':
+      case 'zip':
+      case 'ZIP':
+      case 'phar':
+      case 'PHAR':
+      case 'file':
+      case 'FILE':
+        $conf->pack = strtolower($conf->pack);
+        break;
+      default:
+        echo "invalid option: `pack` - ", $conf->pack, "\n";
+        $res = false;
+    }
+  
+  if ($conf->stub === null) {
+    switch ($out_ext) {
+      case '.phar':
+        $conf->stub = 'phar-run';
+        break;
+      default:
+        $conf->stub = 'none';
+    }
+  } else 
+    switch ($conf->stub) {
+      case 'none':
+      case 'NONE':
+      case 'run':
+      case 'RUN':
+      case 'phar-run':
+      case 'PHAR-RUN':
+      case 'PHAR_RUN':
+      case 'phar-web':
+      case 'PHAR-WEB':
+      case 'PHAR_WEB':
+        $conf->stub = strtolower(strtr($conf->stub, [ '_' => '-' ]));
+        break;
+      default:
+        echo "invalid option: `stub` - ", $conf->stub, "\n";
+        $res = false;
+    }
+  
+  return $res;
+}

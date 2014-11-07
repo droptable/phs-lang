@@ -110,7 +110,7 @@ class ResolveTask extends AutoVisitor implements Task
     parent::__construct();
     $this->sess = $sess;
     $this->ncol = new NodeCollector($this->sess);
-    $this->rpath = $sess->rpath;
+    $this->rpath = $sess->sroot;
     $this->sglob = $sess->scope;
   }
   

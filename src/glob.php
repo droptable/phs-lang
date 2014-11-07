@@ -2,6 +2,8 @@
 
 namespace phs;
 
+const VERSION = '0.1a1';
+
 // token 
 class Token
 {

@@ -29,11 +29,11 @@ const
 
 class Session
 {
+  // @var bool  whenever the runtime was initialized
+  private static $init = false;
+  
   // @var Config
   public $conf;
-  
-  // @var string  the root-directory used to import other files
-  public $rpath;
   
   // abort flag
   public $aborted;
@@ -45,7 +45,7 @@ class Session
   private $kind;
   
   // @var string  source root-directory (used to pack)
-  private $sroot;
+  public $sroot;
   
   // @var Source  main source
   public $main;
@@ -81,10 +81,14 @@ class Session
    * @param Config $conf
    * @param string $root
    */
-  public function __construct(Config $conf, $root)
+  public function __construct(Config $conf)
   {    
+    if (!self::$init) {
+      Logger::init($conf);
+      self::$init = true;  
+    }
+        
     $this->conf = $conf;
-    $this->rpath = $root;
     $this->abort = false;
     
     $this->scope = new GlobScope; // global scope
@@ -96,17 +100,23 @@ class Session
     // process-queue
     $this->queue = [];
     
-    if (!$this->conf->get('nostd', false))
-      $this->setup_std();
+    if (!$this->conf->nort)
+      $this->setup_rt();
     
     $this->comp = new Compiler($this);
+    
+    // hook logger    
+    Logger::hook(LOG_LEVEL_ERROR, [ $this, 'abort' ]);
+    
+    if ($this->conf->werror === true)
+      Logger::hook(LOG_LEVEL_WARNING, [ $this, 'abort ']);
   }
   
   /**
-   * pre-defines some built-in symbols of the stdlib and runtime
+   * pre-defines some built-in symbols of the runtime
    *
    */
-  protected function setup_std()
+  protected function setup_rt()
   {
     $loc = new Location('<built-in>', new Position(0, 0));
     $pub = SYM_FLAG_PUBLIC;
@@ -144,7 +154,61 @@ class Session
     $this->scope->add($obj);
     $this->robj = $obj;
   }
+  
+  /**
+   * adds a source from a string
+   *
+   * @param string $str
+   */
+  public function add_source_from($str)
+  {
+    $path = getcwd() . DIRECTORY_SEPARATOR . ltrim($str, '/\\');
+    $path = realpath($path);
     
+    if (!$path || !is_file($path))
+      Logger::error('file not found: %s', $path);
+    
+    $this->add_source(new FileSource($path));
+  }
+  
+  /**
+   * adds a library from a string
+   *
+   * @param string $str
+   */
+  public function add_library_from($str)
+  {
+    $done = false;
+    
+    foreach ($this->conf->lib_paths as $libp) {
+      $root = $libp . DIRECTORY_SEPARATOR;
+      
+      if (strtolower(substr($str, -4)) === '.phs') {
+        $path = $root . $str;
+        if (!is_file($path)) continue;
+        goto add;
+      }
+      
+      // pass 1) $root + $str + '.phs'
+      $path = $root . $str . '.phs';
+      if (is_file($path)) goto add;
+      
+      // pass 2) $root + $str '/lib.phs'
+      $path = $root . $str . DIRECTORY_SEPARATOR . 'lib.phs';
+      if (is_file($path)) goto add;
+      
+      continue;
+      
+      add:
+      $this->add_library(new FileSource($path));
+      $done = true;
+      break;
+    }
+    
+    if (!$done)
+      Logger::error('library not found: %s', $str);
+  }
+  
   /**
    * add a source
    * 
@@ -157,13 +221,8 @@ class Session
       if ($this->main === null)
         $this->main = $src;
       
-      if ($this->started)
-        // in compilation: source may be added from a
-        // require-declaration -> compile it now
-        $this->analyze($src, KIND_SRC);
-      else
-        // add file to the compile-queue
-        $this->queue[] = [ $src, KIND_SRC ];
+      // add to queue
+      $this->queue[] = [ $src, KIND_SRC ]; 
     }
   }
   
@@ -174,15 +233,9 @@ class Session
    */
   public function add_library(Source $src)
   {
-    if ($src->check() && $this->libs->add($src)) {
-      if ($this->started)
-        // in compilation: source may be added from a
-        // require-declaration -> compile it now
-        $this->analyze($src, KIND_LIB);
-      else
-        // add file to the compile-queue
-        $this->queue[] = [ $src, KIND_LIB ];
-    }
+    if ($src->check() && $this->libs->add($src))
+      // add to queue
+      $this->queue[] = [ $src, KIND_LIB ];
   }
   
   /**
@@ -193,12 +246,41 @@ class Session
    */
   public function add_import(Source $src)
   {
+    assert($this->started);
+    
+    // update source-root
+    $src->set_root($this->sroot);
     $src->import = true;
     
-    if ($this->kind === KIND_SRC)
-      $this->add_source($src);
-    else
-      $this->add_library($src);
+    $root = $src->get_root();
+    $path = $src->get_path();
+    
+    if (strpos($path, $root) !== 0) {
+      $loc = $src->loc;
+      Logger::error_at($loc, 'unable to import %s', $path);
+      Logger::error_at($loc, 'current root-path is %s', $root); 
+      Logger::info('you either have to copy this file into the shown \\');
+      Logger::info('root-path or add it as a library which \\');
+      Logger::info('gets included automatically for you');
+      return;
+    } 
+    
+    if (!$src->check())
+      return;
+    
+    $res = false;
+    
+    switch ($this->kind) {
+      case KIND_LIB:
+        $res = $this->srcs->add($src);
+        break;
+      case KIND_SRC:
+        $res = $this->libs->add($src);
+        break;
+    }
+    
+    if ($res === true)
+      $this->analyze($src);
   }
   
   /**
@@ -223,12 +305,21 @@ class Session
   {
     $this->started = true;
     
+    if ($this->aborted)
+      goto err;
+    
     // ---------------------------------------
     // step 1: analyze sources 
     
-    while ($src = array_shift($this->queue))
-      $this->analyze($src[0], $src[1]);
-                   
+    while (list ($src, $kind) = array_shift($this->queue)) {
+      if ($kind !== $this->kind || $kind === KIND_LIB)
+        // unset source-root
+        $this->sroot = null;
+      
+      $this->kind = $kind;  
+      $this->analyze($src);
+    }
+    
     if ($this->aborted)
       goto err;
     
@@ -274,40 +365,24 @@ class Session
    * @param  Source $src
    * @param  int    $kind
    */
-  protected function analyze(Source $src, $kind)
-  {    
-    // new kind -> update source-root for follow-ups in add_import()
-    if ($this->kind !== $kind)
+  protected function analyze(Source $src)
+  {        
+    Logger::debug('analyze file %s', $src->get_path());
+    
+    if ($this->sroot === null)
       $this->sroot = $src->use_root();
     
-    // update source-root
     $src->set_root($this->sroot);
     
-    $root = $src->get_root();
-    $path = $src->get_path();
-    
-    if (strpos($path, $root) !== 0) {
-      $loc = $src->loc;
-      Logger::error_at($loc, 'unable to import %s', $path);
-      Logger::error_at($loc, 'current root-path is %s', $root); 
-      Logger::info('you either have to copy this file into the shown \\');
-      Logger::info('root-path or add it as a library which \\');
-      Logger::info('gets included automatically for you');     
-    } else {
-      Logger::debug('analyze file %s', $src->get_path());
-      
-      $this->kind = $kind;
-      
-      foreach ($src->iter() as $file) {
-        $unit = null;
-        
-        if (!$file->php) {
-          $unit = $this->comp->analyze($file);
+    foreach ($src->iter() as $file) {
+      $unit = null;
+       
+      if (!$file->php) {
+        $unit = $this->comp->analyze($file);
           
-          if ($unit)
-            $src->unit = $unit; 
-        }      
-      }
+        if ($unit)
+          $src->unit = $unit; 
+      }      
     }
   }
   

@@ -5,12 +5,12 @@ namespace phs;
 require_once 'config.php';
 
 const
-  LOG_LEVEL_ALL     = 0,
-  LOG_LEVEL_DEBUG   = 1, // debug messages
-  LOG_LEVEL_VERBOSE = 2, // verbose
-  LOG_LEVEL_INFO    = 3, // informations
-  LOG_LEVEL_WARNING = 4, // warnings
-  LOG_LEVEL_ERROR   = 5  // errors
+  LOG_LEVEL_ALL     = 1,
+  LOG_LEVEL_DEBUG   = 2, // debug messages
+  LOG_LEVEL_VERBOSE = 3, // verbose
+  LOG_LEVEL_INFO    = 4, // informations
+  LOG_LEVEL_WARNING = 5, // warnings
+  LOG_LEVEL_ERROR   = 6  // errors
 ;
 
 class Logger
@@ -67,25 +67,22 @@ class Logger
    * @param  Config $conf
    * @return void
    */
-  public static function init(Config $conf, $root, $ansi)
+  public static function init(Config $conf)
   {
-    self::$root = $root;
-    self::$ansi = $ansi && (DIRECTORY_SEPARATOR !== '\\' || !!getenv('ANSICON'));
+    self::$root = getcwd();
+    self::$ansi = $conf->log_ansi ?: 
+      DIRECTORY_SEPARATOR !== '\\' || !!getenv('ANSICON');
     
-    if ($conf->has('log_dest'))
-      self::set_dest($conf->get('log_dest'));
+    self::set_dest($conf->log_dest);
+    self::set_level($conf->log_level);
     
-    if ($conf->has('log_level'))
-      self::set_level((int)$conf->get('log_level'));
-    
-    if ($conf->get('log_time') === true) {
+    if ($conf->log_time === true) {
       self::$time = true;
       self::$msec = microtime(true);
     }
     
-    if ($conf->has('log_width'))
-      // 250 -> max, 50 -> min 
-      self::$width = max(50, min(250, $conf->get('log_width')|0));
+    // 250 -> max, 50 -> min 
+    self::$width = max(50, min(250, $conf->log_width));
     
     Logger::debug('logger initialized');
   }
@@ -115,9 +112,22 @@ class Logger
    */
   public static function set_dest($dest)
   {
-    if (!is_resource($dest)) {
+    if ($dest === 'stderr')
+      $dest = STDERR;
+    elseif ($dest === 'stdout')
+      $dest = STDOUT;
+    elseif (!is_resource($dest)) {
       $dest = fopen($dest, 'w+');
-      if (!$dest) exit('unable to set log-destination');
+      
+      if ($dest)
+        register_shutdown_function(function() use(&$dest) {
+          fclose($dest);
+        });
+      else {
+        echo "\n\n!!! cannot set logger-destination",
+          "\n!!! using stderr instead\n\n";
+        $dest = STDERR;
+      }
     }
     
     self::$dest = $dest;
