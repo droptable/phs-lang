@@ -23,6 +23,7 @@ use phs\ast\Node;
 use phs\ast\Unit;
 
 const 
+  KIND_NON = 0,
   KIND_SRC = 1,
   KIND_LIB = 2
 ;
@@ -42,7 +43,7 @@ class Session
   public $started = false;
   
   // @var int  current kind of file
-  private $kind;
+  private $kind = KIND_NON;
   
   // @var string  source root-directory (used to pack)
   public $sroot;
@@ -179,11 +180,12 @@ class Session
   public function add_library_from($str)
   {
     $done = false;
+    $file = strtolower(substr($str, -4)) === '.phs';
     
     foreach ($this->conf->lib_paths as $libp) {
       $root = $libp . DIRECTORY_SEPARATOR;
       
-      if (strtolower(substr($str, -4)) === '.phs') {
+      if ($file) {
         $path = $root . $str;
         if (!is_file($path)) continue;
         goto add;
@@ -272,10 +274,10 @@ class Session
     
     switch ($this->kind) {
       case KIND_LIB:
-        $res = $this->srcs->add($src);
+        $res = $this->libs->add($src);
         break;
       case KIND_SRC:
-        $res = $this->libs->add($src);
+        $res = $this->srcs->add($src);
         break;
     }
     
@@ -341,6 +343,7 @@ class Session
     // step 3: pack sources into a phar
     
     $bnd = new Bundle($this);
+    register_shutdown_function([ $bnd, 'cleanup' ]);
     
     foreach ($this->libs as $lib)
       $bnd->add_library($lib);
@@ -349,7 +352,6 @@ class Session
       $bnd->add_source($src);
     
     $bnd->deploy();
-    $bnd->cleanup();
     
     out:
     Logger::debug('complete');

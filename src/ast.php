@@ -1,6 +1,6 @@
 <?php
 
-namespace phs\front;
+namespace phs;
 
 /**
  * This is an automatically GENERATED file!

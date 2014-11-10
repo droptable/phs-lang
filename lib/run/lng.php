@@ -32,5 +32,5 @@ interface Inable {
    * @param  mixed val
    * @return boolean
    */
-  public function contains(val);
+  public function contains($val);
 }

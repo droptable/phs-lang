@@ -41,9 +41,6 @@ final class Config extends Dict
   
   // @var bool  show version and exit
   public $version;
-    
-  // @var string  mangle-method
-  public $mangle;
   
   // @var array  library include-paths
   public $lib_paths;
@@ -86,7 +83,7 @@ final class Config extends Dict
   public function set_defaults()
   {
     $this->dir = null;
-    $this->out = 'a.zip';
+    $this->out = 'a';
     $this->mod = false;
     $this->nort = false;
     $this->nostd = false;
@@ -96,7 +93,6 @@ final class Config extends Dict
     $this->format = false;
     $this->check = false;
     $this->version = false;
-    $this->mangle = 'all';
     $this->lib_paths = [ realpath(__DIR__ . '/../lib') ]; // install dir
     $this->log_dest = null; // stderr
     $this->log_time = false;

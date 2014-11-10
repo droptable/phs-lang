@@ -103,7 +103,7 @@ class MangleTask extends AutoVisitor implements Task
       goto out;
     
     $pf = [];
-        
+    
     // handle vars
     if ($sym instanceof VarSymbol &&
      // !is_really_const($sym)
@@ -127,7 +127,8 @@ class MangleTask extends AutoVisitor implements Task
       $pf[] = 'U' . crc32_str($sym->loc->file);
     
     // join prefix(es) together
-    $id = '_' . implode('N', $pf) . 'Z' . strlen($id) . $id;
+    if (!empty ($pf))
+      $id = '_' . implode('N', $pf) . 'Z' . strlen($id) . $id;
     
     upd:
     $id = $this->defuse($id);

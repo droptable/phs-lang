@@ -32,8 +32,6 @@ use phs\util\Cell;
 use phs\util\Dict;
 use phs\util\Entry;
 
-const DS = DIRECTORY_SEPARATOR;
-
 /** node collector */
 class NodeCollector extends AutoVisitor
 {

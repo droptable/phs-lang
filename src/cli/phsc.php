@@ -82,13 +82,14 @@ function init(Config $conf) {
     assert_options(ASSERT_CALLBACK, function($s, $l, $c, $m = null) {
       echo "\nassertion failed", $m ? " with message: $m" : '!', "\n";
       echo "\nfile: $s\nline: $l\n", $c ? "code: $c\n" : ''; 
-      echo "\n";
+      echo "\nTHIS IS A BUG, PLEASE REPORT IT!\n\n";
       debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
       exit;
     });
 
     set_error_handler(function($n, $s, $f, $l) {
-      echo "\nerror: $s ($n)\nfile: $f\nline: $l\n\n";
+      echo "\nerror: $s ($n)\nfile: $f\nline: $l\n";
+      echo "\nTHIS IS A BUG, PLEASE REPORT IT!\n\n";
       debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
       exit;
     });
@@ -124,7 +125,7 @@ function usage($logo = true) {
   if ($logo === true)
     logo();
     
-  echo <<<DOC
+  echo <<<'DOC'
 
 usage: phsc [ options ] file ... 
 
@@ -148,12 +149,12 @@ options:
  -o                 Output file. (default=a.zip)
                     Note: This option is ignored if --pack is set to 'none'
                   
- -m                 All public (reachable) symbols from the main-files
-                    get exported as "extern-declaration" into a single 
-                    file called "lib.phs".
-                     
-                    This file can be used as library in other compilations.
-                    Note: This option disables --pack and --stub.
+ -m                 Excludes all dependencies from the bundle and does not
+                    generate a stub.
+ 
+                    Use this option if you use a external dependency-manager 
+                    like composer or if you just want to compile a single
+                    file and see what it looks like.
                     
  -s                 Compiles the main-file but does not create a bundle.
                     Note: This option if for debugging purposes.
@@ -203,10 +204,9 @@ options:
                     Possible values: none, zip, phar, file
                     
  --stub             Sets the bundle-stub. (default=none)
-                    Possible values: none, run, mod, phar-web, phar-run, {path}
+                    Possible values: none, run, phar-web, phar-run, {path}
                     Note: If --pack is set to 'file' no stub will be generated.
                     Note: 'phar-web' and 'phar-run' override --pack to 'phar'
-                    Note: 'mod' requires the -m option to be set.
                     
                     Stub meaning:
                     
@@ -222,14 +222,22 @@ options:
                                    
                       'phar-web'   Generates a phar-stub for the web.
                                    Uses Phar::webPhar().
+                                   Note: Requires a index.php file.
                                    
                       {path}       A custom script as stub.
+                                   The packer enables two placeholders 
+                                   for your script:
+                                    
+                                     '%libs%'   include libraries.
+                                     '%main%'   include the main source.
+                                     
+                    More info: 
+                    http://php.net/manual/de/phar.fileformat.stub.php
                       
                       
 examples: 
   
-  phsc -d ./lib my_own_lib.phs
-  phsc -o my_own_app.phar -i ./lib -l my_own_lib my_own_app.phs
+  phsc -o my_own_app.phar -l my_own_lib  my_own_app.phs
   php ./my_own_app.phar
 
 DOC;
@@ -298,6 +306,7 @@ function parse_args(Config $conf, $argc, $argv) {
       case '-i': case '--inc':
       case '-l': case '--lib':
       case '--log-dest':
+      case '--log-width':
       case '--log-level':
       case '--pack':
       case '--stub':
@@ -511,7 +520,9 @@ function check_conf($conf) {
         $res = false;
     }
   
-  if ($conf->stub === null) {
+  if ($conf->mod === true)
+    $conf->stub = 'none';
+  elseif ($conf->stub === null) {
     switch ($out_ext) {
       case '.phar':
         $conf->stub = 'phar-run';

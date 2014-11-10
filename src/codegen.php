@@ -434,7 +434,8 @@ class CodeGenerator extends AutoVisitor
           $this->emit($host, '::$');
         else
           $this->emit('$this->');
-      } elseif (!($sym->flags & (SYM_FLAG_EXTERN | SYM_FLAG_CONST)))
+      } elseif (!($sym->flags & SYM_FLAG_EXTERN &&
+                  $sym->flags & SYM_FLAG_CONST))
         $this->emit('$');
       
       $this->emit($sym->id);
