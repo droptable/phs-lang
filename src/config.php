@@ -18,6 +18,9 @@ final class Config extends Dict
   // @var string  the unit is a module
   public $mod;
   
+  // @var boolean  bail-out on errors
+  public $err;
+  
   // @var bool  no-runtime flag
   public $nort;
   
@@ -85,6 +88,7 @@ final class Config extends Dict
     $this->dir = null;
     $this->out = 'a';
     $this->mod = false;
+    $this->err = false;
     $this->nort = false;
     $this->nostd = false;
     $this->quiet = false;

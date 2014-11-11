@@ -288,7 +288,7 @@ class Session
   /**
    * aborts the current session
    * @param  Location $loc
-   * @return void
+   * @return boolean
    */
   public function abort(Location $loc = null)
   {
@@ -355,10 +355,11 @@ class Session
     
     out:
     Logger::debug('complete');
-    return;
+    return true;
   
     err:
     Logger::error('compilation aborted due to previous error(s)');
+    return false;
   }
   
   /**

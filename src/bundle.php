@@ -132,7 +132,12 @@ abstract class Packer
    */
   public function create_stub($libs, $main) 
   {
-    $stub = '<?php';
+    $stub = '';
+    
+    if ($this->conf->stub === 'cli')
+      $stub .= "#!/usr/bin/env php\n";
+    
+    $stub .= '<?php';
             
     foreach ($libs as $lib) {
       $dest = join_path('lib', $lib->get_dest());

@@ -16,6 +16,9 @@ require_once __DIR__ . '/../session.php';
 const FLIBS = 0;
 const FSRCS = 1;
 
+const EXIT_SUCCESS = 0;
+const EXIT_FAILURE = 1;
+
 /**
  * entry-point
  *
@@ -64,7 +67,10 @@ function main($argc, $argv) {
   foreach ($files[FSRCS] as $src)
     $sess->add_source_from($src);
   
-  $sess->process();
+  if (!$sess->process() && $conf->err)
+    exit(EXIT_FAILURE);
+    
+  exit(EXIT_SUCCESS);
 }
 
 main($_SERVER['argc'], $_SERVER['argv']);
@@ -84,14 +90,14 @@ function init(Config $conf) {
       echo "\nfile: $s\nline: $l\n", $c ? "code: $c\n" : ''; 
       echo "\nTHIS IS A BUG, PLEASE REPORT IT!\n\n";
       debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
-      exit;
+      exit(EXIT_FAILURE);
     });
 
     set_error_handler(function($n, $s, $f, $l) {
       echo "\nerror: $s ($n)\nfile: $f\nline: $l\n";
       echo "\nTHIS IS A BUG, PLEASE REPORT IT!\n\n";
       debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
-      exit;
+      exit(EXIT_FAILURE);
     });
   }
   
@@ -160,6 +166,15 @@ options:
                     Note: This option if for debugging purposes.
                     Note: This option accepts only one file at a time.
                     
+ -e                 By default, the compiler exits with EXIT_SUCCESS even
+                    if the compilation was not successful.
+                      
+                    EXIT_FAILURE is only used for non-script related
+                    errors or assertions.
+                    
+                    This option lets the compiler bail-out with EXIT_FAILURE
+                    on compilation errors (or warnings if -werr is set).
+                    
  --werr             Handles all warnings as errors.
  
  -i  --inc          Adds a include-path for libraries.
@@ -212,10 +227,12 @@ options:
                     
                       'none'       Generates no stub at all.
                                    You have to setup the compilation by hand.
-                                   
+                                         
                       'run'        Generates a small script with all libraries
                                    and the main-files included.
-                                   This file will bootstrap your application.                     
+                                   This file will bootstrap your application.
+                                   
+                      'cli'        Same as 'run' but with an shebang-line.                   
                                    
                       'phar-run'   Generates a phar-stub just like 'run'.
                                    Uses Phar::mapPhar().
@@ -276,6 +293,9 @@ function parse_args(Config $conf, $argc, $argv) {
         break;
       case '-m':
         $conf->mod = true;
+        break;
+      case '-e':
+        $conf->err = true;
         break;
       case '--werr':
         $conf->werror = true;
@@ -374,9 +394,8 @@ function check_conf($conf) {
   $res = true;
   
   $flags = [ 
-    'nort', 'nostd', 'quiet', 'werror', 
-    'run', 'format', 'check', 'version', 
-    'log_time'
+    'err', 'nort', 'nostd', 'quiet', 'werror', 'run', 
+    'format', 'check', 'version', 'log_time'
   ];
   
   foreach ($flags as $flag)
@@ -537,6 +556,8 @@ function check_conf($conf) {
       case 'NONE':
       case 'run':
       case 'RUN':
+      case 'cli':
+      case 'CLI':
       case 'phar-run':
       case 'PHAR-RUN':
       case 'PHAR_RUN':
