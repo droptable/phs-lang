@@ -4,7 +4,7 @@
 namespace phs;
 
 if (PHP_SAPI !== 'cli')
-  exit(__FILE__ . ' is a php-cli application');
+  exit(__FILE__ . ' is a cli application');
 
 const PHS_DEBUG = true;
 
@@ -37,7 +37,7 @@ function main($argc, $argv) {
   // show version and exit
   if ($conf->version) {
     if ($conf->quiet)
-      echo \phs\VERSION;
+      echo VERSION;
     else
       logo();
     
@@ -69,8 +69,6 @@ function main($argc, $argv) {
   
   if (!$sess->process() && $conf->err)
     exit(EXIT_FAILURE);
-    
-  exit(EXIT_SUCCESS);
 }
 
 main($_SERVER['argc'], $_SERVER['argv']);
