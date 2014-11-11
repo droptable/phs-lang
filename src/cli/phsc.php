@@ -201,7 +201,7 @@ options:
                     Possible values: all, debug, info, warning, error
                     
  --pack             Sets the bundle-packer. (default=zip)
-                    Possible values: none, zip, phar, file
+                    Possible values: none, zip, phar
                     
  --stub             Sets the bundle-stub. (default=none)
                     Possible values: none, run, phar-web, phar-run, {path}
@@ -498,7 +498,7 @@ function check_conf($conf) {
         $conf->pack = 'phar';
         break;
       case '.php':
-        $conf->pack = 'file';
+        $conf->pack = 'none';
         break;
       default:
         $conf->pack = 'zip';
@@ -511,8 +511,6 @@ function check_conf($conf) {
       case 'ZIP':
       case 'phar':
       case 'PHAR':
-      case 'file':
-      case 'FILE':
         $conf->pack = strtolower($conf->pack);
         break;
       default:
@@ -526,6 +524,9 @@ function check_conf($conf) {
     switch ($out_ext) {
       case '.phar':
         $conf->stub = 'phar-run';
+        break;
+      case '.php':
+        $conf->stub = 'run';
         break;
       default:
         $conf->stub = 'none';

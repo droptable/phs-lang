@@ -75,9 +75,6 @@ class Bundle
       case 'zip':
         $pack = new ZipPacker($this->sess);
         break;
-      case 'file':
-        $pack = new FilePacker($this->sess);
-        break;
       case 'phar':
         $pack = new PharPacker($this->sess);
         break;
@@ -85,113 +82,6 @@ class Bundle
     
     $pack->pack($this);
     $pack->save();
-    
-    return;
-    
-    // related options:
-    // 
-    // stub   none, run, phar-web, phar-run, {path}
-    // 
-    // pack   none, zip, phar, file
-    // 
-    // dir    output directory
-    // 
-    // out    output filename
-    // 
-    // mod    exclude deps from bundle 
-    // 
-    if ($conf->pack !== 'none' &&
-        $conf->pack !== 'file') {
-      $path = $conf->dir . DIRECTORY_SEPARATOR . $conf->out;
-      
-      // unlink existing file
-      if (is_file($path)) unlink($path);
-      
-      switch ($conf->pack) {
-        case 'phar':
-          $bin = new Phar($path);
-          break;
-        default:
-          Logger::info('invalid option pack(%s)', $conf->pack);
-        case 'zip':
-          $bin = new ZipArchive;
-          $bin->open($path, ZipArchiveCREATE);
-          break;
-      }
-      
-      $bin->addEmptyDir('src');
-      
-      if ($conf->mod === false) {
-        $bin->addEmptyDir('lib');
-        
-        // add libraries
-        foreach ($this->libs as $lib) 
-          $bin->addFile($lib->get_temp(), 'lib/' . $lib->get_dest());
-      }
-      
-      // add sources
-      foreach ($this->srcs as $src)
-        $bin->addFile($src->get_temp(), 'src/' . $lib->get_dest());
-      
-      // generate stub
-      $stub = '';
-      $main = $this->sess->main;
-      
-      switch ($conf->stub) {
-        case 'none':
-          break;
-        default:
-          // path to file
-          if (is_file($conf->stub)) {
-            $stub = file_get_contents($conf->stub);
-            break;
-          }
-          
-          Logger::error('file not found: %s', $conf->stub);
-        case 'run':
-          $stub .= '<?php';
-          
-          if ($conf->mod === false)
-            foreach ($this->libs as $lib) {
-              $stub .= "\nrequire_once 'lib/";
-              $stub .= $lib->get_dest() . "';";
-            }
-            
-          $stub .= "\nrequire_once 'src/";
-          $stub .= $main->get_dest() . "';";
-          $stub .= "\n";
-          break;
-        case 'phar-web':
-        case 'phar-run':
-          $stub .= '<?php';
-          $stub .= "\nPhar::";
-          
-          if ($conf->stub === 'phar-web')
-            $stub .= 'web';
-          else // phar-run
-            $stub .= 'map';
-            
-          $stub .= "Phar('phs');";
-          
-          if ($conf->mod === false)
-            foreach ($this->libs as $lib) {
-              $stub .= "\nrequire_once 'phar://phs/lib/";
-              $stub .= $lib->get_dest() . "';";
-            }
-          
-          $stub .= "\nrequire_once 'phar://phs/src/";
-          $stub .= $main->get_dest() . "';";
-          $stub .= "\n__HALT_COMPILER();";
-          break;
-      }
-      
-      if ($conf->pack === 'phar')
-        $bin->setStub($stub);
-      else {
-        $bin->addFromString('stub.php', $stub);
-        $bin->close();
-      }
-    }
   }
   
   /**
@@ -240,17 +130,17 @@ abstract class Packer
    * @param  Source $main
    * @return string
    */
-  public function create_stub($libs, $main, $pfx = '') 
+  public function create_stub($libs, $main) 
   {
     $stub = '<?php';
             
     foreach ($libs as $lib) {
       $dest = join_path('lib', $lib->get_dest());
-      $stub .= "\nrequire_once '$pfx$dest';";
+      $stub .= "\nrequire_once '$dest';";
     }
     
     $main = join_path('src', $main->get_dest());
-    $stub .= "\nrequire_once '$pfx$main';";
+    $stub .= "\nrequire_once '$main';";
     
     return $stub;
   }
@@ -547,17 +437,27 @@ class PharPacker extends Packer
    */
   public function create_stub($libs, $main, $pfx = '')
   {
-    $pmap = $this->conf->stub === 'phar-web' ? 'web' : 'map';
-    $stub = parent::create_stub($libs, $main, 'phar://phs/');
-    $stub = preg_replace('/^<\?php/', "<?php\nPhar::{$pmap}Phar('phs');", $stub);
+    $stub = '<?php';
+    $stub .= "\nPhar::";
+    
+    if ($this->conf->stub === 'phar-web') {
+      $main = join_path('src', $main->get_dest());
+      $stub .= "webPhar('phs', '$main');";
+    } else
+      $stub .= "mapPhar('phs');";
+    
+    foreach ($libs as $lib) {
+      $dest = 'phs/lib/' . strtr($lib->get_dest(), [ '\\' => '/' ]);
+      $stub .= "\nrequire_once 'phar://$dest';";
+    }
+    
+    if ($this->conf->stub === 'phar-run') {
+      $main = 'phs/src/' . strtr($main->get_dest(), [ '\\' => '/' ]);
+      $stub .= "\nrequire_once 'phar://$main';";
+    }
+    
     $stub .= "\n__HALT_COMPILER();";
     
     return $stub;
   }
-}
-
-/** packer for --pack 'file' */
-abstract class FilePacker extends Packer 
-{
-  
 }
