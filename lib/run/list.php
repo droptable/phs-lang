@@ -146,11 +146,7 @@ class List_ extends Obj implements Inable, ArrayAccess
    */
   public function contains($val)
   {
-    foreach ($this->mem as $val)
-      if ($val === $ndl)
-        return true;
-      
-    return false;
+    return in_array($val, $this->mem, true);
   }
   
   /* ------------------------------------ */
@@ -444,7 +440,7 @@ class List_ extends Obj implements Inable, ArrayAccess
   }
   
   /**
-   * searches for the given value ant returns its index
+   * searches for the given value and returns its index
    *
    * @param  mixed  $val
    * @param  int    $beg

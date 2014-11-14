@@ -1,0 +1,18 @@
+{
+  "name": "phsc_gui",
+  "main": "app/main.html",
+  "version": "0.0.1",
+  "window": {
+    "position": "center",
+    "width": 650,
+    "height": 480,
+    "toolbar": false
+  },
+  "description": "phs compiler gui",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodewebkit"
+  },
+  "author": "murdoc",
+  "license": "LGPL"
+}

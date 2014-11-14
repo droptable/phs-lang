@@ -73,7 +73,7 @@
     )
   |
     # string-start delimiters
-    [c]?["']
+    [co]?["']
   |
     # the "is" and "in" operator
     (?:(?:!?i[ns])(?=\s|$))

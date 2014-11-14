@@ -138,12 +138,15 @@ class Scope extends SymbolMap
     $this->capt->add($sym);
     $sym->captured = true;
     
+    // stop at root-scopes (global scope)
+    if ($this->root) return;
+    
     // walk up all scopes from here 
     // and mark the symbol as captured 
     // until the origin-scope of the 
     // symbol was reached
     $prev = $this->prev;
-    
+        
     Logger::assert($prev, 'unable to capture %s', $sym);
     
     if ($sym->scope !== $prev)

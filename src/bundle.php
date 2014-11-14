@@ -110,6 +110,9 @@ class Bundle
 
 abstract class Packer 
 {
+  // @var Config
+  protected $conf;
+  
   /**
    * should add a bundle to the packet
    * 
@@ -157,9 +160,6 @@ class DirPacker extends Packer
 {
   // @var Session
   private $sess;
-  
-  // @var Config
-  private $conf;
   
   /**
    * constructor
@@ -263,9 +263,6 @@ class ZipPacker extends Packer
   // @var Session
   private $sess;
   
-  // @var Config
-  private $conf;
-  
   // @var ZipArchive
   private $ziph;
   
@@ -353,9 +350,6 @@ class PharPacker extends Packer
 {
   // @var Session
   private $sess;
-  
-  // @var Config
-  private $conf;
   
   // @var ZipArchive
   private $phar;

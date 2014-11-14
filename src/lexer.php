@@ -421,14 +421,16 @@ class Lexer
       }
       
       $str = null;
-      if (preg_match('/^([cr])?(["\'])/', $sub, $str)) {
+      if (preg_match('/^([cor])?(["\'])/', $sub, $str)) {
         if ($str[1] === 'r') {
           // raw string
           $tok = $this->token(T_STRING, substr($sub, 2, -1));
           // update end line/coln
           $this->adjust_line_coln_end($sub, 0);
-        } else
-          // string with (maybe) interpolation:
+        } else 
+          // flag === '' (none) 
+          // flag === 'c' (constant / constant-expression)
+          // flag === 'o' (object [instance of class `Str`] - unused atm)
           // start advanced string-scanner
           $tok = $this->scan_string($str[2]);
         
