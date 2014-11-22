@@ -68,8 +68,8 @@ class NodeCollector extends AutoVisitor
   {
     // for compatibility with UnitCollector#__construct()
     assert($scope !== null);
-    
-    $this->scope = $scope;       
+        
+    $this->scope = $scope;
     $this->visit($node);
   }
   

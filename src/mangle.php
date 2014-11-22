@@ -80,7 +80,7 @@ class MangleTask extends AutoVisitor implements Task
    * @param  Scope  $scope
    */
   public function handle(Scope $scope)
-  {
+  {    
     foreach ($scope->iter() as $sym)
       $this->mangle($sym);
   }
@@ -94,41 +94,44 @@ class MangleTask extends AutoVisitor implements Task
   {    
     $id = $sym->id;
     
+    // temporary name or unsafe
+    if (substr($id, 0, 1) === '~' ||
+        ($sym->flags & SYM_FLAG_UNSAFE))
+      goto out;
+    
     // external symbol, defuse it but don't mangle
     if ($sym->flags & SYM_FLAG_EXTERN)
       goto upd;
-      
-    // temporary name
-    if (substr($id, 0, 1) === '~')
-      goto out;
     
     $pf = [];
     
-    // handle vars
-    if ($sym instanceof VarSymbol &&
-     // !is_really_const($sym)
-        !(($sym->flags & SYM_FLAG_CONST) && 
-           $sym->value->is_const() && !$this->nest)) {
-      // M: module variable           
-      if ($this->imod && !$this->nest)
-        $pf[] = 'M' . path_to_uid($this->cmod->path());
-      // L: local variable
-      else
-        $pf[] = 'L' . $sym->scope->uid;      
-    // handle fn-expr or nested fn-decl
-    } elseif ($sym instanceof FnSymbol && 
-              ($sym->expr || $this->nest))
-      // rewrite as local-var
-      $pf[] = 'L' . $sym->scope->uid;
-    
-    // private unit-global symbol
-    if ((!$this->imod && !$this->nest) &&
-        $sym->flags & SYM_FLAG_PRIVATE)
-      $pf[] = 'U' . crc32_str($sym->loc->file);
-    
-    // join prefix(es) together
-    if (!empty ($pf))
-      $id = '_' . implode('N', $pf) . 'Z' . strlen($id) . $id;
+    if (!($sym->flags & SYM_FLAG_UNSAFE)) {
+      // handle vars
+      if ($sym instanceof VarSymbol &&
+       // !is_really_const($sym)
+          !(($sym->flags & SYM_FLAG_CONST) && 
+             $sym->value->is_const() && !$this->nest)) {
+        // M: module variable           
+        if ($this->imod && !$this->nest)
+          $pf[] = 'M' . path_to_uid($this->cmod->path());
+        // L: local variable
+        else
+          $pf[] = 'L' . $sym->scope->uid;      
+      // handle fn-expr or nested fn-decl
+      } elseif ($sym instanceof FnSymbol && 
+                ($sym->expr || $this->nest))
+        // rewrite as local-var
+        $pf[] = 'L' . $sym->scope->uid;
+      
+      // private unit-global symbol
+      if ((!$this->imod && !$this->nest) &&
+          $sym->flags & SYM_FLAG_PRIVATE)
+        $pf[] = 'U' . crc32_str($sym->loc->file);
+      
+      // join prefix(es) together
+      if (!empty ($pf))
+        $id = '_' . implode('N', $pf) . 'Z' . strlen($id) . $id;
+    }
     
     upd:
     $id = $this->defuse($id);
@@ -194,6 +197,20 @@ class MangleTask extends AutoVisitor implements Task
   public function visit_trait_decl($node)
   {
     // ignore
+  }
+  
+  /**
+   * Visitor#visit_class_decl()
+   *
+   * @param  Node $node
+   */
+  public function visit_class_decl($node)
+  {
+    foreach ($node->scope->iter() as $sym)
+      // handle symbols inserted by traits
+      if ($sym->origin) $this->visit($sym->node);
+        
+    parent::visit_class_decl($node);
   }
   
   /**

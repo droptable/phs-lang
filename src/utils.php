@@ -7,11 +7,23 @@ use phs;
 use phs\ast\Name;
 use phs\ast\Ident;
 
+const DS = \DIRECTORY_SEPARATOR;
+
 require_once 'util/map.php';
 require_once 'util/set.php';
 require_once 'util/result.php';
 
 require_once 'symbols.php';
+
+/**
+ * joins a path and replaces "\" to "\\"
+ *
+ * @param  ...
+ * @return string
+ */
+function join_path() {
+  return strtr(implode(DS, func_get_args()), [ '\\' => '\\\\' ]);
+}
 
 /**
  * var_dump()'s stuff into a file
@@ -145,6 +157,16 @@ function path_to_ns(array $path) {
 }
 
 /**
+ * returns the path as absolute namespace
+ *
+ * @param  array  $path
+ * @return string
+ */
+function path_to_abs_ns(array $path) {
+  return '\\' . path_to_ns($path);
+}
+
+/**
  * returns a crc32 checksum as string
  *
  * @param  string $val
@@ -203,7 +225,10 @@ function mods_to_sym_flags($mods, $base = SYM_FLAG_NONE) {
           $base |= SYM_FLAG_INLINE;
           break;   
         case T_EXTERN:
-          $base |= SYM_FLAG_EXTERN;    
+          $base |= SYM_FLAG_EXTERN;
+          break;
+        case T_UNSAFE:
+          $base |= SYM_FLAG_UNSAFE;  
       }
     }
   }
@@ -233,7 +258,8 @@ function sym_flags_to_arr($flags) {
     SYM_FLAG_EXTERN,
     SYM_FLAG_ABSTRACT,
     SYM_FLAG_INCOMPLETE,
-    SYM_FLAG_PARAM
+    SYM_FLAG_PARAM,
+    SYM_FLAG_UNSAFE
   ];
   
   foreach ($check as $flag)
@@ -268,7 +294,8 @@ function sym_flags_to_stra($flags) {
     SYM_FLAG_EXTERN => 'extern',
     SYM_FLAG_ABSTRACT => 'abstract',
     SYM_FLAG_INCOMPLETE => 'incomplete',
-    SYM_FLAG_PARAM => 'parameter'
+    SYM_FLAG_PARAM => 'parameter',
+    SYM_FLAG_UNSAFE => 'unsafe'
   ];
   
   foreach (sym_flags_to_arr($flags) as $flag)
@@ -308,7 +335,8 @@ function sym_flags_diff($a, $b) {
     SYM_FLAG_EXTERN,
     SYM_FLAG_ABSTRACT,
     SYM_FLAG_INCOMPLETE,
-    SYM_FLAG_PARAM
+    SYM_FLAG_PARAM,
+    SYM_FLAG_UNSAFE
   ];
   
   $d = new \stdclass;

@@ -1484,6 +1484,9 @@ class ReduceTask extends Visitor implements Task
    */
   public function visit_fn_decl($node) 
   {
+    if ($node->symbol === null && $this->ctrait)
+      return;
+    
     assert($node->symbol);
     
     array_push($this->fnstk, $node->symbol);

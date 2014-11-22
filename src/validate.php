@@ -228,6 +228,7 @@ class ValidateTask extends Visitor implements Task
     $nmo = [];
     $cmo = [];
     $ppp = null;
+    $uns = false;
     
     foreach ($mods as $mod) {
       switch ($mod->type) {
@@ -303,8 +304,9 @@ class ValidateTask extends Visitor implements Task
          
         case T_FINAL:
         case T_CONST:
+        case T_UNSAFE:
           break; // always allowed
-          
+        
         default:
           assert(0);
       }

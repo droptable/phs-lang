@@ -938,6 +938,7 @@ class Lexer
     '__sealed__' => T_SEALED, // @ sealed fn ...
     '__inline__' => T_INLINE, // @ inline fn ...
     '__global__' => T_GLOBAL, // @ global fn
+    '__unsafe__' => T_UNSAFE,
     
     '__php__' => T_PHP,
     '__test__' => T_TEST,

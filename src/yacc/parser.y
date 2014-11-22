@@ -101,6 +101,7 @@
 
 %token T_SEALED
 %token T_INLINE
+%token T_UNSAFE
 
 %token T_PHP
 %token T_TEST
@@ -281,6 +282,7 @@ mod
   | T_SEALED    { $$ = $1; }
   | T_INLINE    { $$ = $1; }
   | T_EXTERN    { $$ = $1; }
+  | T_UNSAFE    { $$ = $1; }
   ;
 
 enum_decl

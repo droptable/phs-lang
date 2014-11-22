@@ -1,0 +1,45 @@
+/*!
+ * This file is part of the PHS Standard Library
+ * Copyright (c) 2014 The PHS Team
+ * 
+ * All rights reserved.
+ * 
+ * This library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published 
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+module std::ctype;
+
+public extern __global__ ctype_alnum;
+public extern __global__ ctype_alpha;
+public extern __global__ ctype_cntrl;
+public extern __global__ ctype_digit;
+public extern __global__ ctype_graph;
+public extern __global__ ctype_lower;
+public extern __global__ ctype_print;
+public extern __global__ ctype_punct;
+public extern __global__ ctype_space;
+public extern __global__ ctype_upper;
+public extern __global__ ctype_xdigit;
+
+public use ctype_alnum as alnum;
+public use ctype_alpha as alpha;
+public use ctype_cntrl as cntrl;
+public use ctype_digit as digit;
+public use ctype_graph as graph;
+public use ctype_lower as lower;
+public use ctype_print as print_; // <- can be used as ctype::print()
+public use ctype_punct as punct;
+public use ctype_space as space;
+public use ctype_upper as upper;
+public use ctype_xdigit as xdigit;

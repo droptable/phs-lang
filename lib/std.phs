@@ -36,27 +36,10 @@ public extern iface Iterator;
 // ---------------------------------------
 // some global "compatibility" functions
 
-public fn isset(n) => 
-  n != null;
-
-public fn empty(n) => 
-  !(n as bool);
-
-/**
- * does a runtime-require of a php-file.
- * 
- * if you need a runtime-require of a phs-file
- * you have to compile it first.
- *
- * @param  string path
- * @return mixed
- */
-public fn include(extern path) {
-  // TODO: extern parameters are marked for deprecation
-  __php__ { 
-    "return include_once $path;" 
-  }
-}
+// note: __unsafe__ disables name-mangling
+public extern __unsafe__ fn isset;
+public extern __unsafe__ fn empty;
+public extern __unsafe__ fn include;
 
 // ---------------------------------------
 // temporary php bindings

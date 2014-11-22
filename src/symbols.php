@@ -58,7 +58,8 @@ const
   SYM_FLAG_EXTERN     = 0x0200, // symbol is extern
   SYM_FLAG_ABSTRACT   = 0x0400, // symbol is abstract (for classes)
   SYM_FLAG_INCOMPLETE = 0x0800, // symbol is incomplete
-  SYM_FLAG_PARAM      = 0x1000  // symbol is a parameter
+  SYM_FLAG_PARAM      = 0x1000, // symbol is a parameter
+  SYM_FLAG_UNSAFE     = 0x2000  // symbol (name) is unsafe (no mangle) 
 ;
 
 const SYM_FLAGS_NONE = SYM_FLAG_NONE;

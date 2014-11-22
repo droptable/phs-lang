@@ -112,227 +112,9 @@ public extern __global__ const PATHINFO_EXTENSION;
 public extern __global__ const PATHINFO_FILENAME;
 
 public extern __global__ fn pathinfo;
-
-// ---------------------------------------
-
-extern __global__ fn fopen;
-
-extern __global__ const DIRECTORY_SEPARATOR;
-extern __global__ fn implode;
-
-extern __global__ fn opendir;
-extern __global__ fn readdir;
-extern __global__ fn closedir;
-
-/**
- * join a list of segments using the directory-separator
- *
- * @param  ... args
- * @return string
- */
-fn join(...args) =>
-  implode(DIRECTORY_SEPARATOR, args);
-
-/**
- * directory iterator
- *
- * @param  string path
- */
-fn iterdir(path) {
-  let d = opendir(path);
-  
-  if (!d) throw new Error("unable to open dir %s", path);
-  
-  let i;
-  let k = 0;
-  
-  while (false != (i = readdir(d)))
-    yield (k++): i;
-  
-  closedir(d);
-}
-
-/**
- * recursive directory iterator
- *
- * @param  string path
- */
-fn iterdir_r(path) {
-  for (i in iterdir(path)) {
-    yield i;
-    if (i != '.' && i != '..') {
-      let a = join(path, i);
-      if (is_dir(a)) iterdir_r(a);
-    }
-  }
-}
-
-/**
- * returns a list of files/dirs from a path using
- * the directory-iterator
- *
- * @param  string path
- * @return List
- */
-fn listdir(path) {
-  let l = [];
-  for (i in iterdir(path))
-    l.push(i);
-  return l;
-}
-
-/**
- * returns a list of all files/dirs from a path and sub-dirs using
- * the directory-iterator
- * 
- * this function returns a nested list
- * 
- * example:
- *   [
- *     "foo",
- *     [
- *       "foo/bar",
- *       [
- *         "foo/bar/baz.dat"
- *       ]
- *     ]
- *   ]
- *   
- * for the directory:
- *   foo/
- *   foo/bar/
- *   foo/bar/baz.dat
- *
- * @param  string path
- * @return List
- */
-fn listdir_r(path) {
-  let l = [];
-  
-  for (i in iterdir(path)) {
-    l.push(i);
-    if (i != '.' && i != '..') {
-      let a = join(path, i);
-      if (is_dir(a)) 
-        l.push(listdir_r(a));
-    }
-  }
-  
-  return l;
-}
-
-/**
- * "recursive" directory remove
- *
- * @param  string path
- * @return bool
- */
-fn rmdir_r(string path) {
-  let q = [ path ];
-  let d = [];
-  
-  while (q.size()) {
-    let p = q.pop();
-    
-    for (f in iterdir(p)) {
-      if (f == '.' || f == '..')
-        continue;
-      
-      let a = join(p, f);
-      
-      if (is_dir(a)) 
-        q.push(a);
-      else 
-        if (!unlink(a)) return false;
-    }
-    
-    d.push(p);
-  }
-  
-  for (p in d.reverse()) 
-    if (!rmdir(p)) return false;
-  return true;
-}
+public extern __global__ const DIRECTORY_SEPARATOR;
 
 public class FsError : Error {}
-
-/**
- * opens a stream using fopen()
- *
- * @param  string path
- * @param  string mode
- * @throws FsError
- * @return resource
- */
-fn open(const path, const mode) {
-  let hnd = fopen(path, mode);
-  if (hnd) return hnd;
-  throw new FsError("unable to open %s with mode %s", path, mode);
-}
-
-/**
- * file-system stream
- * basically a FStream with a public constructor 
- */
-public class FsStream : FStream {
-  
-  private path;
-  private mode;
-  
-  /**
-   * constructor
-   * 
-   * @param string path
-   * @param string mode
-   */
-  public new (string this.path, 
-              string this.mode) {
-    super(open(path, mode));
-  }
-  
-  /**
-   * returns the current path
-   *
-   * @return string
-   */
-  public fn get_path() => path;
-  
-  /**
-   * returns the current mode
-   *
-   * @return string
-   */
-  public fn get_mode() => mode;
-  
-  /**
-   * iterator: yields all lines from this file
-   *
-   * @throws FsError
-   */
-  public fn iter() {
-    for {
-      let l = gets();
-      if (l == false) break;
-      yield l;
-    }
-    
-    if (!eof()) 
-      throw new FsError("not at end-of-file");
-  }
-  
-  /**
-   * closes and re-opens the stream
-   *
-   * @param  string mode
-   * @return FsStream
-   */
-  public fn reopen(string mode?) {
-    if (!closed) close();
-    closed = false;
-    swap(open(path, this.mode = mode ?: this.mode));
-    return this;
-  }
-}
 
 /**
  * basic file
@@ -349,13 +131,13 @@ public class File {
   public new (string this.path) ;
   
   /**
-   * opens the file and returns a FsStream
+   * opens the file and returns a FStream
    *
    * @param  string mode
    * @return FsStream
    */
   public fn open(string mode) =>
-    new FsStream(path, mode);
+    new FStream(path, mode);
   
   /**
    * opens the file in write-mode
@@ -376,8 +158,8 @@ public class File {
    * @param  bool   rec   recursive-removal of a directory
    * @return bool
    */
-  public fn remove(bool rec = false) =>
-    is_dir() ? rec ? rmdir_r(path) : rmdir(path) : unlink(path);
+  #public fn remove(bool rec = false) =>
+  #  is_dir() ? rec ? rmdir_r(path) : rmdir(path) : unlink(path);
    
   // temp ... makes file-objects work with file-functions
   public fn __tostring() => path;
@@ -393,12 +175,12 @@ public class File {
     if (path is File) 
       return path;
     
-    if (path is FsStream) 
+    if (path is FStream) 
       path = path.get_path();
     
     if (path is string) 
       return new File(path);
     
-    throw new TypeError("can not create a file-object from %0", path);
+    throw new TypeError("can not create a file-object");
   }
 }

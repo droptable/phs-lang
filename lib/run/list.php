@@ -219,6 +219,18 @@ class List_ extends Obj implements Inable, ArrayAccess
   /* ------------------------------------ */
   
   /**
+   * returns the raw array
+   *
+   * @return array
+   */
+  public function to_array()
+  {
+    return $this->mem;
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
    * returns the size of this list
    *
    * @return int

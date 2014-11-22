@@ -422,7 +422,7 @@ class CodeGenerator extends AutoVisitor
       $memb = true;
       $mems = $sym->scope instanceof InnerScope ?
         $sym->scope->outer : $sym->scope;
-      $host = '\\' . path_to_ns($mems->host->path());
+      $host = path_to_abs_ns($mems->host->path());
     }
     
     if (($sym instanceof VarSymbol) ||
@@ -451,17 +451,22 @@ class CodeGenerator extends AutoVisitor
         } else
           $this->emit('$this->', $sym->id);
       } else {
-        // quote paths if they're accessed in read-mode
-        $quote = '';
-        if ($sym instanceof IfaceSymbol ||
-            $sym instanceof TraitSymbol ||
-            (($sym instanceof FnSymbol || 
-              $sym instanceof ClassSymbol) && 
-             !$this->call && !$this->member))
-          $quote = "'";
-        
-        $this->emit($quote, '\\', 
-          path_to_ns($sym->path()), $quote);
+        if ($sym->flags & SYM_FLAG_UNSAFE)
+          // unsafe symbol
+          $this->emit(path_to_ns($sym->path()));
+        else {
+          // quote paths if they're accessed in read-mode
+          $quote = '';
+          if ($sym instanceof IfaceSymbol ||
+              $sym instanceof TraitSymbol ||
+              (($sym instanceof FnSymbol || 
+                $sym instanceof ClassSymbol) && 
+               !$this->call && !$this->member))
+            $quote = "'";
+                  
+          $this->emit($quote, 
+            path_to_abs_ns($sym->path()), $quote);
+        }
       }
     }
   }
@@ -1708,7 +1713,7 @@ class CodeGenerator extends AutoVisitor
   public function visit_require_decl($node) 
   {
     $this->emit('require_once ');
-    $this->emitqs($node->source->get_dest());
+    $this->emitqs(join_path($node->source->get_dest()));
     $this->emitln(';');
   }
   
@@ -2219,7 +2224,7 @@ class CodeGenerator extends AutoVisitor
    * @param  Node $node
    */
   public function visit_top_assign_expr($node)
-  {
+  {    
     /* hoist dictionary literals */
     if ($node->right instanceof ObjLit) {
       $temp = $this->hoist_dict_expr($node->right);
@@ -2247,8 +2252,11 @@ class CodeGenerator extends AutoVisitor
       } else {
         $temp = '_T' . (self::$temp++);
         $this->visit_top_call_expr($node->right, $temp);
+        $this->emitln(';');
         $this->visit($node->left);
+        $this->emit(' ');
         $this->emit_op($node->op);
+        $this->emit(' ');
         $this->emitln('$', $temp, ';');
         $this->emit('unset ($', $temp, ')');
         self::$temp--;

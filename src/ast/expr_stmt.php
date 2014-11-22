@@ -17,7 +17,7 @@ class ExprStmt extends Stmt
       $expr = $this->expr;
       $this->expr = []; // it's a sequence
       
-      foreach ($this->expr as $node)
+      foreach ($expr as $node)
         $this->expr[] = clone $node;
     }
     

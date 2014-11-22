@@ -68,10 +68,29 @@ public extern __global__ fn stream_wrapper_restore;
 public extern __global__ fn stream_wrapper_unregister;
 
 extern __global__ const PHP_EOL;
-extern __global__ fn fclose;
 
 extern __global__ fn is_resource;
 extern __global__ fn get_resource_type;
+
+extern __global__ fn fclose;
+extern __global__ fn feof;
+extern __global__ fn fflush;
+extern __global__ fn fgetc;
+extern __global__ fn fgetcsv;
+extern __global__ fn fgets;
+extern __global__ fn fgetss;
+extern __global__ fn flock;
+extern __global__ fn fopen;
+extern __global__ fn fpassthru;
+extern __global__ fn fputcsv;
+extern __global__ fn fputs;
+extern __global__ fn fread;
+extern __global__ fn fscanf;
+extern __global__ fn fseek;
+extern __global__ fn fstat;
+extern __global__ fn ftell;
+extern __global__ fn ftruncate;
+extern __global__ fn fwrite;
 
 /**
  * implements a static from() method for
@@ -264,25 +283,6 @@ public class Stream {
 // ---------------------------------------
 // basic stream access
 
-extern __global__ fn feof;
-extern __global__ fn fflush;
-extern __global__ fn fgetc;
-extern __global__ fn fgetcsv;
-extern __global__ fn fgets;
-extern __global__ fn fgetss;
-extern __global__ fn flock;
-extern __global__ fn fopen;
-extern __global__ fn fpassthru;
-extern __global__ fn fputcsv;
-extern __global__ fn fputs;
-extern __global__ fn fread;
-extern __global__ fn fscanf;
-extern __global__ fn fseek;
-extern __global__ fn fstat;
-extern __global__ fn ftell;
-extern __global__ fn ftruncate;
-extern __global__ fn fwrite;
-
 trait Read {
   /**
    * reads up to `len` bytes from this stream
@@ -422,14 +422,68 @@ public extern __global__ const SEEK_SET;
 public extern __global__ const SEEK_CUR;
 public extern __global__ const SEEK_END;
 
-// note: this class is not really limited to files ...
-// more concrete stream-types coming soon
-// note: no public constructor!
+/** file stream */
 public class FStream : Stream ~ IStream, OStream {
   
   use From;
   use Read;
   use Write;
+  
+  private path;
+  private mode;
+  
+  /**
+   * constructor
+   * 
+   * @param string path
+   * @param string mode
+   */
+  public new (string this.path, 
+              string this.mode) {
+    super(fopen(path, mode));
+  }
+  
+  /**
+   * returns the current path
+   *
+   * @return string
+   */
+  public fn get_path() => path;
+  
+  /**
+   * returns the current mode
+   *
+   * @return string
+   */
+  public fn get_mode() => mode;
+  
+  /**
+   * iterator: yields all lines from this file
+   *
+   * @throws FsError
+   */
+  public fn iter() {
+    for {
+      let l = gets();
+      if (l == false) break;
+      yield l;
+    }
+    
+    assert eof();
+  }
+  
+  /**
+   * closes and re-opens the stream
+   *
+   * @param  string mode
+   * @return FsStream
+   */
+  public fn reopen(string mode?) {
+    if (!closed) close();
+    closed = false;
+    swap(fopen(path, this.mode = mode ?: this.mode));
+    return this;
+  }
   
   /**
    * tests for end-of-file on this stream
@@ -515,7 +569,7 @@ public class FStream : Stream ~ IStream, OStream {
    */
   public fn putcsv(List fields, string delim = ',', 
                                 string encl = '"') =>
-    fputcsv(fields.to_tuple(), delim, encl);
+    fputcsv(fields.to_array(), delim, encl);
     
   /**
    * writes a string to the stream with the given length.

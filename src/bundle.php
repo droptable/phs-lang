@@ -2,20 +2,10 @@
 
 namespace phs;
 
+require_once 'utils.php';
+
 use Phar;
 use ZipArchive;
-
-const DS = \DIRECTORY_SEPARATOR;
-
-/**
- * joins a path and replaces "\" to "\\"
- *
- * @param  ...
- * @return string
- */
-function join_path() {
-  return strtr(implode(DS, func_get_args()), [ '\\' => '\\\\' ]);
-}
 
 /** bundle wrapper */
 class Bundle
@@ -143,6 +133,8 @@ abstract class Packer
     $stub .= '<?php';
             
     foreach ($libs as $lib) {
+      // skip imports
+      if ($lib->import) continue;
       $dest = join_path('lib', $lib->get_dest());
       $stub .= "\nrequire_once '$dest';";
     }
@@ -446,6 +438,8 @@ class PharPacker extends Packer
       $stub .= "mapPhar('phs');";
     
     foreach ($libs as $lib) {
+      // skip imports
+      if ($lib->import) continue;
       $dest = 'phs/lib/' . strtr($lib->get_dest(), [ '\\' => '/' ]);
       $stub .= "\nrequire_once 'phar://$dest';";
     }
