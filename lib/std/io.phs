@@ -425,7 +425,6 @@ public extern __global__ const SEEK_END;
 /** file stream */
 public class FileStream : Stream ~ InputStream, OutputStream {
   
-  use From;
   use Read;
   use Write;
   

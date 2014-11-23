@@ -1509,7 +1509,9 @@ class ReduceTask extends Visitor implements Task
     foreach ($node->vars as $var)
       if ($var->init) {
         $this->visit($var->init);
-        $var->symbol->value = $var->init->value;
+        
+        if ($var->symbol)
+          $var->symbol->value = $var->init->value;
       }
   }
   

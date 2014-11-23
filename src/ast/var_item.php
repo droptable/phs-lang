@@ -8,6 +8,9 @@ class VarItem extends Node
   public $init;
   public $ref;
   
+  // @var Symbol
+  public $symbol;
+  
   public function __construct($id, $init, $ref)
   {
     $this->id = $id;
