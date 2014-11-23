@@ -33,6 +33,7 @@ use phs\ast\ForStmt;
 use phs\ast\ForInStmt;
 use phs\ast\WhileStmt;
 use phs\ast\SwitchStmt;
+use phs\ast\CtorDecl;
 
 use phs\util\Set;
 use phs\util\Map;
@@ -99,6 +100,9 @@ class ResolveTask extends AutoVisitor implements Task
   
   // @var array  label stack
   private $lstack;
+  
+  // @var bool  allow access to `this`
+  private $allow_this;
   
   /**
    * constructor
@@ -217,7 +221,13 @@ class ResolveTask extends AutoVisitor implements Task
     array_push($this->fnstk, $node->symbol);
     array_push($this->lstack, $this->labels);
     
+    if ($node instanceof CtorDecl)
+      $prev->restrict(true);
+    
     $this->visit_fn_params($node->params);
+    
+    if ($node instanceof CtorDecl)
+      $prev->restrict(false);
     
     if ($node->body)
       $this->visit($node->body);
@@ -339,6 +349,13 @@ class ResolveTask extends AutoVisitor implements Task
       Logger::error_at($sym->loc, 'declaration was here');
     }
     
+    // restricted access to `this`
+    elseif ($res->is_restricted()) {
+      $sym = &$res->unwrap();
+      Logger::error_at($node->loc, 'access to %s is restricted \\', $sym);
+      Logger::error('in this context');
+    }
+    
     // error
     elseif ($res->is_error()) {
       Logger::error_at($node->loc, '[bug] error while looking up `%s`', $ref);
@@ -376,7 +393,7 @@ class ResolveTask extends AutoVisitor implements Task
         }
         
         sok:
-                
+         
         $node->symbol = $sym;
         return true;
       }
@@ -767,7 +784,7 @@ class ResolveTask extends AutoVisitor implements Task
   {
     $res = $this->cclass->members->get($mid);
     
-    if ($res->is_none())
+    if ($res->is_none() || $res->is_error())
       return; // maybe dynamic
     
     $sym = &$res->unwrap();
@@ -1572,7 +1589,11 @@ class ResolveTask extends AutoVisitor implements Task
   {
     if (!$this->cclass)
       Logger::error_at($node->loc, '`this` outside of class or trait');
-    
+    elseif ($this->cclass->members->restricted) {
+      Logger::error_at($node->loc, 'access to `this` is restricted \\');
+      Logger::error('in this context');
+    }
+      
     $node->symbol = $this->cclass;
   }  
 

@@ -799,6 +799,9 @@ class FnSymbol extends Symbol
 /** var symbol */
 class VarSymbol extends Symbol
 {  
+  // @var Node  initializer
+  public $init;
+  
   // @var Value  whenever a value could be computed during compilation 
   public $value = null;
   
@@ -874,6 +877,8 @@ class VarSymbol extends Symbol
     
     $sym = new VarSymbol($id, $var->loc, $flags);
     $sym->node = $var;
+    $sym->init = $var instanceof Ident ? null : $var->init;
+    
     return $sym;
   }
 }

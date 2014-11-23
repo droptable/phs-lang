@@ -25,6 +25,8 @@ use phs\ast\CtorDecl;
 use phs\ast\DtorDecl;
 use phs\ast\GetterDecl;
 use phs\ast\SetterDecl;
+use phs\ast\Param;
+use phs\ast\ThisParam;
 
 use phs\util\Set;
 use phs\util\Map;
@@ -126,6 +128,10 @@ class NodeCollector extends AutoVisitor
         $sym = $param->symbol = ParamSymbol::from($param);
         $this->scope->add($sym);
         $fsym->params[] = $param->symbol;
+        
+        if (($param instanceof Param ||
+             $param instanceof ThisParam) && $param->init)
+          $this->visit($param->init);
       }
     
     $this->level++;

@@ -1507,7 +1507,10 @@ class ReduceTask extends Visitor implements Task
   public function visit_var_decl($node) 
   {
     foreach ($node->vars as $var)
-      if ($var->init) $this->visit($var->init);
+      if ($var->init) {
+        $this->visit($var->init);
+        $var->symbol->value = $var->init->value;
+      }
   }
   
   /**

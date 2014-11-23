@@ -22,6 +22,7 @@ use phs\ast\SuperExpr;
 use phs\ast\YieldExpr;
 use phs\ast\RestArg;
 use phs\ast\ExprStmt;
+use phs\ast\ParenExpr;
 
 use phs\util\Set;
 
@@ -426,7 +427,7 @@ class CodeGenerator extends AutoVisitor
     }
     
     if (($sym instanceof VarSymbol) ||
-        ($sym instanceof FnSymbol && $sym->nested && 
+        ($sym instanceof FnSymbol && ($sym->expr || $sym->nested) && 
          !($sym->flags & SYM_FLAG_EXTERN))) {
               
       if ($memb === true) {
@@ -744,7 +745,7 @@ class CodeGenerator extends AutoVisitor
     // init with primitive value
     if ($vsym->value && $vsym->value->is_primitive()) {
       $this->emit(' = ');
-      $this->emit_value($sym->value);
+      $this->emit_value($vsym->value);
     }
     
     // non-primitive values are initialized in the constructor
@@ -775,11 +776,30 @@ class CodeGenerator extends AutoVisitor
     else {
       $this->emit_member_mods($ctor);
       $this->emit('function __construct');
-      $this->emit_fn_params($ctor->node);
+      $this->emit_fn_params($ctor->node, false);
     }
     
     $this->emitln('{');
     $this->indent();
+    
+    // emit property assigns
+    foreach ($vars as $var) {
+      if ($var->init && !$var->value->is_primitive()) {
+        $init = $var->init;
+        $temp = '$this->' . $var->id;
+        
+        if ($init instanceof CallExpr)
+          $this->visit_top_call_expr($init, $temp);
+        elseif ($init instanceof ObjLit)
+          $this->hoist_dict_expr($init, $temp);
+        else {
+          $this->emit($temp, ' = ');
+          $this->visit($init);
+        }
+        
+        $this->emitln(';');
+      }
+    }
     
     if ($ctor !== null) {
       $this->emit_fn_checks($ctor->node);
@@ -860,7 +880,7 @@ class CodeGenerator extends AutoVisitor
     
     // 5. emit actual body
     if ($ctor !== null && $ctor->node->body)
-      $this->emit_fn_body($ctor->node, false, false, false, false);
+      $this->emit_fn_body($ctor->node, false, false, false, false, false);
     
     $this->dedent();
     $this->emitln('}'); 
@@ -1057,12 +1077,16 @@ class CodeGenerator extends AutoVisitor
         $this->emitln('if ($', $id, ' === null) {');
         $this->indent();
         
-        $temp = $this->hoist_dict_expr($psym->init, $id);
-        
-        if ($temp === null) {
-          $this->emit('$', $id, ' = ');
-          $this->visit($psym->init);
-          $this->emitln(';');
+        if ($psym->init instanceof CallExpr)
+          $this->visit_top_call_expr($psym->init, $id);
+        else {
+          $temp = $this->hoist_dict_expr($psym->init, $id);
+          
+          if ($temp === null) {
+            $this->emit('$', $id, ' = ');
+            $this->visit($psym->init);
+            $this->emitln(';');
+          }
         }
         
         $this->dedent();
@@ -1131,6 +1155,7 @@ class CodeGenerator extends AutoVisitor
    * @param  boolean $expr  this body is part of a function-expression
    * @param  boolean $term  the function needs a terminator (semicolon)
    * @param  boolean $encl  enclose the body with { } 
+   * @param  boolean $chks  emit parameter checks
    */
   public function emit_fn_body($node, $expr = false, 
                                       $term = false, 
@@ -1662,15 +1687,20 @@ class CodeGenerator extends AutoVisitor
         // no declaration needed
         continue;
       
-      $temp = $this->hoist_dict_expr($var->init);
-      $this->emit('$', $var->symbol->id, ' = ');
-      
-      if ($temp !== null) {
-        $this->emit($temp);
-        $this->emitln(';');
-        $this->emit('unset (', $temp, ')');
-      } else
-        $this->visit($var->init);
+      if ($var->init instanceof CallExpr) {
+        $temp = $var->symbol->id;
+        $this->visit_top_call_expr($var->init, $temp);
+      } else {
+        $temp = $this->hoist_dict_expr($var->init);
+        $this->emit('$', $var->symbol->id, ' = ');
+        
+        if ($temp !== null) {
+          $this->emit($temp);
+          $this->emitln(';');
+          $this->emit('unset (', $temp, ')');
+        } else
+          $this->visit($var->init);
+      }
       
       $this->emitln(';');
     }
@@ -2187,7 +2217,33 @@ class CodeGenerator extends AutoVisitor
       $args = $this->hoist_dict_args($node->args);
       $this->emit('parent::__construct');
       $this->visit_fn_args($args);    
+    
+    /* iife */
+    } elseif ($node->callee instanceof FnExpr ||
+              ($node->callee instanceof ParenExpr &&
+               $node->callee->expr instanceof FnExpr)) {
+      $call = $node->callee;
+      if ($call instanceof ParenExpr)
+        $call = $call->expr;
       
+      $decr = $temp === null;
+      $temp = $decr ? '_T' . (self::$temp) : $temp;
+      
+      $this->emit('$', $temp, ' = ');
+      $this->visit($call);
+      $this->emitln(';');
+      
+      $args = $this->hoist_dict_args($node->args);
+      
+      $this->emit('$', $temp, ' = $', $temp);
+      $this->visit_fn_args($args);
+      $this->emitln(';');
+      
+      if ($decr) {
+        $this->emitln('unset ($', $temp, ');');
+        self::$temp--;
+      }
+    
     /* normal call */
     } else {
       $args = $this->hoist_dict_args($node->args);
@@ -2631,7 +2687,32 @@ class CodeGenerator extends AutoVisitor
       
       self::$temp--;
       
-    /* normal call */
+    /* iife */
+    } elseif ($node->callee instanceof FnExpr ||
+              ($node->callee instanceof ParenExpr &&
+               $node->callee->expr instanceof FnExpr)) {
+      $temp = '_T' . (self::$temp++);
+      $this->emitln('[');
+      $this->indent();
+      
+      $this->emit('0 => ($', $temp, ' = ');
+        
+      $call = $node->callee;
+      if ($call instanceof ParenExpr)
+        $call = $call->expr;
+      
+      $this->visit($call);
+      
+      $this->emitln('),');
+      $this->emit('0 => $', $temp);
+      $this->visit_fn_args($node->args);
+      
+      $this->dedent();
+      $this->emit('][0]');
+      
+      self::$temp--;
+      
+    /* normal call */  
     } else {
       $this->call = true;
       $this->visit($node->callee);

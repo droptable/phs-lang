@@ -20,7 +20,7 @@
 
 module std::fs;
 
-use std::io::FStream;
+use std::io::FileStream;
 
 public extern __global__ const FILE_USE_INCLUDE_PATH;
 public extern __global__ const FILE_NO_DEFAULT_CONTEXT;
@@ -137,7 +137,7 @@ public class File {
    * @return FsStream
    */
   public fn open(string mode) =>
-    new FStream(path, mode);
+    new FileStream(path, mode);
   
   /**
    * opens the file in write-mode
@@ -175,7 +175,7 @@ public class File {
     if (path is File) 
       return path;
     
-    if (path is FStream) 
+    if (path is FileStream) 
       path = path.get_path();
     
     if (path is string) 

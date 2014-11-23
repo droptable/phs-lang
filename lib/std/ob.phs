@@ -20,7 +20,7 @@
 
 module std::ob;
 
-use std::io::OStream;
+use std::io::OutputStream;
 
 public extern __global__ fn ob_clean;
 public extern __global__ fn ob_end_clean;
@@ -64,6 +64,6 @@ public use self::ob_implicit_flush as implicit_flush;
 public use self::ob_list_handlers as list_handlers;
 public use self::ob_start as start;
 
-public fn stream(OStream out, int cs = 0, 
+public fn stream(OutputStream out, int cs = 0, 
                  int flags = PHP_OUTPUT_HANDLER_STDFLAGS) =>
   start(fn (data) { out.write(data); }, cs, flags);

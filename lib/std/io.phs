@@ -337,7 +337,7 @@ trait Write {
 /**
  * input-stream
  */
-public iface IStream {
+public iface InputStream {
   /**
    * reads up to `len` bytes from this stream
    *
@@ -358,7 +358,7 @@ public iface IStream {
 /**
  * output-stream
  */
-public iface OStream {
+public iface OutputStream {
   /**
    * writes a string to this stream
    *
@@ -381,7 +381,7 @@ public iface OStream {
  * WIP
  */
 
-private class IStreamImpl : Stream ~ IStream {
+private class InputStreamImpl : Stream ~ InputStream {
   
   use Read;
   
@@ -391,7 +391,7 @@ private class IStreamImpl : Stream ~ IStream {
   public new (this.hnd) ; 
 }
 
-private class OStreamImpl : Stream ~ OStream {
+private class OutputStreamImpl : Stream ~ OutputStream {
   
   use Write;
   
@@ -405,9 +405,9 @@ extern __global__ const STDIN;
 extern __global__ const STDOUT;
 extern __global__ const STDERR;
 
-public const stdin = new IStreamImpl(STDIN);
-public const stdout = new OStreamImpl(STDOUT);
-public const stderr = new OStreamImpl(STDERR);
+public const stdin = new InputStreamImpl(STDIN);
+public const stdout = new OutputStreamImpl(STDOUT);
+public const stderr = new OutputStreamImpl(STDERR);
 
 // ---------------------------------------
 // ---------------------------------------
@@ -423,7 +423,7 @@ public extern __global__ const SEEK_CUR;
 public extern __global__ const SEEK_END;
 
 /** file stream */
-public class FStream : Stream ~ IStream, OStream {
+public class FileStream : Stream ~ InputStream, OutputStream {
   
   use From;
   use Read;

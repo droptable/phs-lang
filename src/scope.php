@@ -36,6 +36,9 @@ class ScResult extends Result
   // symbol is private
   public $priv = false;
   
+  // access was restricted
+  public $restricted = false;
+  
   // symbol path (set by lookup)
   public $path = null;
   
@@ -51,6 +54,17 @@ class ScResult extends Result
   }
   
   /**
+   * returns true if this result failed because the 
+   * requested symbol can not be accessed in the current context
+   *
+   * @return boolean
+   */
+  public function is_restricted()
+  {
+    return $this->restricted === true;
+  }
+  
+  /**
    * generates a "fail" result
    * 
    * @return Result
@@ -59,6 +73,18 @@ class ScResult extends Result
   {
     $res = static::Error($data);
     $res->priv = true;
+    return $res;
+  }
+  
+  /**
+   * generated a "fail" result
+   *
+   * @param ScResult
+   */
+  public static function Restricted($data)
+  {
+    $res = static::Error($data);
+    $res->restricted = true;
     return $res;
   }
 }
@@ -939,6 +965,9 @@ class MemberScope extends PrivScope
   // @var SymbolMap  setter
   public $setter;
   
+  // @var boolean  restricted access
+  public $restricted = false;
+  
   // @var Symbol  root-object
   private static $robj;
   
@@ -953,6 +982,19 @@ class MemberScope extends PrivScope
     $this->host = $host;
     $this->getter = new SymbolMap;
     $this->setter = new SymbolMap;
+  }
+  
+  /**
+   * restrict access
+   *
+   * @param  bool $flag
+   */
+  public function restrict($flag)
+  {
+    $this->restricted = (bool) $flag;
+    
+    if ($this->super)
+      $this->super->restrict($flag);
   }
   
   /**
@@ -998,6 +1040,14 @@ class MemberScope extends PrivScope
     // ask super-class
     if ($res->is_none() && !$res->is_priv() && $this->super)
       $res = $this->super->rec($id, $ns);
+    
+    if ($res->is_some() && $this->restricted) {
+      $sym = &$res->unwrap();
+      
+      if ($sym->scope === $this ||
+          $sym->scope === $this->inner)
+        $res = ScResult::Restricted($sym);
+    }
     
     return $res;
   }
