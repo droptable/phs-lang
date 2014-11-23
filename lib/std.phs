@@ -31,7 +31,6 @@ public extern class List;
 public extern class Thread;
 public extern class Error;
 public extern class TypeError;
-public extern iface Iterator;
 
 // ---------------------------------------
 // some global "compatibility" functions

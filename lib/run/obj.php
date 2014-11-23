@@ -46,15 +46,6 @@ class Obj
   ];
   
   /**
-   * default constructor
-   *
-   */
-  public function __construct()
-  {
-    // empty 
-  }
-  
-  /**
    * returns the object-hash
    * 
    * @return string

@@ -140,7 +140,15 @@ public class Stream {
    */
   protected new (this.hnd) {
     if (!hnd) // probably from a failed fopen()
-      throw new TypeError("invalid stream-handle %0", hnd);
+      throw new TypeError("invalid stream-handle");
+  }
+  
+  /**
+   * destructor
+   * 
+   */
+  public del () {
+    if (!closed) close();
   }
   
   /**
@@ -382,23 +390,19 @@ public iface OutputStream {
  */
 
 private class InputStreamImpl : Stream ~ InputStream {
-  
   use Read;
   
-  /**
-   * see Stream#new
-   */
-  public new (this.hnd) ; 
+  public new (hnd) {
+    super(hnd);
+  }
 }
 
 private class OutputStreamImpl : Stream ~ OutputStream {
-  
   use Write;
   
-  /**
-   * see Stream#new
-   */
-  public new (this.hnd) ;
+  public new (hnd) {
+    super(hnd);
+  }
 }
 
 extern __global__ const STDIN;
@@ -422,8 +426,16 @@ public extern __global__ const SEEK_SET;
 public extern __global__ const SEEK_CUR;
 public extern __global__ const SEEK_END;
 
-/** file stream */
-public class FileStream : Stream ~ InputStream, OutputStream {
+extern __global__ fn strlen;
+
+/** 
+ * basic file stream
+ * 
+ * note: this class is not really limited to files.
+ * more concrete streams coming soon
+ */
+public class FileStream : Stream 
+    ~ InputStream, OutputStream {
   
   use Read;
   use Write;
@@ -455,6 +467,12 @@ public class FileStream : Stream ~ InputStream, OutputStream {
    * @return string
    */
   public fn get_mode() => mode;
+  
+  /**
+   * php does not support async file-io
+   *
+   */
+  public fn set_blocking() {}
   
   /**
    * iterator: yields all lines from this file
@@ -578,7 +596,7 @@ public class FileStream : Stream ~ InputStream, OutputStream {
    * @param  int    len
    * @return int
    */
-  public fn puts(string msg, int len) =>
+  public fn puts(string msg, int len = strlen(msg)) =>
     fwrite(this.hnd, msg, len);
   
   /**

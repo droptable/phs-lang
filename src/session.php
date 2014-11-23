@@ -136,14 +136,6 @@ class Session
     $obj->resolved = true;
     
     /**
-     * constructor
-     * 
-     */
-    $ctor = new FnSymbol('<ctor>', $loc, $pub);
-    $ctor->ctor = true;
-    $obj->members->ctor = $ctor;
-    
-    /**
      * returns the object-hash
      * 
      * @return string
@@ -328,6 +320,8 @@ class Session
     // ---------------------------------------
     // step 2: translate units
     
+    Logger::debug('compiling ...');
+    
     foreach ($this->libs as $lib)
       $this->compile($lib);
     
@@ -342,6 +336,8 @@ class Session
     // ---------------------------------------
     // step 3: pack sources into a phar
     
+    Logger::debug('packing ...');
+    
     $bnd = new Bundle($this);
     register_shutdown_function([ $bnd, 'cleanup' ]);
     
@@ -350,7 +346,7 @@ class Session
     
     foreach ($this->srcs as $src)
       $bnd->add_source($src);
-    
+        
     $bnd->deploy();
     
     out:
@@ -396,8 +392,6 @@ class Session
    */
   protected function compile(Source $src)
   {
-    Logger::debug('compile file %s', $src->get_path());
-    
     $this->comp->compile($src);
   }
 }

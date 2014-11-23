@@ -21,6 +21,7 @@ use phs\ast\SelfExpr;
 use phs\ast\SuperExpr;
 use phs\ast\YieldExpr;
 use phs\ast\RestArg;
+use phs\ast\RestParam;
 use phs\ast\ExprStmt;
 use phs\ast\ParenExpr;
 
@@ -855,6 +856,10 @@ class CodeGenerator extends AutoVisitor
       $this->emitln("'", $fun->id, "'", ' ];');
     }
     
+    // no super-class or super-class is the root-object
+    if (!$super || $super->host === $this->sess->robj)
+      $this->emitln('$this->hash = [ $this, \'hash\' ];');
+    
     // 4. call super if needed
     $esup = false;
     
@@ -875,7 +880,7 @@ class CodeGenerator extends AutoVisitor
         break;
       }
     
-    if ($esup === false)
+    if ($esup === false && $super && $super->ctor)
       $this->emitln('parent::__construct();');
     
     // 5. emit actual body
@@ -992,7 +997,7 @@ class CodeGenerator extends AutoVisitor
       
       $this->emit('$', $psym->id);   
       
-      if ($psym->opt || $psym->init) {
+      if (!$psym->rest && ($psym->opt || $psym->init)) {
         $defv = 'null';
         
         if (!$psym->init && /* use null if a initializer is set */
@@ -1077,9 +1082,10 @@ class CodeGenerator extends AutoVisitor
         $this->emitln('if ($', $id, ' === null) {');
         $this->indent();
         
-        if ($psym->init instanceof CallExpr)
+        if ($psym->init instanceof CallExpr) {
           $this->visit_top_call_expr($psym->init, $id);
-        else {
+          $this->emitln(';');
+        } else {
           $temp = $this->hoist_dict_expr($psym->init, $id);
           
           if ($temp === null) {
@@ -1510,6 +1516,13 @@ class CodeGenerator extends AutoVisitor
         $this->emit_fn_cmbind($csym, $fun);
         $vout++;
       }
+      
+    $super = $csym->members->super;
+    
+    if (!$super || $super->host === $this->sess->robj) {
+      $this->emitln('public $hash;');
+      $vout++;
+    }
     
     if ($vout > 0)
       $this->emitln();
@@ -2220,8 +2233,7 @@ class CodeGenerator extends AutoVisitor
     
     /* iife */
     } elseif ($node->callee instanceof FnExpr ||
-              ($node->callee instanceof ParenExpr &&
-               $node->callee->expr instanceof FnExpr)) {
+              $node->callee instanceof ParenExpr) {
       $call = $node->callee;
       if ($call instanceof ParenExpr)
         $call = $call->expr;
@@ -2689,8 +2701,7 @@ class CodeGenerator extends AutoVisitor
       
     /* iife */
     } elseif ($node->callee instanceof FnExpr ||
-              ($node->callee instanceof ParenExpr &&
-               $node->callee->expr instanceof FnExpr)) {
+              $node->callee instanceof ParenExpr) {
       $temp = '_T' . (self::$temp++);
       $this->emitln('[');
       $this->indent();

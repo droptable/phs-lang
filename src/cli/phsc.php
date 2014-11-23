@@ -69,6 +69,13 @@ function main($argc, $argv) {
   
   if (!$sess->process() && $conf->err)
     exit(EXIT_FAILURE);
+  
+  if ($conf->run) {
+    if (!$conf->quiet) echo "\n";
+    
+    $main = $conf->dir . DIRECTORY_SEPARATOR . $conf->out;
+    echo `php $main`;
+  }
 }
 
 main($_SERVER['argc'], $_SERVER['argv']);
