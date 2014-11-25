@@ -76,7 +76,6 @@ public extern __global__ fn array_unshift;
 public extern __global__ fn array_values;
 public extern __global__ fn array_walk_recursive;
 public extern __global__ fn array_walk;
-public extern __global__ fn array;
 public extern __global__ fn arsort;
 public extern __global__ fn asort;
 public extern __global__ fn compact;

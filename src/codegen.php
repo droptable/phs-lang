@@ -453,9 +453,9 @@ class CodeGenerator extends AutoVisitor
         } else
           $this->emit('$this->', $sym->id);
       } else {
-        if ($sym->flags & SYM_FLAG_UNSAFE)
-          // unsafe symbol
-          $this->emit(path_to_ns($sym->path()));
+        if ($sym->flags & SYM_FLAG_CONSTR)
+          // use raw id
+          $this->emit($sym->rid);
         else {
           // quote paths if they're accessed in read-mode
           $quote = '';
@@ -939,6 +939,10 @@ class CodeGenerator extends AutoVisitor
   public function emit_fn_decl($node)
   {
     $fsym = $node->symbol;
+    
+    if (($fsym->flags & SYM_FLAG_EXTERN) ||
+        ($fsym->flags & SYM_FLAG_CONSTR))
+      return;
         
     $this->emit('function ', $fsym->id);
     $this->emit_fn_params($node);
@@ -988,7 +992,15 @@ class CodeGenerator extends AutoVisitor
       if ($idx > 0) $this->emit(', ');
       
       if ($psym->hint && !($psym->hint instanceof TypeId)) {
-        $this->emit('\\', path_to_ns($psym->hint->symbol->path()));
+        $hint = $psym->hint->symbol;
+        
+        if ($hint->flags & SYM_FLAG_CONSTR)
+          // use raw id
+          $path = $hint->rid;
+        else
+          $path = path_to_abs_ns($hint->path());
+                
+        $this->emit($path);
         $this->emit(' ');
       }
       
@@ -1606,6 +1618,9 @@ class CodeGenerator extends AutoVisitor
   {
     $tsym = $node->symbol;
     
+    if ($tsym->flags & SYM_FLAG_EXTERN)
+      return;
+    
     $this->emitln('trait ', $tsym->id, ' {');
     $this->indent();
     
@@ -1647,6 +1662,9 @@ class CodeGenerator extends AutoVisitor
   {
     $isym = $node->symbol;
     
+    if ($isym->flags & SYM_FLAG_EXTERN)
+      return;
+     
     $this->emit('interface ', $isym->id);
     
     if ($isym->ifaces) {
@@ -1698,6 +1716,10 @@ class CodeGenerator extends AutoVisitor
     foreach ($node->vars as $var) {
       if (!$var->init) 
         // no declaration needed
+        continue;
+      
+      if (($var->symbol->flags & SYM_FLAG_EXTERN) ||
+          ($var->symbol->flags & SYM_FLAG_CONSTR))
         continue;
       
       if ($var->init instanceof CallExpr) {

@@ -27,7 +27,7 @@
 public extern class Obj;
 public extern class Ref;
 public extern class Dict;
-public extern class List;
+//public extern class List;
 public extern class Thread;
 public extern class Error;
 public extern class TypeError;
@@ -35,10 +35,14 @@ public extern class TypeError;
 // ---------------------------------------
 // some global "compatibility" functions
 
-// note: __unsafe__ disables name-mangling
-public extern __unsafe__ fn isset;
-public extern __unsafe__ fn empty;
-public extern __unsafe__ fn include;
+// language constructs
+module std {
+  public __constr__ fn isset;
+  public __constr__ fn empty;
+  public __constr__ fn include;
+  public __constr__ array; // not callable, use tuples instead
+  public __constr__ callable;
+}
 
 // ---------------------------------------
 // temporary php bindings

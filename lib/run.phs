@@ -28,4 +28,664 @@ require __php__ 'run/obj';
 require __php__ 'run/dict';
 
 // list: used for [ ... ] literals
-require __php__ 'run/list';
+// require __php__ 'run/list';
+
+/*!
+ * This file is part of the PHS Runtime Library
+ * Copyright (c) 2014 The PHS Team
+ * 
+ * All rights reserved.
+ * 
+ * This library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published 
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/** list - note: the "_" is required */
+extern iface Inable;
+extern iface ArrayAccess;
+extern class Dict;
+extern class Error;
+
+// see std.phs
+extern __constr__ callable;
+extern __constr__ fn isset;
+extern __constr__ fn empty;
+
+public class List ~ Inable, ArrayAccess {
+  // internal array
+  private mem;
+  
+  /**
+   * constructor
+   *
+   * @param ... $args
+   */
+  public new (...args) {
+    mem = args;
+  }
+  
+  /**
+   * to-string method
+   *
+   * @return string
+   */
+  public fn __tostring() =>
+    join();
+  
+  /**
+   * type-cast
+   *
+   * @param  mixed $val
+   * @return List_
+   */
+  public static fn from(val) {
+    extern __global__ fn is_array;
+    
+    if (is_array(val))
+      return new self(...val);
+    
+    if (val is Dict)
+      return new self(...val.iter());
+    
+    return new self(val);
+  }
+  
+  /**
+   * returns a value at the given index
+   *
+   * @param  int $idx
+   * @return mixed
+   */
+  public fn get(int idx) {
+    if (idx < 0)
+      idx = size() + idx;
+    
+    return isset(mem[idx]) ? mem[idx] : null;
+  }
+  
+  /**
+   * sets a value at the given index
+   *
+   * @param int $idx
+   * @param mixed $val
+   */
+  public fn set(int idx, val) {
+    if (idx < 0)
+      idx = size() + idx;
+    
+    mem[idx] = val;
+  }
+  
+  /**
+   * checks if a value exists at the given index
+   *
+   * @param  int  $idx
+   * @return boolean
+   */
+  public fn has(int idx)
+  {
+    if (idx < 0)
+      idx = size() + idx;
+    
+    return isset(mem[idx]);
+  }
+  
+  /**
+   * deletes a index.
+   * the list gets rearranged after deletion!
+   * 
+   * if you just want to delete a value, 
+   * use `set(idx, null)` instead.
+   *
+   * @param  int $idx
+   * @return boolean
+   */
+  public fn delete(int idx) {
+    if (idx < 0)
+      idx = size() + idx;
+    
+    extern __global__ fn array_key_exists;
+    extern __global__ fn array_splice;
+    
+    if (array_key_exists(idx, mem)) {
+      array_splice(mem, idx, 0);
+      return true;
+    }
+    
+    return false;
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * Inable#contains()
+   *
+   * @param  mixed $val
+   * @return boolean
+   */
+  public fn contains(val) {
+    extern __global__ fn in_array;
+    return in_array(val, mem, true);
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * ArrayAccess#offsetGet()
+   * 
+   * @see List_#get()
+   */
+  public fn offsetGet(int idx)
+  {
+    if (idx < 0)
+      idx = size() + idx;
+    
+    return isset(mem[idx]) ? mem[idx] : null;
+  }
+  
+  /**
+   * ArrayAccess#offsetSet()
+   * 
+   * @see List_#set()
+   */
+  public fn offsetSet(int idx, val) {
+    if (idx < 0)
+      idx = size() + idx;
+    
+    mem[idx] = val;
+  }
+  
+  /**
+   * ArrayAccess#offsetExists()
+   * 
+   * @see List_#has()
+   */
+  public fn offsetExists(int idx) {
+    if (idx < 0)
+      idx = size() + idx;
+    
+    return isset(mem[idx]);
+  }
+  
+  /**
+   * ArrayAccess#offsetUnset()
+   * 
+   * @see List_#delete()
+   */
+  public fn offsetUnset(int idx) {
+    if (idx < 0)
+      idx = size() + idx;
+    
+    extern __global__ fn array_key_exists;
+    extern __global__ fn array_splice;
+    
+    if (array_key_exists(idx, mem)) {
+      array_splice(mem, idx, 0);
+      return true;
+    }
+    
+    return false;
+  }
+  
+  /* ------------------------------------ */
+  
+  /**
+   * returns the raw array
+   *
+   * @return array
+   */
+  public fn to_array() =>
+    mem;
+  
+  /* ------------------------------------ */
+  
+  /**
+   * returns the size of this list
+   *
+   * @return int
+   */
+  public fn size() {
+    extern __global__ fn count;
+    return count(mem);
+  }
+  
+  /* ------------------------------------ */
+  /* mutator methods */
+  
+  /**
+   * sets the internal array.
+   *
+   * @param  array  $mem
+   * @return List_
+   */
+  public fn swap(mem) {
+    // the new array must be a tuple
+    // associative keys can not be accessed in this list
+    this.mem = mem;
+    return this;
+  }
+  
+  /**
+   * fills this list with values
+   *
+   * @param  mixed  $val
+   * @param  int    $idx
+   * @param  int    $end
+   * @return List_
+   */
+  public fn fill(val, int idx = 0, int end?) {
+    let len = size();
+    
+    if (end == null) 
+      end = len;
+    
+    if (idx < 0)
+      idx = len + idx;
+    
+    if (end < 0)
+      end = len + end;
+    
+    while (idx < end) {
+      mem[idx] = val;
+      idx++;
+    }
+    
+    return this;
+  }
+  
+  /**
+   * removes the last element from this list
+   *
+   * @return mixed
+   */
+  public fn pop() {
+    extern __global__ fn array_pop;
+    return array_pop(mem);
+  }
+  
+  /**
+   * appends values to the list
+   *
+   * @param  ... $val
+   * @return int
+   */
+  public fn push(...val) {
+    extern __global__ fn array_push;
+    return array_push(mem, ...val);
+  }
+  
+  /**
+   * reverses the list
+   *
+   * @return List_
+   */
+  public fn reverse() {
+    extern __global__ fn array_reverse;
+    mem = array_reverse(mem);
+    return this;
+  }
+  
+  /** 
+   * removes the first element
+   *
+   * @return mixed
+   */
+  public fn shift() {
+    extern __global__ fn array_shift;
+    return array_shift(mem);
+  }
+  
+  /**
+   * sorts the list in place and returns it
+   *
+   * @param  callable  $fun
+   * @return List_
+   */
+  public fn sort(callable fun?) {
+    extern __global__ const SORT_REGULAR;
+    extern __global__ fn sort;
+    extern __global__ fn usort;
+    
+    if (fun == null)
+      sort(mem, SORT_REGULAR);
+    else
+      usort(mem, fun);
+    
+    return this;
+  }
+  
+  /**
+   * add/removes values
+   *
+   * @param  int $idx
+   * @param  int $len
+   * @param  ... $val
+   * @return List_
+   */
+  public fn splice(int idx, int len, ...val) {
+    extern __global__ fn array_splice;
+    
+    let lst = new self;
+    lst.mem = array_splice(mem, idx, len, val);
+    return lst;
+  }
+  
+  /**
+   * adds elements at the beginning
+   *
+   * @param  ... $val
+   * @return List_
+   */
+  public fn unshift(...val) {
+    extern __global__ fn array_unshift;
+    array_unshift(mem, ...val);
+    return this;
+  }
+  
+  /**
+   * shuffles the list
+   *
+   * @return List_
+   */
+  public fn shuffle() {
+    extern __global__ fn array_shuffle;
+    array_shuffle(mem);
+    return this;
+  }
+  
+  /* ------------------------------------ */
+  /* accessor methods */
+  
+  /**
+   * returns a new list with all the arguments concatenated
+   *
+   * @param  ... $val
+   * @return List_
+   */
+  public fn concat(...val) {
+    extern dup = mem;
+    
+    extern __global__ fn is_array;
+    extern __global__ fn array_merge;
+    extern __global__ fn array_push;
+    
+    for (itm in val)
+      if (is_array(itm))
+        dup = array_merge(dup, itm);
+      else 
+        array_push(dup, itm);
+      
+    let lst = new self;
+    lst.mem = dup;
+    return lst;
+  }
+  
+  /**
+   * joins all values together
+   *
+   * @param  string $sep
+   * @return string
+   */
+  public fn join(string sep = ',') {
+    extern __global__ fn implode;
+    return implode(sep, mem);
+  }
+  
+  
+  /**
+   * extract a slice of the list
+   *
+   * @param  int $beg
+   * @param  int $end
+   * @return List_
+   */
+  public fn slice(beg?, end?)
+  {
+    let dup = mem;
+    
+    extern __global__ fn array_slice;
+    
+    if (beg != null) {
+      let len = size();
+      beg = beg as int;
+      end = end as int;
+      
+      if (beg < 0)
+        beg = len + beg;
+      
+      if (end < 0)
+        end = len + end;
+                
+      dup = array_slice(dup, beg, end);
+    }
+    
+    let lst = new self;
+    lst.mem = dup;
+    return lst;
+  }
+  
+  /**
+   * searches for the given value and returns its index
+   *
+   * @param  mixed  $val
+   * @param  int    $beg
+   * @return int
+   */
+  public fn index_of(val, int beg = 0) {
+    extern __global__ fn array_search;
+    
+    if (beg == 0) {
+      let res = array_search(mem, val, true);
+      return res == false ? -1 : res;
+    }
+    
+    let len = size();
+    
+    if (beg < 0)
+      beg = len + beg;
+    
+    if (len == 0 || beg >= len)
+      return -1;
+          
+    while (beg < len) {
+      if (mem[beg] == val)
+        return beg;
+      
+      beg++;
+    }    
+    
+    return -1;
+  }
+  
+  /* ------------------------------------ */
+  /* iteration methods */
+  
+  /**
+   * iterator
+   *
+   * @return Iterable
+   */
+  public fn iter() =>
+    mem;
+  
+  /**
+   * calls a function for each item in this list.
+   * same as map() but without generating a new list
+   *
+   * @param  callable $fun
+   */
+  public fn each(callable fun) {
+    extern __global__ fn array_walk;
+    array_walk(mem, fun, this);
+  }
+  
+  /**
+   * returns true if all values pass the test implemented 
+   * by the given callback
+   *
+   * @param  callable $fun
+   * @return bool
+   */
+  public fn every(callable fun) {
+    for (idx: itm in mem)
+      if (!fun(itm, idx, this))
+        return false;
+      
+    return true;
+  }
+  
+  /**
+   * returns true if at least one value passes the 
+   * test implemented by the given callback
+   *
+   * @param  callable $fun
+   * @return bool
+   */
+  public fn some(callable fun) {
+    for (idx: itm in mem)
+      if (fun(itm, idx, this))
+        return true;
+      
+    return false;
+  }
+  
+  /**
+   * filters the list using the given callback
+   *
+   * @param  callable $fun
+   * @return List_
+   */
+  public fn filter(callable fun) {
+    extern __global__ const ARRAY_FILTER_USE_BOTH;
+    extern __global__ fn array_filter;
+    
+    let lst = new self;
+    lst.mem = array_filter(mem, fun, ARRAY_FILTER_USE_BOTH);
+    return lst;
+  }
+  
+  /**
+   * searches for a value using the given callback
+   *
+   * @param  callable $fun
+   * @return mixed
+   */
+  public fn find(callable fun) {
+    for (idx: val in mem) 
+      if (fun(val, idx, this))
+        return val;
+      
+    return null;
+  }
+  
+  /**
+   * returns all keys
+   *
+   * @return Iterable
+   */
+  public fn keys() {
+    for (idx: _ in mem)
+      yield idx;
+  }
+  
+  /**
+   * creates a new list by calling the given 
+   * callback for each item
+   *
+   * @param  callable $fun
+   * @return List_
+   */
+  public fn map(callable fun) {
+    extern __global__ fn array_map;
+    
+    let lst = new self;
+    lst.mem = array_map(fun, mem);
+    return lst;
+  }
+  
+  /** 
+   * reduces the list to a single value using the given callback function
+   *
+   * @param  callable $fun
+   * @return mixed
+   */
+  public fn reduce(callable fun, carry = null) {
+    extern __global__ fn array_reduce;
+    
+    if (carry == null)
+      return array_reduce(mem, fun);
+    
+    return array_reduce(mem, fun, carry);
+  }
+  
+  /** 
+   * reduces the list from right-to-left to a single 
+   * value using the given callback function
+   *
+   * @param  callable $fun
+   * @return mixed
+   */
+  public fn reduce_right(callable fun, carry = null)
+  {
+    let len = size();    
+    let val = carry;
+    
+    if (len == 0)
+      return val;
+    
+    let idx = len - 1;
+    
+    if (val == null) {
+      val = mem[idx];
+      idx -= 1;
+    }
+    
+    while (idx >= 0) {
+      val = fun(val, mem[idx] /* , $idx, $this */);
+      idx--;
+    }
+    
+    return val; 
+  }
+  
+  /* ------------------------------------ */
+  /* php coverage */
+  
+  // http://de1.php.net/manual/en/function.array-chunk.php
+  public fn chunk(int size) {
+    extern __global__ fn array_map;
+    extern __global__ fn array_chunk;
+    
+    let lst = new self;
+    lst.mem = array_map(fn (mem) {
+      let lst = new self;
+      lst.mem = mem;
+      return lst;
+    }, array_chunk(mem, size));
+    
+    return lst;
+  }
+    
+  /**
+   * probably a more convenient version of array_column()
+   * since the phs-language does not have associative arrays
+   *
+   * @param  string $prop
+   * @return List_
+   */
+  public fn pluck(string prop) {
+    extern __global__ fn array_map;
+    return array_map(fn (val) => val.{prop}, mem);
+  }
+}
+

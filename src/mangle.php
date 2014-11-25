@@ -94,9 +94,10 @@ class MangleTask extends AutoVisitor implements Task
   {    
     $id = $sym->id;
     
-    // temporary name or unsafe
+    // temporary name or unsafe / construct
     if (substr($id, 0, 1) === '~' ||
-        ($sym->flags & SYM_FLAG_UNSAFE))
+        ($sym->flags & SYM_FLAG_UNSAFE) ||
+        ($sym->flags & SYM_FLAG_CONSTR))
       goto out;
     
     // external symbol, defuse it but don't mangle
@@ -105,33 +106,31 @@ class MangleTask extends AutoVisitor implements Task
     
     $pf = [];
     
-    if (!($sym->flags & SYM_FLAG_UNSAFE)) {
-      // handle vars
-      if ($sym instanceof VarSymbol &&
-       // !is_really_const($sym)
-          !(($sym->flags & SYM_FLAG_CONST) && 
-             $sym->value->is_const() && !$this->nest)) {
-        // M: module variable           
-        if ($this->imod && !$this->nest)
-          $pf[] = 'M' . path_to_uid($this->cmod->path());
-        // L: local variable
-        else
-          $pf[] = 'L' . $sym->scope->uid;      
-      // handle fn-expr or nested fn-decl
-      } elseif ($sym instanceof FnSymbol && 
-                ($sym->expr || $this->nest))
-        // rewrite as local-var
-        $pf[] = 'L' . $sym->scope->uid;
-      
-      // private unit-global symbol
-      if ((!$this->imod && !$this->nest) &&
-          $sym->flags & SYM_FLAG_PRIVATE)
-        $pf[] = 'U' . crc32_str($sym->loc->file);
-      
-      // join prefix(es) together
-      if (!empty ($pf))
+    // handle vars
+    if ($sym instanceof VarSymbol &&
+     // !is_really_const($sym)
+        !(($sym->flags & SYM_FLAG_CONST) && 
+           $sym->value->is_const() && !$this->nest)) {
+      // M: module variable           
+      if ($this->imod && !$this->nest)
+        $pf[] = 'M' . path_to_uid($this->cmod->path());
+      // L: local variable
+      else
+        $pf[] = 'L' . $sym->scope->uid;      
+    // handle fn-expr or nested fn-decl
+    } elseif ($sym instanceof FnSymbol && 
+              ($sym->expr || $this->nest))
+      // rewrite as local-var
+      $pf[] = 'L' . $sym->scope->uid;
+    
+    // private unit-global symbol
+    if ((!$this->imod && !$this->nest) &&
+        $sym->flags & SYM_FLAG_PRIVATE)
+      $pf[] = 'U' . crc32_str($sym->loc->file);
+    
+    // join prefix(es) together
+    if (!empty ($pf))
         $id = '_' . implode('N', $pf) . 'Z' . strlen($id) . $id;
-    }
     
     upd:
     $id = $this->defuse($id);

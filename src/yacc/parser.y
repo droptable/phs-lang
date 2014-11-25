@@ -102,6 +102,7 @@
 %token T_SEALED
 %token T_INLINE
 %token T_UNSAFE
+%token T_CONSTR
 
 %token T_PHP
 %token T_TEST
@@ -204,6 +205,11 @@ use_decl
       $$ = @UseDecl($3, true);
       $this->eat_semis();
     }
+  | T_PRIVATE T_USE use_item ';' /* same as normal use */
+    {
+      $$ = @UseDecl($3, false); 
+      $this->eat_semis(); 
+    }
   ;
   
 use_items
@@ -283,6 +289,7 @@ mod
   | T_INLINE    { $$ = $1; }
   | T_EXTERN    { $$ = $1; }
   | T_UNSAFE    { $$ = $1; }
+  | T_CONSTR    { $$ = $1; }
   ;
 
 enum_decl

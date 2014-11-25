@@ -939,6 +939,7 @@ class Lexer
     '__inline__' => T_INLINE, // @ inline fn ...
     '__global__' => T_GLOBAL, // @ global fn
     '__unsafe__' => T_UNSAFE,
+    '__constr__' => T_CONSTR, // php language construct
     
     '__php__' => T_PHP,
     '__test__' => T_TEST,

@@ -7,6 +7,9 @@ class OffsetExpr extends Expr
   public $object;
   public $offset;
   
+  // @var Symbol
+  public $symbol;
+  
   public function __construct($object, $offset)
   {
     $this->object = $object;

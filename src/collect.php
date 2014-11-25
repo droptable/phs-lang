@@ -17,6 +17,7 @@ use phs\ast\TraitDecl;
 use phs\ast\Name;
 use phs\ast\Ident;
 use phs\ast\UseAlias;
+use phs\ast\UseUnpack;
 use phs\ast\FnDecl;
 use phs\ast\VarDecl;
 use phs\ast\VarItem;

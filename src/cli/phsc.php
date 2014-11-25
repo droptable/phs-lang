@@ -73,8 +73,9 @@ function main($argc, $argv) {
   if ($conf->run) {
     if (!$conf->quiet) echo "\n";
     
+    $xphp = PHP_BINARY;    
     $main = $conf->dir . DIRECTORY_SEPARATOR . $conf->out;
-    echo `php $main`;
+    echo `$xphp $main`;
   }
 }
 

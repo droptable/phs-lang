@@ -305,6 +305,7 @@ class ValidateTask extends Visitor implements Task
         case T_FINAL:
         case T_CONST:
         case T_UNSAFE:
+        case T_CONSTR:
           break; // always allowed
         
         default:
@@ -405,7 +406,8 @@ class ValidateTask extends Visitor implements Task
     if (!$mods) return false;
     
     foreach ($mods as $mod)
-      if ($mod->type === T_EXTERN) 
+      if ($mod->type === T_EXTERN ||
+          $mod->type === T_CONSTR) 
         return true;
     
     return false;
