@@ -30,38 +30,54 @@ require __php__ 'run/dict';
 // list: used for [ ... ] literals
 // require __php__ 'run/list';
 
-/*!
- * This file is part of the PHS Runtime Library
- * Copyright (c) 2014 The PHS Team
- * 
- * All rights reserved.
- * 
- * This library is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published 
- * by the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- * 
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with this library.  If not, see <http://www.gnu.org/licenses/>.
- */
+// from run/obj
+extern class Obj;
 
-/** list - note: the "_" is required */
-extern iface Inable;
-extern iface ArrayAccess;
+// from run/dict
 extern class Dict;
-extern class Error;
 
-// see std.phs
+// from run/lng 
+extern class Error;
+extern iface Inable;
+
+extern iface ArrayAccess;
+
+// no stdlib
+
+// language constructs
+extern __constr__ array;
 extern __constr__ callable;
 extern __constr__ fn isset;
 extern __constr__ fn empty;
 
-public class List ~ Inable, ArrayAccess {
+extern const ARRAY_FILTER_USE_BOTH;
+extern const SORT_REGULAR;
+
+extern fn sort;
+extern fn usort;
+extern fn count;
+extern fn implode;
+
+extern fn is_array;
+extern fn in_array;
+extern fn array_splice;
+extern fn array_map;
+extern fn array_chunk;
+extern fn array_reduce;
+extern fn array_filter;
+extern fn array_walk;
+extern fn array_search;
+extern fn array_slice;
+extern fn array_merge;
+extern fn array_shuffle;
+extern fn array_unshift;
+extern fn array_shift;
+extern fn array_reverse;
+extern fn array_push;
+extern fn array_pop;
+extern fn array_key_exists;
+
+public class List: Obj ~ Inable, ArrayAccess {
   // internal array
   private mem;
   
@@ -89,13 +105,17 @@ public class List ~ Inable, ArrayAccess {
    * @return List_
    */
   public static fn from(val) {
-    extern __global__ fn is_array;
+    if (is_array(val)) {
+      let lst = new self;
+      lst.mem = val;
+      return lst;
+    }
     
-    if (is_array(val))
-      return new self(...val);
-    
-    if (val is Dict)
-      return new self(...val.iter());
+    if (val is Dict) {
+      let lst = new self;
+      lst.mem = val.values();
+      return mem;
+    }
     
     return new self(val);
   }
@@ -132,8 +152,7 @@ public class List ~ Inable, ArrayAccess {
    * @param  int  $idx
    * @return boolean
    */
-  public fn has(int idx)
-  {
+  public fn has(int idx) {
     if (idx < 0)
       idx = size() + idx;
     
@@ -153,10 +172,7 @@ public class List ~ Inable, ArrayAccess {
   public fn delete(int idx) {
     if (idx < 0)
       idx = size() + idx;
-    
-    extern __global__ fn array_key_exists;
-    extern __global__ fn array_splice;
-    
+        
     if (array_key_exists(idx, mem)) {
       array_splice(mem, idx, 0);
       return true;
@@ -173,10 +189,8 @@ public class List ~ Inable, ArrayAccess {
    * @param  mixed $val
    * @return boolean
    */
-  public fn contains(val) {
-    extern __global__ fn in_array;
-    return in_array(val, mem, true);
-  }
+  public fn contains(val) =>
+    in_array(val, mem, true);
   
   /* ------------------------------------ */
   
@@ -185,8 +199,7 @@ public class List ~ Inable, ArrayAccess {
    * 
    * @see List_#get()
    */
-  public fn offsetGet(int idx)
-  {
+  public fn offsetGet(int idx) {
     if (idx < 0)
       idx = size() + idx;
     
@@ -226,9 +239,6 @@ public class List ~ Inable, ArrayAccess {
     if (idx < 0)
       idx = size() + idx;
     
-    extern __global__ fn array_key_exists;
-    extern __global__ fn array_splice;
-    
     if (array_key_exists(idx, mem)) {
       array_splice(mem, idx, 0);
       return true;
@@ -254,10 +264,8 @@ public class List ~ Inable, ArrayAccess {
    *
    * @return int
    */
-  public fn size() {
-    extern __global__ fn count;
-    return count(mem);
-  }
+  public fn size() =>
+    count(mem);
   
   /* ------------------------------------ */
   /* mutator methods */
@@ -268,7 +276,7 @@ public class List ~ Inable, ArrayAccess {
    * @param  array  $mem
    * @return List_
    */
-  public fn swap(mem) {
+  public fn swap(array mem) {
     // the new array must be a tuple
     // associative keys can not be accessed in this list
     this.mem = mem;
@@ -308,10 +316,8 @@ public class List ~ Inable, ArrayAccess {
    *
    * @return mixed
    */
-  public fn pop() {
-    extern __global__ fn array_pop;
-    return array_pop(mem);
-  }
+  public fn pop() =>
+    array_pop(mem);
   
   /**
    * appends values to the list
@@ -319,10 +325,8 @@ public class List ~ Inable, ArrayAccess {
    * @param  ... $val
    * @return int
    */
-  public fn push(...val) {
-    extern __global__ fn array_push;
-    return array_push(mem, ...val);
-  }
+  public fn push(...val) =>
+    array_push(mem, ...val);
   
   /**
    * reverses the list
@@ -330,7 +334,6 @@ public class List ~ Inable, ArrayAccess {
    * @return List_
    */
   public fn reverse() {
-    extern __global__ fn array_reverse;
     mem = array_reverse(mem);
     return this;
   }
@@ -340,10 +343,8 @@ public class List ~ Inable, ArrayAccess {
    *
    * @return mixed
    */
-  public fn shift() {
-    extern __global__ fn array_shift;
-    return array_shift(mem);
-  }
+  public fn shift() =>
+    array_shift(mem);
   
   /**
    * sorts the list in place and returns it
@@ -352,10 +353,6 @@ public class List ~ Inable, ArrayAccess {
    * @return List_
    */
   public fn sort(callable fun?) {
-    extern __global__ const SORT_REGULAR;
-    extern __global__ fn sort;
-    extern __global__ fn usort;
-    
     if (fun == null)
       sort(mem, SORT_REGULAR);
     else
@@ -373,8 +370,6 @@ public class List ~ Inable, ArrayAccess {
    * @return List_
    */
   public fn splice(int idx, int len, ...val) {
-    extern __global__ fn array_splice;
-    
     let lst = new self;
     lst.mem = array_splice(mem, idx, len, val);
     return lst;
@@ -387,7 +382,6 @@ public class List ~ Inable, ArrayAccess {
    * @return List_
    */
   public fn unshift(...val) {
-    extern __global__ fn array_unshift;
     array_unshift(mem, ...val);
     return this;
   }
@@ -398,7 +392,6 @@ public class List ~ Inable, ArrayAccess {
    * @return List_
    */
   public fn shuffle() {
-    extern __global__ fn array_shuffle;
     array_shuffle(mem);
     return this;
   }
@@ -413,12 +406,8 @@ public class List ~ Inable, ArrayAccess {
    * @return List_
    */
   public fn concat(...val) {
-    extern dup = mem;
-    
-    extern __global__ fn is_array;
-    extern __global__ fn array_merge;
-    extern __global__ fn array_push;
-    
+    let dup = mem;
+        
     for (itm in val)
       if (is_array(itm))
         dup = array_merge(dup, itm);
@@ -436,10 +425,8 @@ public class List ~ Inable, ArrayAccess {
    * @param  string $sep
    * @return string
    */
-  public fn join(string sep = ',') {
-    extern __global__ fn implode;
-    return implode(sep, mem);
-  }
+  public fn join(string sep = ',') =>
+    implode(sep, mem);
   
   
   /**
@@ -452,8 +439,6 @@ public class List ~ Inable, ArrayAccess {
   public fn slice(beg?, end?)
   {
     let dup = mem;
-    
-    extern __global__ fn array_slice;
     
     if (beg != null) {
       let len = size();
@@ -482,8 +467,6 @@ public class List ~ Inable, ArrayAccess {
    * @return int
    */
   public fn index_of(val, int beg = 0) {
-    extern __global__ fn array_search;
-    
     if (beg == 0) {
       let res = array_search(mem, val, true);
       return res == false ? -1 : res;
@@ -525,7 +508,6 @@ public class List ~ Inable, ArrayAccess {
    * @param  callable $fun
    */
   public fn each(callable fun) {
-    extern __global__ fn array_walk;
     array_walk(mem, fun, this);
   }
   
@@ -565,10 +547,7 @@ public class List ~ Inable, ArrayAccess {
    * @param  callable $fun
    * @return List_
    */
-  public fn filter(callable fun) {
-    extern __global__ const ARRAY_FILTER_USE_BOTH;
-    extern __global__ fn array_filter;
-    
+  public fn filter(callable fun) {    
     let lst = new self;
     lst.mem = array_filter(mem, fun, ARRAY_FILTER_USE_BOTH);
     return lst;
@@ -605,9 +584,7 @@ public class List ~ Inable, ArrayAccess {
    * @param  callable $fun
    * @return List_
    */
-  public fn map(callable fun) {
-    extern __global__ fn array_map;
-    
+  public fn map(callable fun) {    
     let lst = new self;
     lst.mem = array_map(fun, mem);
     return lst;
@@ -620,8 +597,6 @@ public class List ~ Inable, ArrayAccess {
    * @return mixed
    */
   public fn reduce(callable fun, carry = null) {
-    extern __global__ fn array_reduce;
-    
     if (carry == null)
       return array_reduce(mem, fun);
     
@@ -635,8 +610,7 @@ public class List ~ Inable, ArrayAccess {
    * @param  callable $fun
    * @return mixed
    */
-  public fn reduce_right(callable fun, carry = null)
-  {
+  public fn reduce_right(callable fun, carry = null) {
     let len = size();    
     let val = carry;
     
@@ -663,9 +637,6 @@ public class List ~ Inable, ArrayAccess {
   
   // http://de1.php.net/manual/en/function.array-chunk.php
   public fn chunk(int size) {
-    extern __global__ fn array_map;
-    extern __global__ fn array_chunk;
-    
     let lst = new self;
     lst.mem = array_map(fn (mem) {
       let lst = new self;
@@ -684,8 +655,9 @@ public class List ~ Inable, ArrayAccess {
    * @return List_
    */
   public fn pluck(string prop) {
-    extern __global__ fn array_map;
-    return array_map(fn (val) => val.{prop}, mem);
+    let lst = new self;
+    lst.mem = array_map(fn (val) => val.{prop}, mem);
+    return lst;
   }
 }
 

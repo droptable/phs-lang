@@ -90,6 +90,16 @@ class Dict extends Obj implements Inable
   {
     return get_dict_vars($this);
   }
+  
+  /**
+   * returns all values
+   *
+   * @return array
+   */
+  public function values() 
+  {
+    return get_dict_vars($this);
+  }
       
   /**
    * returns a value of the given key
