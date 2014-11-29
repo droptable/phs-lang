@@ -1166,9 +1166,17 @@ class CodeGenerator extends AutoVisitor
           $this->emitln(');');
           $this->dedent();
           $this->emitln('}');
-        } else
-          $this->emitln('$', $id, ' = (', $fn, ') $', $id, ';');
+        } else {
+          $this->emit('$', $id, ' = ');
           
+          if ($psym->hint->type === T_TNUMBER)
+            $this->emit('+$', $id);
+          else   
+            $this->emit('(', $fn, ') $', $id);
+          
+          $this->emitln(';');
+        }
+        
         if ($psym->rest) {
           self::$temp -= 2;
           $this->dedent();
