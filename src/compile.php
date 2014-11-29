@@ -96,7 +96,7 @@ class Compiler
         goto err;
     }
     
-    #$unit->scope->dump('');
+    #!dbg $unit->scope->dump('');
     
     // no error
     goto out;

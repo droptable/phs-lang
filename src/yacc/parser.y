@@ -72,7 +72,7 @@
 
 %token T_DO
 %token T_IF
-%token T_ELSIF
+%token T_ELIF
 %token T_ELSE
 %token T_FOR
 %token T_TRY
@@ -102,7 +102,8 @@
 %token T_SEALED
 %token T_INLINE
 %token T_UNSAFE
-%token T_CONSTR
+%token T_NATIVE
+%token T_HIDDEN
 
 %token T_PHP
 %token T_TEST
@@ -115,10 +116,13 @@
 
 /* this typenames are reserved to avoid ambiguity with 
    user-defined symbols */
-%token T_TINT     /* int integer */
-%token T_TBOOL    /* bool boolean */
-%token T_TFLOAT   /* float double */
+%token T_TINT     /* int */
+%token T_TBOOL    /* bool */
+%token T_TFLOAT   /* float, double */
 %token T_TSTRING  /* string */
+%token T_TTUPLE   /* tuple */
+%token T_TNUMBER  /* number */
+%token T_TOBJECT  /* object */
 
 /* parse-time constants */
 %token T_CDIR
@@ -181,6 +185,7 @@ toplvl
  
 topex
   : module_nst     { $$ = $1; }
+  //| attrs ';'      { $$ = $1; }
   | use_decl       { $$ = $1; }
   | enum_decl      { $$ = $1; }
   | class_decl     { $$ = $1; }
@@ -267,8 +272,27 @@ module_nst
     }
   ;
 
+/*
+attrs 
+  : '@' '[' attr_items ']' { $$ = $3; }
+  ;
+
+attr_items
+  : attr_item                { $$ = [ $1 ]; }
+  | attr_items ',' attr_item { $1[] = $3; $$ = $1; }
+  ;
+
+attr_item
+  : aid                    { $$ = $1; }
+  | aid '=' str            { $$ = $1; }
+  | aid '(' attr_items ')' { $$ = [ $1, $3 ]; }
+  ;
+*/
+
 mods_opt
   : /* empty */ { $$ = null; }
+  //| attrs mods  { $$ = [ $1, $2 ]; }
+  //| attrs       { $$ = [ $1, null ]; }
   | mods        { $$ = $1; }
   ;
   
@@ -289,7 +313,8 @@ mod
   | T_INLINE    { $$ = $1; }
   | T_EXTERN    { $$ = $1; }
   | T_UNSAFE    { $$ = $1; }
-  | T_CONSTR    { $$ = $1; }
+  | T_NATIVE    { $$ = $1; }
+  | T_HIDDEN    { $$ = $1; }
   ;
 
 enum_decl
@@ -646,7 +671,7 @@ hint
 stmt
   : block                                             { $$ = $1; }
   | T_DO stmt T_WHILE pxpr ';'                        { $$ = @DoStmt($2, $4); }
-  | T_IF pxpr stmt elsifs_opt else_opt                { $$ = @IfStmt($2, $3, $4, $5); }
+  | T_IF pxpr stmt elifs_opt else_opt                 { $$ = @IfStmt($2, $3, $4, $5); }
   | T_FOR '(' for_in_pair T_IN rxpr ')' stmt          { $$ = @ForInStmt($3, $5, $7); }
   | T_FOR '(' for_expr_noin for_expr ')' stmt         { $$ = @ForStmt($3, $4, null, $6); }
   | T_FOR '(' for_expr_noin for_expr rseq ')' stmt    { $$ = @ForStmt($3, $4, $5, $7); }
@@ -690,18 +715,18 @@ for_expr_noin
   | var_decl_noin_nosemi ';' { $$ = $1; }
   ;
   
-elsifs_opt
+elifs_opt
   : /* empty */ { $$ = null; }
-  | elsifs      { $$ = $1; }
+  | elifs       { $$ = $1; }
   ;
   
-elsifs
-  : elsif        { $$ = [ $1 ]; }
-  | elsifs elsif { $1[] = $2; $$ = $1; }
+elifs
+  : elif       { $$ = [ $1 ]; }
+  | elifs elif { $1[] = $2; $$ = $1; }
   ;
   
-elsif
-  : T_ELSIF pxpr stmt { $$ = @ElsifItem($2, $3); }
+elif
+  : T_ELIF pxpr stmt { $$ = @ElifItem($2, $3); }
   ;
   
 else_opt
@@ -1115,6 +1140,9 @@ type_id
   | T_TBOOL   { $$ = @TypeId($1->type); }
   | T_TFLOAT  { $$ = @TypeId($1->type); }
   | T_TSTRING { $$ = @TypeId($1->type); }
+  | T_TTUPLE  { $$ = @TypeId($1->type); }
+  | T_TNUMBER { $$ = @TypeId($1->type); }
+  | T_TOBJECT { $$ = @TypeId($1->type); }
   | T_SELF    { $$ = @SelfExpr; }
   ;
 
@@ -1228,7 +1256,7 @@ rid
   | T_SELF      { $$ = $1; }
   | T_DO        { $$ = $1; }
   | T_IF        { $$ = $1; }
-  | T_ELSIF     { $$ = $1; }
+  | T_ELIF      { $$ = $1; }
   | T_ELSE      { $$ = $1; }
   | T_FOR       { $$ = $1; }
   | T_TRY       { $$ = $1; }

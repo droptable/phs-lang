@@ -1,6 +1,6 @@
 <?php
 
-namespace phs\front;
+namespace phs;
 
 /**
  * This is an automatically GENERATED file!
@@ -55,7 +55,7 @@ require_once 'ast/assert_stmt.php';
 require_once 'ast/switch_stmt.php';
 require_once 'ast/return_stmt.php';
 require_once 'ast/for_in_pair.php';
-require_once 'ast/elsif_item.php';
+require_once 'ast/elif_item.php';
 require_once 'ast/else_item.php';
 require_once 'ast/catch_item.php';
 require_once 'ast/finally_item.php';

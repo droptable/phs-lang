@@ -102,7 +102,7 @@ END_PHS
   $ast = <<<END_AST
 <?php
 
-namespace phs\\front;
+namespace phs;
 
 /**
  * This is an automatically GENERATED file!

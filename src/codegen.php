@@ -453,7 +453,7 @@ class CodeGenerator extends AutoVisitor
         } else
           $this->emit('$this->', $sym->id);
       } else {
-        if ($sym->flags & SYM_FLAG_CONSTR)
+        if ($sym->flags & SYM_FLAG_NATIVE)
           // use raw id
           $this->emit($sym->rid);
         else {
@@ -849,6 +849,7 @@ class CodeGenerator extends AutoVisitor
     
     foreach ($funs as $fun) {
       if (($fun->flags & SYM_FLAG_STATIC) ||
+          ($fun->flags & SYM_FLAG_HIDDEN) ||
           $super && $super->has($fun->id))
         continue;
       
@@ -941,7 +942,7 @@ class CodeGenerator extends AutoVisitor
     $fsym = $node->symbol;
     
     if (($fsym->flags & SYM_FLAG_EXTERN) ||
-        ($fsym->flags & SYM_FLAG_CONSTR))
+        ($fsym->flags & SYM_FLAG_NATIVE))
       return;
         
     $this->emit('function ', $fsym->id);
@@ -981,7 +982,9 @@ class CodeGenerator extends AutoVisitor
       T_TINT => '0',
       T_TBOOL => 'false',
       T_TFLOAT => '0.',
-      T_TSTRING => "''"
+      T_TTUPLE => '[]',
+      T_TNUMBER => '0',
+      T_TSTRING => "''",
     ];
     
     $fsym = $node->symbol;
@@ -991,17 +994,21 @@ class CodeGenerator extends AutoVisitor
     foreach ($fsym->params as $idx => $psym) {
       if ($idx > 0) $this->emit(', ');
       
-      if ($psym->hint && !($psym->hint instanceof TypeId)) {
-        $hint = $psym->hint->symbol;
-        
-        if ($hint->flags & SYM_FLAG_CONSTR)
-          // use raw id
-          $path = $hint->rid;
-        else
-          $path = path_to_abs_ns($hint->path());
-                
-        $this->emit($path);
-        $this->emit(' ');
+      if ($psym->hint) {
+        if (!($psym->hint instanceof TypeId)) {
+          $hint = $psym->hint->symbol;
+          
+          if ($hint->flags & SYM_FLAG_NATIVE)
+            // use raw id
+            $path = $hint->rid;
+          else
+            $path = path_to_abs_ns($hint->path());
+                  
+          $this->emit($path);
+          $this->emit(' ');
+        } elseif ($psym->hint->type === T_TTUPLE)
+          // <array> is a valid hint in php
+          $this->emit('array ');
       }
       
       if ($psym->ref) $this->emit('&');
@@ -1082,7 +1089,9 @@ class CodeGenerator extends AutoVisitor
       T_TINT => 'int',
       T_TBOOL => 'bool',
       T_TFLOAT => 'float',
-      T_TSTRING => 'string'
+      T_TNUMBER => 'numeric',
+      T_TSTRING => 'string',
+      T_TOBJECT => 'object',
     ];
     
     $fsym = $node->symbol;
@@ -1111,7 +1120,9 @@ class CodeGenerator extends AutoVisitor
         $this->emitln('}');
       }
       
-      if ($psym->hint && $psym->hint instanceof TypeId) {
+      if ($psym->hint && 
+          $psym->hint instanceof TypeId &&
+          $psym->hint->type !== T_TTUPLE) {
         $nr = '';
         $fn = $ttos[$psym->hint->type];
         
@@ -1524,7 +1535,8 @@ class CodeGenerator extends AutoVisitor
     
     // 2. emit method-bindings
     foreach ($funs as $fun)
-      if (!($fun->flags & SYM_FLAG_STATIC)) {
+      if (!($fun->flags & SYM_FLAG_STATIC) &&
+          !($fun->flags & SYM_FLAG_HIDDEN)) {
         $this->emit_fn_cmbind($csym, $fun);
         $vout++;
       }
@@ -1719,7 +1731,7 @@ class CodeGenerator extends AutoVisitor
         continue;
       
       if (($var->symbol->flags & SYM_FLAG_EXTERN) ||
-          ($var->symbol->flags & SYM_FLAG_CONSTR))
+          ($var->symbol->flags & SYM_FLAG_NATIVE))
         continue;
       
       if ($var->init instanceof CallExpr) {
@@ -2472,7 +2484,7 @@ class CodeGenerator extends AutoVisitor
       $this->emit('!');
     
     if ($node->right instanceof TypeId) {
-      $this->emit('is_');
+      $this->emit('\\is_');
       
       switch ($node->right->type) {
         case T_TINT:
@@ -2486,6 +2498,15 @@ class CodeGenerator extends AutoVisitor
           break;
         case T_TSTRING:
           $this->emit('string');
+          break;
+        case T_TTUPLE:
+          $this->emit('array');
+          break;
+        case T_TNUMBER:
+          $this->emit('numeric');
+          break;
+        case T_TOBJECT:
+          $this->emit('object');
           break;
         default:
           assert(0);
@@ -2516,27 +2537,38 @@ class CodeGenerator extends AutoVisitor
   public function visit_cast_expr($node) 
   {
     if ($node->type instanceof TypeId) {
-      $this->emit('(');
-      
-      switch ($node->type->type) {
-        case T_TINT:
-          $this->emit('int');
-          break;
-        case T_TBOOL:
-          $this->emit('bool');
-          break;
-        case T_TFLOAT:
-          $this->emit('float');
-          break;
-        case T_TSTRING:
-          $this->emit('string');
-          break;
-        default:
-          assert(0);
+      if ($node->type->type === T_TNUMBER) {
+        $this->emit('(');
+        $this->visit($node->expr);
+        $this->emit(') + 0');
+      } else {
+        $this->emit('(');
+        
+        switch ($node->type->type) {
+          case T_TINT:
+            $this->emit('int');
+            break;
+          case T_TBOOL:
+            $this->emit('bool');
+            break;
+          case T_TFLOAT:
+            $this->emit('float');
+            break;
+          case T_TSTRING:
+            $this->emit('string');
+            break;
+          case T_TTUPLE:
+            $this->emit('array');
+            break;
+          case T_TOBJECT:
+            $this->emit('object');
+          default:
+            assert(0);
+        }
+        
+        $this->emit(')');
+        $this->visit($node->expr);
       }
-      
-      $this->emit(')');
-      $this->visit($node->expr);
     } else {
       $this->emit('\\', path_to_ns($node->type->symbol->path()));
       $this->emit('::from(');

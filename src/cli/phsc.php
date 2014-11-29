@@ -72,10 +72,23 @@ function main($argc, $argv) {
   
   if ($conf->run) {
     if (!$conf->quiet) echo "\n";
-    
-    $xphp = PHP_BINARY;    
-    $main = $conf->dir . DIRECTORY_SEPARATOR . $conf->out;
-    echo `$xphp $main`;
+    if ($conf->pack === 'zip')
+      echo "run: cannot execute zip";
+    elseif ($conf->stub === 'phar-web')
+      echo "run: cannot execute a web phar";
+    else {
+      $xphp = PHP_BINARY;    
+      $main = $conf->dir . DIRECTORY_SEPARATOR . $conf->out;
+      switch (strrchr($main, '.')) {
+        case '.php':
+        case '.phar':
+          break;
+        default:
+          $main .= '.php';
+      }
+      
+      echo `$xphp $main`;
+    }
   }
 }
 
@@ -560,18 +573,19 @@ function check_conf($conf) {
     }
   } else 
     switch ($conf->stub) {
-      case 'none':
-      case 'NONE':
-      case 'run':
-      case 'RUN':
-      case 'cli':
-      case 'CLI':
       case 'phar-run':
       case 'PHAR-RUN':
       case 'PHAR_RUN':
       case 'phar-web':
       case 'PHAR-WEB':
       case 'PHAR_WEB':
+        $conf->pack = 'phar';
+      case 'none':
+      case 'NONE':
+      case 'run':
+      case 'RUN':
+      case 'cli':
+      case 'CLI':
         $conf->stub = strtolower(strtr($conf->stub, [ '_' => '-' ]));
         break;
       default:

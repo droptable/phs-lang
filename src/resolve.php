@@ -706,7 +706,7 @@ class ResolveTask extends AutoVisitor implements Task
     $sym = &$res->unwrap();
     
     // non-callable language-construct
-    if (($sym->flags & SYM_FLAG_CONSTR) && !($sym instanceof FnSymbol))
+    if (($sym->flags & SYM_FLAG_NATIVE) && !($sym instanceof FnSymbol))
       return true;
     
     // basic test

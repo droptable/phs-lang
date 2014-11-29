@@ -45,22 +45,23 @@ const
 
 // flags
 const
-  SYM_FLAG_NONE       = 0x0000, // no flags
-  SYM_FLAG_CONST      = 0x0001, // symbol is constant
-  SYM_FLAG_FINAL      = 0x0002, // symbol is final
-  SYM_FLAG_GLOBAL     = 0x0004, // symbol is a global-reference
-  SYM_FLAG_STATIC     = 0x0008, // symbol is static
-  SYM_FLAG_PUBLIC     = 0x0010, // symbol is public
-  SYM_FLAG_PRIVATE    = 0x0020, // symbol is private
-  SYM_FLAG_PROTECTED  = 0x0040, // symbol is protected
-  SYM_FLAG_SEALED     = 0x0080, // symbol is sealed (for functions)
-  SYM_FLAG_INLINE     = 0x0100, // symbol is inline (for functions)
-  SYM_FLAG_EXTERN     = 0x0200, // symbol is extern
-  SYM_FLAG_ABSTRACT   = 0x0400, // symbol is abstract (for classes)
-  SYM_FLAG_INCOMPLETE = 0x0800, // symbol is incomplete
-  SYM_FLAG_PARAM      = 0x1000, // symbol is a parameter
-  SYM_FLAG_UNSAFE     = 0x2000, // symbol (name) is unsafe (no mangle) 
-  SYM_FLAG_CONSTR     = 0x4000  // symbol is a php language-construct
+  SYM_FLAG_NONE       = 0x000000, // no flags
+  SYM_FLAG_CONST      = 0x000001, // symbol is constant
+  SYM_FLAG_FINAL      = 0x000002, // symbol is final
+  SYM_FLAG_GLOBAL     = 0x000004, // symbol is a global-reference
+  SYM_FLAG_STATIC     = 0x000008, // symbol is static
+  SYM_FLAG_PUBLIC     = 0x000010, // symbol is public
+  SYM_FLAG_PRIVATE    = 0x000020, // symbol is private
+  SYM_FLAG_PROTECTED  = 0x000040, // symbol is protected
+  SYM_FLAG_SEALED     = 0x000080, // symbol is sealed (for functions)
+  SYM_FLAG_INLINE     = 0x000100, // symbol is inline (for functions)
+  SYM_FLAG_EXTERN     = 0x000200, // symbol is extern
+  SYM_FLAG_ABSTRACT   = 0x000400, // symbol is abstract (for classes)
+  SYM_FLAG_INCOMPLETE = 0x000800, // symbol is incomplete
+  SYM_FLAG_PARAM      = 0x001000, // symbol is a parameter
+  SYM_FLAG_UNSAFE     = 0x002000, // symbol (name) is unsafe (no mangle) 
+  SYM_FLAG_NATIVE     = 0x004000, // symbol is a php language-construct
+  SYM_FLAG_HIDDEN     = 0x008000  // symbol is hidden (currently only class-methods)
 ;
 
 const SYM_FLAGS_NONE = SYM_FLAG_NONE;

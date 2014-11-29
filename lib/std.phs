@@ -25,11 +25,10 @@
 // but not declared before compilation.
 
 public extern class Obj;
-public extern class Ref;
 public extern class Dict;
-//public extern class List;
-public extern class Thread;
+
 public extern class Error;
+public extern class ArgError;
 public extern class TypeError;
 
 // ---------------------------------------
@@ -37,11 +36,19 @@ public extern class TypeError;
 
 // language constructs
 module std {
-  public __constr__ fn isset;
-  public __constr__ fn empty;
-  public __constr__ fn include;
-  public __constr__ array; // not callable, use tuples instead
-  public __constr__ callable;
+  public __native__ fn isset;
+  public __native__ fn empty;
+  public __native__ fn include;
+  public __native__ array; // not callable, use tuples instead
+  public __native__ callable;
+  
+  module php {
+    public extern __global__ fn is_array;
+    public extern __global__ fn is_object;
+  }
+  
+  public use self::php::is_array as istup;
+  public use self::php::is_object as isobj;
 }
 
 // ---------------------------------------

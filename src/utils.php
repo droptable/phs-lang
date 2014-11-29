@@ -230,8 +230,11 @@ function mods_to_sym_flags($mods, $base = SYM_FLAG_NONE) {
         case T_UNSAFE:
           $base |= SYM_FLAG_UNSAFE; 
           break;
-        case T_CONSTR:
-          $base |= SYM_FLAG_CONSTR;
+        case T_NATIVE:
+          $base |= SYM_FLAG_NATIVE;
+          break;
+        case T_HIDDEN:
+          $base |= SYM_FLAG_HIDDEN;
           break;
         default:
           asssert(0); 
@@ -266,7 +269,8 @@ function sym_flags_to_arr($flags) {
     SYM_FLAG_INCOMPLETE,
     SYM_FLAG_PARAM,
     SYM_FLAG_UNSAFE,
-    SYM_FLAG_CONSTR
+    SYM_FLAG_NATIVE,
+    SYM_FLAG_HIDDEN
   ];
   
   foreach ($check as $flag)
@@ -303,7 +307,8 @@ function sym_flags_to_stra($flags) {
     SYM_FLAG_INCOMPLETE => 'incomplete',
     SYM_FLAG_PARAM => 'parameter',
     SYM_FLAG_UNSAFE => 'unsafe',
-    SYM_FLAG_CONSTR => 'language-construct'
+    SYM_FLAG_NATIVE => 'native',
+    SYM_FLAG_HIDDEN => 'hidden'
   ];
   
   foreach (sym_flags_to_arr($flags) as $flag)
@@ -345,7 +350,8 @@ function sym_flags_diff($a, $b) {
     SYM_FLAG_INCOMPLETE,
     SYM_FLAG_PARAM,
     SYM_FLAG_UNSAFE,
-    SYM_FLAG_CONSTR
+    SYM_FLAG_NATIVE,
+    SYM_FLAG_HIDDEN
   ];
   
   $d = new \stdclass;

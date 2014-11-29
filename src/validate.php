@@ -254,7 +254,15 @@ class ValidateTask extends Visitor implements Task
           // pass
       } 
       
-      switch ($mod->type) {          
+      switch ($mod->type) {     
+        case T_HIDDEN:
+          if (!$this->within('class', [ 'fn' ]) || !$fn) {
+            Logger::error_at($mod->loc, '`hidden` modifier is currently \\');
+            Logger::error('only allowed in combination with class methods');
+          }
+          
+          break;
+               
         case T_STATIC:
           if ($this->within('fn', [ '*' ]))
             break;
@@ -305,7 +313,7 @@ class ValidateTask extends Visitor implements Task
         case T_FINAL:
         case T_CONST:
         case T_UNSAFE:
-        case T_CONSTR:
+        case T_NATIVE:
           break; // always allowed
         
         default:
@@ -407,7 +415,7 @@ class ValidateTask extends Visitor implements Task
     
     foreach ($mods as $mod)
       if ($mod->type === T_EXTERN ||
-          $mod->type === T_CONSTR) 
+          $mod->type === T_NATIVE) 
         return true;
     
     return false;

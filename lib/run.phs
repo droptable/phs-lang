@@ -45,10 +45,10 @@ extern iface ArrayAccess;
 // no stdlib
 
 // language constructs
-extern __constr__ array;
-extern __constr__ callable;
-extern __constr__ fn isset;
-extern __constr__ fn empty;
+extern __native__ array;
+extern __native__ callable;
+extern __native__ fn isset;
+extern __native__ fn empty;
 
 extern const ARRAY_FILTER_USE_BOTH;
 extern const SORT_REGULAR;
@@ -59,6 +59,11 @@ extern fn count;
 extern fn implode;
 
 extern fn is_array;
+extern fn is_object;
+
+extern fn get_class;
+extern fn spl_object_hash;
+
 extern fn in_array;
 extern fn array_splice;
 extern fn array_map;
@@ -77,7 +82,7 @@ extern fn array_push;
 extern fn array_pop;
 extern fn array_key_exists;
 
-public class List: Obj ~ Inable, ArrayAccess {
+public class List ~ Inable, ArrayAccess {
   // internal array
   private mem;
   
@@ -199,7 +204,7 @@ public class List: Obj ~ Inable, ArrayAccess {
    * 
    * @see List_#get()
    */
-  public fn offsetGet(int idx) {
+  public __hidden__ fn offsetGet(int idx) {
     if (idx < 0)
       idx = size() + idx;
     
@@ -211,7 +216,7 @@ public class List: Obj ~ Inable, ArrayAccess {
    * 
    * @see List_#set()
    */
-  public fn offsetSet(int idx, val) {
+  public __hidden__ fn offsetSet(int idx, val) {
     if (idx < 0)
       idx = size() + idx;
     
@@ -223,7 +228,7 @@ public class List: Obj ~ Inable, ArrayAccess {
    * 
    * @see List_#has()
    */
-  public fn offsetExists(int idx) {
+  public __hidden__ fn offsetExists(int idx) {
     if (idx < 0)
       idx = size() + idx;
     
@@ -235,7 +240,7 @@ public class List: Obj ~ Inable, ArrayAccess {
    * 
    * @see List_#delete()
    */
-  public fn offsetUnset(int idx) {
+  public __hidden__ fn offsetUnset(int idx) {
     if (idx < 0)
       idx = size() + idx;
     
@@ -426,13 +431,9 @@ public class List: Obj ~ Inable, ArrayAccess {
    * @return string
    */
   public fn join(string sep = ',') =>
-    implode(sep, array_map(fn (val) {
+    implode(sep, array_map(fn tos(val) {
       if (val is string || val is Obj)
         return val as string;
-      
-      extern __global__ fn is_object;
-      extern __global__ fn get_class;
-      extern __global__ fn spl_object_hash;
       
       // this is what Obj#__tostring() does
       if (is_object(val))
@@ -440,6 +441,10 @@ public class List: Obj ~ Inable, ArrayAccess {
           ~ get_class(val) ~ ' @ '  
           ~ spl_object_hash(val) 
           ~ '>';
+      
+      if (is_array(val))
+        // return (val as List).join(sep)
+        return implode(sep, array_map(tos, val));
       
       switch (val) {
         case null: return '<null>';

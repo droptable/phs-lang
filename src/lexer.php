@@ -908,7 +908,7 @@ class Lexer
 
     'do' => T_DO,
     'if' => T_IF,
-    'elif' => T_ELSIF,
+    'elif' => T_ELIF,
     'else' => T_ELSE,
     'for' => T_FOR,
     'try' => T_TRY,
@@ -934,12 +934,13 @@ class Lexer
     'private' => T_PRIVATE,
     'protected' => T_PROTECTED,
     
-    // this tokens are '''shortcuts''' for the corresponding attributes
-    '__sealed__' => T_SEALED, // @ sealed fn ...
-    '__inline__' => T_INLINE, // @ inline fn ...
-    '__global__' => T_GLOBAL, // @ global fn
-    '__unsafe__' => T_UNSAFE,
-    '__constr__' => T_CONSTR, // php language construct
+    // TODO: replace keywords with attributes
+    '__sealed__' => T_SEALED, // @[sealed] fn ...
+    '__inline__' => T_INLINE, // @[inline] fn ...
+    '__global__' => T_GLOBAL, // @[global] ...
+    '__unsafe__' => T_UNSAFE, // @[unsafe] ...
+    '__native__' => T_NATIVE, // @[native] ...
+    '__hidden__' => T_HIDDEN, // @[hidden] ...
     
     '__php__' => T_PHP,
     '__test__' => T_TEST,
@@ -954,20 +955,22 @@ class Lexer
     '!is' => T_NIS,
     'in' => T_IN,
     '!in' => T_NIN,
-    
+      
     'int' => T_TINT,
-    'integer' => T_TINT,
     'bool' => T_TBOOL,
-    'boolean' => T_TBOOL,
     'float' => T_TFLOAT,
     'double' => T_TFLOAT,
     'string' => T_TSTRING,
+    'tuple' => T_TTUPLE,
+    'number' => T_TNUMBER, /* int or float */  
+    'object' => T_TOBJECT,
     
     // hardcoded "special" constants
     '__dir__'  => T_CDIR,
     '__file__' => T_CFILE,
     '__line__' => T_CLINE,
     '__coln__' => T_CCOLN,
+    
     '__fn__' => T_CFN,
     '__class__' => T_CCLASS,
     '__trait__' => T_CTRAIT,

@@ -313,7 +313,7 @@ class Session
       $this->kind = $kind;  
       $this->analyze($src);
     }
-    
+        
     if ($this->aborted)
       goto err;
     

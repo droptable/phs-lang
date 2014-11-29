@@ -97,7 +97,7 @@ class MangleTask extends AutoVisitor implements Task
     // temporary name or unsafe / construct
     if (substr($id, 0, 1) === '~' ||
         ($sym->flags & SYM_FLAG_UNSAFE) ||
-        ($sym->flags & SYM_FLAG_CONSTR))
+        ($sym->flags & SYM_FLAG_NATIVE))
       goto out;
     
     // external symbol, defuse it but don't mangle

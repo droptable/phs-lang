@@ -2,7 +2,7 @@
 
 namespace phs\ast;
 
-class ElsifItem extends Node
+class ElifItem extends Node
 {
   public $test;
   public $stmt;
