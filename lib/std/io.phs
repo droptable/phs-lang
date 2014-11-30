@@ -472,7 +472,7 @@ public class FileStream : Stream
    * php does not support async file-io
    *
    */
-  public fn set_blocking() {}
+  public fn set_blocking(_) {}
   
   /**
    * iterator: yields all lines from this file

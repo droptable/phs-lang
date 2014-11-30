@@ -1766,29 +1766,39 @@ class CodeGenerator extends AutoVisitor
           ($sym->flags & SYM_FLAG_NATIVE))
         continue;
       
-      if ($sym->flags & SYM_FLAG_STATIC) {
-        // function static
-        $this->emit('static $', $sym->id);
-        
-        if ($var->init) {
-          $this->emit(' = ');
+      if (($sym->flags & SYM_FLAG_CONST) &&
+          $var->init->value &&
+          $var->init->value->is_primitive() &&
+          $sym->scope->is_global()) {
+        // use a real constant
+        $this->emit('const ', $sym->id, ' = ');
+        $this->visit($var->init);
+        $this->emitln(';');
+      } else {
+        if ($sym->flags & SYM_FLAG_STATIC) {
+          // function static
+          $this->emit('static $', $sym->id);
           
-          if ($var->init->value && 
-              $var->init->value->is_primitive()) {
-            $this->visit($var->init);
+          if ($var->init) {
+            $this->emit(' = ');
+            
+            if ($var->init->value && 
+                $var->init->value->is_primitive()) {
+              $this->visit($var->init);
+              $this->emitln(';');
+            } else {
+              $this->emitln('null;');
+              $this->emit('if ($', $sym->id, ' === null) {');
+              $this->indent();
+              $this->emit_top_assign($var->init, $sym->id);
+              $this->dedent();
+              $this->emitln('}');
+            }
+          } else
             $this->emitln(';');
-          } else {
-            $this->emitln('null;');
-            $this->emit('if ($', $sym->id, ' === null) {');
-            $this->indent();
-            $this->emit_top_assign($var->init, $sym->id);
-            $this->dedent();
-            $this->emitln('}');
-          }
         } else
-          $this->emitln(';');
-      } else
-        $this->emit_top_assign($var->init, $sym->id);
+          $this->emit_top_assign($var->init, $sym->id);
+      }
     }
   }
   

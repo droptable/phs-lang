@@ -99,6 +99,13 @@ class Obj
   public function __call($name, $args)
   {
     $prop = $this->$name;
+    
+    // undefined or non-callable property
+    if ($prop === null || !is_callable($prop))
+      throw new Error('cannot call %s.%s (undefined or not a function)', 
+        get_class($this), $name);
+    
+    // otherwise go for it
     return $prop(...$args);
   }
   

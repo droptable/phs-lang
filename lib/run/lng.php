@@ -43,7 +43,7 @@ class Error extends Exception
   public function __construct($msg, ...$args)
   {
     if (!empty ($args))
-      $msg = sprintf($msg, $args);
+      $msg = vsprintf($msg, $args);
     
     parent::__construct($msg, 9001);
   }

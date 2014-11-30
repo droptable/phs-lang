@@ -965,7 +965,9 @@ class ValidateTask extends Visitor implements Task
         $this->dict = true;
         $this->visit($var->init);
         $this->dict = $dict;
-      }
+      } elseif ($this->has_const_mod($node->mods) && 
+                !$this->has_extern_mod($node->mods))
+        Logger::error_at($var->loc, 'constant variable must be initialized');
   }
   
   /**

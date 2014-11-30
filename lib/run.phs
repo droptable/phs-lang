@@ -18,6 +18,14 @@
  * along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+extern const E_ALL;
+extern const E_STRICT;
+
+extern fn error_reporting;
+extern fn set_error_handler;
+
+error_reporting(E_ALL | E_STRICT);
+
 // language stuff
 require __php__ 'run/lng';
 
@@ -42,6 +50,12 @@ extern iface Inable;
 
 extern iface ArrayAccess;
 
+set_error_handler(fn (n, s, f, l) {
+  extern __global__ fn basename;
+  f = basename(f);
+  throw new Error("${s} (${n}) in ${f} on line ${l}");
+});
+
 // no stdlib
 
 // language constructs
@@ -59,6 +73,7 @@ extern fn count;
 extern fn implode;
 
 extern fn is_array;
+extern fn is_scalar;
 extern fn is_object;
 
 extern fn get_class;
@@ -432,7 +447,7 @@ public class List ~ Inable, ArrayAccess {
    */
   public fn join(string sep = ',') =>
     implode(sep, array_map(fn tos(val) {
-      if (val is string || val is Obj)
+      if (is_scalar(val) || val is Obj)
         return val as string;
       
       // this is what Obj#__tostring() does
