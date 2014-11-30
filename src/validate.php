@@ -324,7 +324,6 @@ class ValidateTask extends Visitor implements Task
       
       err:
       Logger::error_at($mod->loc, 'illegal modifier `%s`', $mod->value);
-      Logger::debug('stack = %s', json_encode($this->stack));
       
       nxt:
       if (isset ($nmo[$mod->type])) {

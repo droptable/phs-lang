@@ -473,6 +473,28 @@ class CodeGenerator extends AutoVisitor
     }
   }
   
+  /**
+   * emits a top-level assign expression
+   *
+   * @param  Node $expr
+   * @param  string $dest
+   */
+  public function emit_top_assign($expr, $dest)
+  {
+    if ($expr instanceof CallExpr) {
+      $this->visit_top_call_expr($expr, $dest);
+      $this->emitln(';');
+    } else {
+      $temp = $this->hoist_dict_expr($expr, $dest);
+            
+      if ($temp === null) {
+        $this->emit('$', $dest, ' = ');
+        $this->visit($expr);
+        $this->emitln(';');
+      }
+    }
+  }
+  
   /* ------------------------------------ */
   
   /**
@@ -1170,11 +1192,11 @@ class CodeGenerator extends AutoVisitor
           $this->emit('$', $id, ' = ');
           
           if ($psym->hint->type === T_TNUMBER)
-            $this->emit('+$', $id);
+            $this->emit('+');
           else   
-            $this->emit('(', $fn, ') $', $id);
+            $this->emit('(', $fn, ')');
           
-          $this->emitln(';');
+          $this->emitln('$', $id, ';');
         }
         
         if ($psym->rest) {
@@ -1734,30 +1756,37 @@ class CodeGenerator extends AutoVisitor
   public function visit_var_decl($node) 
   {
     foreach ($node->vars as $var) {
-      if (!$var->init) 
+      $sym = $var->symbol;
+      
+      if (!$var->init && !($sym->flags & SYM_FLAG_STATIC)) 
         // no declaration needed
         continue;
       
-      if (($var->symbol->flags & SYM_FLAG_EXTERN) ||
-          ($var->symbol->flags & SYM_FLAG_NATIVE))
+      if (($sym->flags & SYM_FLAG_EXTERN) ||
+          ($sym->flags & SYM_FLAG_NATIVE))
         continue;
       
-      if ($var->init instanceof CallExpr) {
-        $temp = $var->symbol->id;
-        $this->visit_top_call_expr($var->init, $temp);
-      } else {
-        $temp = $this->hoist_dict_expr($var->init);
-        $this->emit('$', $var->symbol->id, ' = ');
+      if ($sym->flags & SYM_FLAG_STATIC) {
+        // function static
+        $this->emit('static $', $sym->id);
         
-        if ($temp !== null) {
-          $this->emit($temp);
-          $this->emitln(';');
-          $this->emit('unset (', $temp, ')');
+        if ($var->init) {
+          $this->emit(' = ');
+          
+          if ($var->init->value->is_primitive())
+            $this->visit($var->init);
+          else {
+            $this->emitln('null;');
+            $this->emit('if ($', $sym->id, ' === null) {');
+            $this->indent();
+            $this->emit_top_assign($var->init, $sym->id);
+            $this->dedent();
+            $this->emitln('}');
+          }
         } else
-          $this->visit($var->init);
-      }
-      
-      $this->emitln(';');
+          $this->emitln(';');
+      } else
+        $this->emit_top_assign($var->init, $sym->id);
     }
   }
   
