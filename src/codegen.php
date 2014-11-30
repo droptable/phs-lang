@@ -1773,9 +1773,11 @@ class CodeGenerator extends AutoVisitor
         if ($var->init) {
           $this->emit(' = ');
           
-          if ($var->init->value->is_primitive())
+          if ($var->init->value && 
+              $var->init->value->is_primitive()) {
             $this->visit($var->init);
-          else {
+            $this->emitln(';');
+          } else {
             $this->emitln('null;');
             $this->emit('if ($', $sym->id, ' === null) {');
             $this->indent();

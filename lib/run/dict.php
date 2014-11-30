@@ -44,8 +44,6 @@ class Dict extends Obj implements Inable
    */
   public function __construct(array $dict = [])
   {
-    parent::__construct();
-    
     // this can be a performance problem
     // TODO: find a way to optimize this
     foreach ($dict as $key => &$val)
