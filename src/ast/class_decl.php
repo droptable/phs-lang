@@ -6,6 +6,7 @@ class ClassDecl extends Decl
 {
   public $mods;
   public $id;
+  public $genc;
   public $ext;
   public $impl;
   public $traits;
@@ -15,10 +16,11 @@ class ClassDecl extends Decl
   // class-scope
   public $scope;
   
-  public function __construct($mods, $id, $ext, $impl, $traits, $members, $incomp = false)
+  public function __construct($mods, $id, $genc, $ext, $impl, $traits, $members, $incomp = false)
   {
     $this->mods = $mods;
     $this->id = $id;
+    $this->genc = $genc;
     $this->ext = $ext;
     $this->impl = $impl;
     $this->traits = $traits;

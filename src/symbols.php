@@ -678,6 +678,9 @@ class FnSymbol extends Symbol
   // @var boolean  this is a function-expression
   public $expr;
   
+  // @var Type
+  public $type;
+  
   // @var boolean
   public $ctor;
   
@@ -698,10 +701,7 @@ class FnSymbol extends Symbol
   
   // @var TraitSymbol  origin
   public $origin = null;
-  
-  // @var TypeSet  inferred types
-  public $types;
-  
+    
   // @var bool  this symbol must be captured
   // note: most likely this is not the case
   public $capture = true;
@@ -804,14 +804,14 @@ class VarSymbol extends Symbol
   // @var Node  initializer
   public $init;
   
+  // @var Type
+  public $type;
+  
   // @var Value  whenever a value could be computed during compilation 
   public $value = null;
   
   // @var TraitSymbol  origin
   public $origin = null;
-  
-  // @var TypeSet  inferred types
-  public $types;
   
   // @var boolean  whenever this variable is assigned
   public $assign = false;

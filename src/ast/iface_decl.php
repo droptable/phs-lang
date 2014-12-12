@@ -6,6 +6,7 @@ class IfaceDecl extends Decl
 {
   public $mods;
   public $id;
+  public $genc;
   public $impl;
   public $members;
   public $incomp;
@@ -13,10 +14,11 @@ class IfaceDecl extends Decl
   // @var Scope  member-scope
   public $scope;
   
-  public function __construct($mods, $id, $impl, $members, $incomp = false)
+  public function __construct($mods, $id, $genc, $impl, $members, $incomp = false)
   {
     $this->mods = $mods;
     $this->id = $id;
+    $this->genc = $genc;
     $this->impl = $impl;
     $this->members = $members;
     $this->incomp = $incomp;

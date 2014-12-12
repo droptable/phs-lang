@@ -124,6 +124,7 @@
 %token T_TTUP   /* tup */
 %token T_TDEC   /* dec */
 %token T_TOBJ   /* obj */
+%token T_TANY   /* any */
 %token T_TCALLABLE /* callable */
 
 /* parse-time constants */
@@ -371,16 +372,26 @@ enum_var
   ;
    
 class_decl
-  : mods_opt T_CLASS ident ext_opt impl_opt '{' trait_uses_opt members_opt '}'
+  : mods_opt T_CLASS ident genc_opt ext_opt impl_opt '{' trait_uses_opt members_opt '}'
     { 
-      $$ = @ClassDecl($1, $3, $4, $5, $7, $8); 
+      $$ = @ClassDecl($1, $3, $4, $5, $6, $8, $9); 
       $this->eat_semis(); 
     }
-  | mods_opt T_CLASS ident ext_opt impl_opt ';'               
+  | mods_opt T_CLASS ident genc_opt ext_opt impl_opt ';'               
     { 
-      $$ = @ClassDecl($1, $3, $4, $5, null, null, true); 
+      $$ = @ClassDecl($1, $3, $4, $5, $6, null, null, true); 
       $this->eat_semis(); 
     }
+  ;
+  
+genc_opt
+  : /* empty */  { $$ = null; }
+  | '<' genc '>' { $$ = null; }
+  ;
+  
+genc
+  : ident          { $$ = null; }
+  | genc ',' ident { $$ = null; }
   ;
   
 ext_opt
@@ -516,10 +527,9 @@ ctor_params
 
 ctor_param
   : param                            { $$ = $1; }
-  | hint_opt T_THIS '.' aid          { $$ = @ThisParam($1, $4, null, false); }
-  | hint_opt T_THIS '.' aid '=' rxpr { $$ = @ThisParam($1, $4, $6, false); }
-  |      '&' T_THIS '.' aid          { $$ = @ThisParam(null, $4, null, true); }
-  | hint '&' T_THIS '.' aid          { $$ = @ThisParam($1, $5, null, true); }
+  | T_THIS '.' aid hint_opt          { $$ = @ThisParam($3, $4, null, false); }
+  | T_THIS '.' aid hint_opt '=' rxpr { $$ = @ThisParam($3, $4, $6, false); }
+  | '&' T_THIS '.' aid hint_opt      { $$ = @ThisParam($4, $5, null, true); }
   ;
   
 trait_decl
@@ -536,14 +546,14 @@ trait_decl
   ;
 
 iface_decl
-  : mods_opt T_IFACE ident exts_opt '{' members_opt '}' 
+  : mods_opt T_IFACE ident genc_opt exts_opt '{' members_opt '}' 
     { 
-      $$ = @IfaceDecl($1, $3, $4, $6); 
+      $$ = @IfaceDecl($1, $3, $4, $5, $7); 
       $this->eat_semis(); 
     }
-  | mods_opt T_IFACE ident exts_opt ';' /* allowed? */                
+  | mods_opt T_IFACE ident genc_opt exts_opt ';' /* allowed? */                
     { 
-      $$ = @IfaceDecl($1, $3, $4, null, true); 
+      $$ = @IfaceDecl($1, $3, $4, $5, null, true); 
       $this->eat_semis(); 
     } 
   ;
@@ -718,7 +728,39 @@ hint_opt
   ;
   
 hint
-  : ':' type_name { $$ = $2; }
+  : ':' hint_type { $$ = $2; }
+  ;
+  
+hint_types
+  : hint_type                { $$ = null; }
+  | hint_types ',' hint_type { $$ = null; }
+  ;
+  
+hint_type
+  : type_name                   { $$ = $1; }
+  | name '<' hint_types '>'     { $$ = null; }
+  | T_FN  hint_pparams hint_opt { $$ = null; }
+  ;
+
+hint_pparams
+  : '(' ')'             { $$ = null; }
+  | '(' hint_params ')' { $$ = null; }
+  ;
+  
+hint_params
+  : hint_param                 { $$ = null; }
+  | hint_params ',' hint_param { $$ = null; }
+  ;
+
+hint_param
+  : mods hint_type       { $$ = null; }
+  | mods hint_type '?'   { $$ = null; }
+  | '&' hint_type        { $$ = null; }
+  | '&' hint_type '?'    { $$ = null; }
+  | T_REST               { $$ = null; }
+  | T_REST hint_type     { $$ = null; }
+  | '&' T_REST           { $$ = null; }
+  | '&' T_REST hint_type { $$ = null; }
   ;
 
 stmt
@@ -1202,6 +1244,7 @@ type_kw
   | T_TTUP      { $$ = $1; }
   | T_TDEC      { $$ = $1; }
   | T_TOBJ      { $$ = $1; }
+  | T_TANY      { $$ = $1; }
   | T_TCALLABLE { $$ = $1; }
   ;
 

@@ -966,6 +966,7 @@ class Lexer
     'str' => T_TSTR,
     'dec' => T_TDEC, /* int or float */  
     'obj' => T_TOBJ,
+    'any' => T_TANY,
     'callable' => T_TCALLABLE,
     
     // hardcoded "special" constants
