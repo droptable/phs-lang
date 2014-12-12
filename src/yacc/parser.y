@@ -104,6 +104,7 @@
 %token T_UNSAFE
 %token T_NATIVE
 %token T_HIDDEN
+%token T_REWRITE
 
 %token T_PHP
 %token T_TEST
@@ -116,13 +117,14 @@
 
 /* this typenames are reserved to avoid ambiguity with 
    user-defined symbols */
-%token T_TINT     /* int */
-%token T_TBOOL    /* bool */
-%token T_TFLOAT   /* float, double */
-%token T_TSTRING  /* string */
-%token T_TTUPLE   /* tuple */
-%token T_TNUMBER  /* number */
-%token T_TOBJECT  /* object */
+%token T_TINT   /* int */
+%token T_TBOOL  /* bool */
+%token T_TFLOAT /* float, dbl */
+%token T_TSTR   /* str */
+%token T_TTUP   /* tup */
+%token T_TDEC   /* dec */
+%token T_TOBJ   /* obj */
+%token T_TCALLABLE /* callable */
 
 /* parse-time constants */
 %token T_CDIR
@@ -169,7 +171,12 @@ unit
 module
   : T_MODULE name ';' content 
     { 
-      $$ = @Module($2, $4); 
+      $$ = @Module($2, null, $4); 
+      $this->eat_semis();
+    }
+  | T_MODULE T_FOR type_kw ';' content
+    {
+      $$ = @Module(null, $3->type, $5);
       $this->eat_semis();
     }
   ;
@@ -252,23 +259,33 @@ require_decl
 module_nst
   : T_MODULE name '{' '}'
     {
-      $$ = @Module($2, null);
+      $$ = @Module($2, null, null);
       $this->eat_semis();
     }
   | T_MODULE name '{' content '}' 
     { 
-      $$ = @Module($2, $4); 
+      $$ = @Module($2, null, $4); 
       $this->eat_semis(); 
     }
   | T_MODULE '{' '}'
     {
-      $$ = @Module(null, null);
+      $$ = @Module(null, null, null);
       $this->eat_semis();
     }
   | T_MODULE '{' content '}'      
     { 
-      $$ = @Module(null, $3); 
+      $$ = @Module(null, null, $3); 
       $this->eat_semis(); 
+    }
+  | T_MODULE T_FOR type_kw '{' '}'
+    {
+      $$ = @Module(null, $3->type, null);
+      $this->eat_semis();
+    }
+  | T_MODULE T_FOR type_kw '{' content '}'
+    {
+      $$ = @Module(null, $3->type, $5);
+      $this->eat_semis();
     }
   ;
 
@@ -315,6 +332,24 @@ mod
   | T_UNSAFE    { $$ = $1; }
   | T_NATIVE    { $$ = $1; }
   | T_HIDDEN    { $$ = $1; }
+  ;
+
+rewrite_opt
+  : /* empty */ { $$ = null; }
+  | rewrite     { $$ = $1; }
+  ;
+  
+rewrite
+  : T_REWRITE '(' rewrite_args ')'
+  ;
+  
+rewrite_args
+  : rewrite_arg
+  | rewrite_args ',' rewrite_arg
+  ;
+  
+rewrite_arg
+  : '$' T_LNUM
   ;
 
 enum_decl
@@ -577,18 +612,18 @@ var_decl_noin_nosemi
   ;
 
 fn_decl
-  : mods_opt T_FN ident pparams fn_decl_body 
+  : mods_opt T_FN rewrite_opt ident pparams fn_decl_body 
     {
-      $$ = @FnDecl($1, $3, $4, $5); 
+      $$ = @FnDecl($1, $4, $5, $6); 
     }
-  | mods_opt T_FN ident pparams ';'
+  | mods_opt T_FN rewrite_opt ident pparams ';'
     { 
-      $$ = @FnDecl($1, $3, $4, null); 
+      $$ = @FnDecl($1, $4, $5, null); 
       $this->eat_semis(); 
     }
-  | mods_opt T_FN ident ';'
+  | mods_opt T_FN rewrite_opt ident ';'
     { 
-      $$ = @FnDecl($1, $3, null, null); 
+      $$ = @FnDecl($1, $4, null, null); 
       $this->eat_semis(); 
     }
   ;
@@ -1124,9 +1159,10 @@ reg
   ;
   
 name
-  : ident               { $$ = @Name($1, false, false); }
-  | T_SELF T_DDDOT aid  { $$ = @Name($3, false, true); }
-  | T_DDDOT aid         { $$ = @Name($2, true, false); }
+  : ident               { $$ = @Name($1, false); }
+  | type_kw T_DDDOT aid { $$ = @Name($3, false, $1->type); }
+  | T_SELF T_DDDOT aid  { $$ = @Name($3, false, $1->type); }
+  | T_DDDOT aid         { $$ = @Name($2, true); }
   | name T_DDDOT aid    { $1->add($3); $$ = $1; }
   ;
 
@@ -1136,14 +1172,19 @@ type_name
   ;
 
 type_id
-  : T_TINT    { $$ = @TypeId($1->type); }
-  | T_TBOOL   { $$ = @TypeId($1->type); }
-  | T_TFLOAT  { $$ = @TypeId($1->type); }
-  | T_TSTRING { $$ = @TypeId($1->type); }
-  | T_TTUPLE  { $$ = @TypeId($1->type); }
-  | T_TNUMBER { $$ = @TypeId($1->type); }
-  | T_TOBJECT { $$ = @TypeId($1->type); }
-  | T_SELF    { $$ = @SelfExpr; }
+  : type_kw  { $$ = @TypeId($1->type); }
+  | T_SELF   { $$ = @SelfExpr; }
+  ;
+
+type_kw
+  : T_TINT      { $$ = $1; }
+  | T_TBOOL     { $$ = $1; }
+  | T_TFLOAT    { $$ = $1; }
+  | T_TSTR      { $$ = $1; }
+  | T_TTUP      { $$ = $1; }
+  | T_TDEC      { $$ = $1; }
+  | T_TOBJ      { $$ = $1; }
+  | T_TCALLABLE { $$ = $1; }
   ;
 
 ident
@@ -1294,7 +1335,10 @@ rid
   | T_TINT      { $$ = $1; }
   | T_TBOOL     { $$ = $1; }
   | T_TFLOAT    { $$ = $1; }
-  | T_TSTRING   { $$ = $1; }
+  | T_TSTR      { $$ = $1; }
+  | T_TTUP      { $$ = $1; }
+  | T_TDEC      { $$ = $1; }
+  | T_TOBJ      { $$ = $1; }
   | T_CDIR      { $$ = $1; }
   | T_CFILE     { $$ = $1; }
   | T_CLINE     { $$ = $1; }

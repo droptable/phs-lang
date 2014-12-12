@@ -68,7 +68,7 @@ class Usage implements Entry
     
     $this->pub = $pub;
     $this->loc = $item ? $item->loc : $name->loc;
-    $this->self = $name->self;
+    $this->self = $name->type === T_SELF;
     $this->root = $root;
     $this->orig = array_pop($narr);
     $this->item = $item ? ident_to_str($item) : $this->orig;

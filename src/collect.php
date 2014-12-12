@@ -621,7 +621,22 @@ class CollectTask extends NodeCollector implements Task
   {
     $prev = $this->scope;
     
-    if ($node->name) {
+    // type module
+    if ($node->type) {
+      // only allowed in the root-scope
+      assert($this->scope === $this->sroot);
+      
+      $base = $this->sroot;
+      $name = type_to_str($node->type);
+      
+      $nmod = new ModuleScope($name, $base);
+      $base->mmap->add($nmod);
+      
+      $this->scope = $nmod;
+    }
+    
+    // named module
+    elseif ($node->name) {
       $base = $this->scope;
       $name = name_to_arr($node->name);
       
@@ -651,7 +666,10 @@ class CollectTask extends NodeCollector implements Task
       }
       
       $this->scope = $nmod;
-    } else 
+    } 
+    
+    // global module
+    else 
       // switch to global scope
       $this->scope = $this->sroot;
     

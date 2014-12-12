@@ -669,6 +669,13 @@ class ValidateTask extends Visitor implements Task
   
   public function visit_module($node)
   {
+    if ($this->inmod > 0 && $node->name === null && 
+                            $node->type !== null) {
+      Logger::error_at($node->loc, 'type-module for `%s` \\', 
+        type_to_str($node->type));
+      Logger::error('cannot be nested in a other module');
+    }
+    
     $this->inmod++;
     $this->visit($node->body);
     $this->inmod--;

@@ -66,7 +66,11 @@ function ident_to_str(Ident $id) {
  */
 function name_to_str(Name $name, $sep = '::') {
   $path = arr_to_path(name_to_arr($name), $name->root, $sep);
-  if ($name->self) $path = "self::$path";
+  if ($name->type) {
+    $prfx = type_to_str($name->type);
+    $path = "$prfx::$path";
+  }
+  
   return $path;
 }
 
@@ -174,6 +178,28 @@ function path_to_abs_ns(array $path) {
  */
 function crc32_str($val) {
   return sprintf('%u', crc32($val));
+}
+
+/**
+ * returns the name of a type
+ *
+ * @param  int $type
+ * @return string
+ */
+function type_to_str($type) {
+  static $map = [
+    T_TINT => 'int',
+    T_TFLOAT => 'float',
+    T_TTUP => 'tup',
+    T_TBOOL => 'bool',
+    T_TSTR => 'str',
+    T_TDEC => 'dec',
+    T_TOBJ => 'obj',
+    T_TCALLABLE => 'callable',
+    T_SELF => 'self',
+  ];
+    
+  return $map[$type];
 }
 
 /**

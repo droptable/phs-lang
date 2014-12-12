@@ -73,13 +73,13 @@
     )
   |
     # string-start delimiters
-    [co]?["']
+    [cs]?["']
   |
     # the "is" and "in" operator
     (?:(?:!?i[ns])(?=\s|$))
   |
     # words (identifiers)
-    [a-zA-Z_\x7f-\xff\$][a-zA-Z0-9_\x7f-\xff\$]*
+    [a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*
     
     # allow '!' as suffix for macro-calls
     [!]?
@@ -87,7 +87,7 @@
     # operators and punctuation
     (?:    
       # basic punctuation
-      [;,{}\(\)\[\]\#]
+      [;,{}\(\)\[\]\#\$]
       
       # combinations
       | (?:=>|=\s*&)

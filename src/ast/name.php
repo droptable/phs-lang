@@ -6,17 +6,18 @@ class Name extends Node
 {
   public $base;
   public $root;
+  public $type;
   public $self;
   public $parts;
   
   // @var Symbol
   public $symbol;
   
-  public function __construct($base, $root, $self)
+  public function __construct($base, $root, $type = null)
   {
     $this->base = $base;
     $this->root = $root;
-    $this->self = $self;
+    $this->type = $type;
   }
   
   public function add($name)

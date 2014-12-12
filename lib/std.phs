@@ -39,16 +39,7 @@ module std {
   public __native__ fn isset;
   public __native__ fn empty;
   public __native__ fn include;
-  public __native__ array; // not callable, use tuples instead
-  public __native__ callable;
-  
-  module php {
-    public extern __global__ fn is_array;
-    public extern __global__ fn is_object;
-  }
-  
-  public use self::php::is_array as istup;
-  public use self::php::is_object as isobj;
+  public __native__ fn include_once;
 }
 
 // ---------------------------------------

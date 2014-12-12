@@ -194,7 +194,7 @@ public class Stream {
    *
    * @param string enc
    */
-  public fn set_encoding(string enc) =>
+  public fn set_encoding(str enc) =>
     stream_encoding(this.hnd, enc);
   
   /**
@@ -214,7 +214,7 @@ public class Stream {
    * @param  string end
    * @return string
    */
-  public fn get_line(int len, string end?) =>
+  public fn get_line(int len,str end?) =>
     stream_get_line(this.hnd, len, end ?: PHP_EOL);
   
   /**
@@ -318,7 +318,7 @@ trait Write {
    * @param  string msg
    * @return int
    */
-  public fn write(string msg) =>
+  public fn write(str msg) =>
     fwrite(this.hnd, msg);
   
   /**
@@ -327,7 +327,7 @@ trait Write {
    * @param  string msg
    * @return int
    */
-  public fn writeln(string msg) {
+  public fn writeln(str msg) {
     let n = 0;
     
     n += fwrite(this.hnd, msg);
@@ -373,7 +373,7 @@ public iface OutputStream {
    * @param  string msg
    * @return int
    */
-  public fn write(string msg);
+  public fn write(str msg);
   
   /**
    * writes a string followed by a new-line to this stream
@@ -381,7 +381,7 @@ public iface OutputStream {
    * @param  string msg
    * @return int
    */
-  public fn writeln(string msg);
+  public fn writeln(str msg);
 }
 
 /**
@@ -449,8 +449,7 @@ public class FileStream : Stream
    * @param string path
    * @param string mode
    */
-  public new (string this.path, 
-              string this.mode) {
+  public new (str this.path,str this.mode) {
     super(fopen(path, mode));
   }
   
@@ -495,7 +494,7 @@ public class FileStream : Stream
    * @param  string mode
    * @return FsStream
    */
-  public fn reopen(string mode?) {
+  public fn reopen(str mode?) {
     if (!closed) close();
     closed = false;
     swap(fopen(path, this.mode = mode ?: this.mode));
@@ -535,9 +534,7 @@ public class FileStream : Stream
    * @param  string esc
    * @return List
    */
-  public fn getcsv(int len = 0, string delim = ',', 
-                                string encl = '"', 
-                                string esc = '\\') =>
+  public fn getcsv(int len = 0,str delim = ',',str encl = '"',str esc = '\\') =>
     fgetcsv(this.hnd, len, delim, encl, esc) as List;
    
   /**
@@ -584,8 +581,7 @@ public class FileStream : Stream
    * @param  string encl
    * @return int
    */
-  public fn putcsv(List fields, string delim = ',', 
-                                string encl = '"') =>
+  public fn putcsv(List fields,str delim = ',',str encl = '"') =>
     fputcsv(fields.to_array(), delim, encl);
     
   /**
@@ -596,7 +592,7 @@ public class FileStream : Stream
    * @param  int    len
    * @return int
    */
-  public fn puts(string msg, int len = strlen(msg)) =>
+  public fn puts(str msg, int len = strlen(msg)) =>
     fwrite(this.hnd, msg, len);
   
   /**
@@ -606,7 +602,7 @@ public class FileStream : Stream
    * @param  ... ptrs
    * @return List|int
    */
-  public fn scanf(string fmt, &...ptrs) =>
+  public fn scanf(str fmt, &...ptrs) =>
     count(ptrs) ? fscanf(this.hnd, fmt, ...ptrs) 
       : fscanf(this.hnd, fmt) as List;
    

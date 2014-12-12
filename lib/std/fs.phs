@@ -128,7 +128,7 @@ public class File {
    * 
    * @param string path
    */
-  public new (string this.path) ;
+  public new (str this.path) ;
   
   /**
    * opens the file and returns a FStream
@@ -136,7 +136,7 @@ public class File {
    * @param  string mode
    * @return FsStream
    */
-  public fn open(string mode) =>
+  public fn open(str mode) =>
     new FileStream(path, mode);
   
   /**
@@ -178,7 +178,7 @@ public class File {
     if (path is FileStream) 
       path = path.get_path();
     
-    if (path is string) 
+    if (path is str) 
       return new File(path);
     
     throw new TypeError("can not create a file-object");

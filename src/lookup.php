@@ -39,17 +39,20 @@ trait Lookup
     $path = name_to_arr($node);
     $root = $node->root;
     
-    if ($node->self) {
-      $root = true; // "self::" is always fully qualified
+    if ($node->type) {
+      $root = true; // {type}:: is always fully qualified
       
-      // get next best root-scope
-      $scope = $this->scope;
-      while (!($scope instanceof RootScope))
-        $scope = $scope->prev;
-      
-      if ($scope instanceof ModuleScope)
-        array_splice($path, 0, 0, $scope->path());
-      // else -> just the current unit+global scope
+      if ($node->type === T_SELF) {
+        // get next best root-scope
+        $scope = $this->scope;
+        while (!($scope instanceof RootScope))
+          $scope = $scope->prev;
+        
+        if ($scope instanceof ModuleScope)
+          array_splice($path, 0, 0, $scope->path());
+        // else -> just the current unit+global scope
+      } else
+        array_unshift($path, type_to_str($node->type));
     }
     
     // lookup path

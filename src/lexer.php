@@ -6,6 +6,7 @@ require_once 'glob.php';
 
 /** ascii tokens */
 const 
+  T_DOLLAR = 36,   // '$'
   T_ASSIGN = 61,   // '='
   T_LT = 60,       // '<'
   T_GT = 62,       // '>'
@@ -941,6 +942,7 @@ class Lexer
     '__unsafe__' => T_UNSAFE, // @[unsafe] ...
     '__native__' => T_NATIVE, // @[native] ...
     '__hidden__' => T_HIDDEN, // @[hidden] ...
+    '__rewrite__' => T_REWRITE,
     
     '__php__' => T_PHP,
     '__test__' => T_TEST,
@@ -957,13 +959,14 @@ class Lexer
     '!in' => T_NIN,
       
     'int' => T_TINT,
-    'bool' => T_TBOOL,
+    'dbl' => T_TFLOAT,
     'float' => T_TFLOAT,
-    'double' => T_TFLOAT,
-    'string' => T_TSTRING,
-    'tuple' => T_TTUPLE,
-    'number' => T_TNUMBER, /* int or float */  
-    'object' => T_TOBJECT,
+    'tup' => T_TTUP,
+    'bool' => T_TBOOL,
+    'str' => T_TSTR,
+    'dec' => T_TDEC, /* int or float */  
+    'obj' => T_TOBJ,
+    'callable' => T_TCALLABLE,
     
     // hardcoded "special" constants
     '__dir__'  => T_CDIR,
@@ -982,7 +985,9 @@ class Lexer
   private static $table = [   
     // this is aspecial token used for new-lines
     "\n" => T_NL,
-     
+    
+    '$' => T_DOLLAR,
+    
     '=' => T_ASSIGN,
     '+=' => T_APLUS,
     '-=' => T_AMINUS,

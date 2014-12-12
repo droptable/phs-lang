@@ -18,11 +18,29 @@
  * along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+extern class Obj;
+extern class Dict;
+extern class Error;
+
+iface Inable {
+  public fn contains(val);  
+}
+
+iface Eqable {
+  public fn eq(val);
+}
+
+iface Cmpable: Eqable {
+  public fn cmp(oth);
+}
+
+extern iface ArrayAccess;
+
 extern const E_ALL;
 extern const E_STRICT;
 
-extern fn error_reporting;
-extern fn set_error_handler;
+extern fn error_reporting();
+extern fn set_error_handler();
 
 error_reporting(E_ALL | E_STRICT);
 
@@ -35,32 +53,625 @@ require __php__ 'run/obj';
 // dict: used for { ... } literals
 require __php__ 'run/dict';
 
-// list: used for [ ... ] literals
-// require __php__ 'run/list';
-
-// from run/obj
-extern class Obj;
-
-// from run/dict
-extern class Dict;
-
-// from run/lng 
-extern class Error;
-extern iface Inable;
-
-extern iface ArrayAccess;
-
 set_error_handler(fn (n, s, f, l) {
   extern __global__ fn basename;
   f = basename(f);
-  throw new Error("${s} (${n}) in ${f} on line ${l}");
+  throw new Error("%s (%d) in %s on line %d", s, n, f, l);
 });
 
-// no stdlib
+/**
+ * string-type module
+ * 
+ *   this module contains all directly-related functions for strings.
+ *   if some function is missing it is probably in a separate module.
+ *   
+ */
+module for str {
+  public extern __global__ fn __rewrite__($2, $1, $3)     explode;
+  public extern __global__ fn __rewrite__($3, $1, $2, $4) str_replace;
+  public extern __global__ fn __rewrite__($3, $1, $2, $4) str_ireplace;
+  
+  public use self::explode as split_by;
+  public use self::str_replace as replace;
+  public use self::str_ireplace as ireplace;
+  
+  public extern __global__ const CHAR_MAX;
+  public extern __global__ const STR_PAD_RIGHT; 
+  public extern __global__ const STR_PAD_LEFT;
+  public extern __global__ const STR_PAD_BOTH;
+  
+  public use self::STR_PAD_RIGHT as PAD_RIGHT; 
+  public use self::STR_PAD_LEFT as PAD_LEFT;
+  public use self::STR_PAD_BOTH as PAD_BOTH;
+  
+  public extern __global__ fn addcslashes;
+  public extern __global__ fn addslashes;
+  public extern __global__ fn chr;
+  public extern __global__ fn chunk_split;
+  public extern __global__ fn count_chars;
+  public extern __global__ fn crc32;
+  public extern __global__ fn lcfirst;
+  public extern __global__ fn ltrim;
+  public extern __global__ fn ord;
+  public extern __global__ fn rtrim;
+  public extern __global__ fn trim;
+  public extern __global__ fn ucfirst;
+  public extern __global__ fn ucwords;
+  public extern __global__ fn wordwrap;
+    
+  public extern __global__ fn str_pad;
+  public extern __global__ fn str_repeat;
+  public extern __global__ fn str_rot13;
+  public extern __global__ fn str_shuffle;
+  public extern __global__ fn str_split;
+  public extern __global__ fn str_word_count;
+  public extern __global__ fn strcasecmp;
+  public extern __global__ fn strcmp;
+  public extern __global__ fn strcoll;
+  public extern __global__ fn strcspn;
+  public extern __global__ fn stripcslashes;
+  public extern __global__ fn stripos;
+  public extern __global__ fn stripslashes;
+  public extern __global__ fn stristr;
+  public extern __global__ fn strlen;
+  public extern __global__ fn strnatcasecmp;
+  public extern __global__ fn strnatcmp;
+  public extern __global__ fn strncasecmp;
+  public extern __global__ fn strncmp;
+  public extern __global__ fn strpbrk;
+  public extern __global__ fn strpos;
+  public extern __global__ fn strrchr;
+  public extern __global__ fn strrev;
+  public extern __global__ fn strripos;
+  public extern __global__ fn strrpos;
+  public extern __global__ fn strspn;
+  public extern __global__ fn strstr;
+  public extern __global__ fn strtok;
+  public extern __global__ fn strtolower;
+  public extern __global__ fn strtoupper;
+  public extern __global__ fn strtr;
+  public extern __global__ fn substr_compare;
+  public extern __global__ fn substr_count;
+  public extern __global__ fn substr_replace;
+  public extern __global__ fn substr;
+  
+  public use self::str_pad as pad;
+  public use self::str_repeat as repeat;
+  public use self::str_rot13 as rot13;
+  public use self::str_shuffle as shuffle;
+  public use self::str_split as split;
+  public use self::str_word_count as word_count;
+  public use self::strcasecmp as casecmp;
+  public use self::strcmp as cmp;
+  public use self::strcoll as coll;
+  public use self::strcspn as cspn;
+  public use self::stripos as ipos;
+  public use self::stristr as ipart;
+  public use self::strlen as len;
+  public use self::strnatcasecmp as natcasecmp;
+  public use self::strnatcmp as natcmp;
+  public use self::strncasecmp as ncasecmp;
+  public use self::strncmp as ncmp;
+  public use self::strpbrk as pbrk;
+  public use self::strpos as pos;
+  public use self::strrchr as rchr;
+  public use self::strrev as rev;
+  public use self::strripos as ripos;
+  public use self::strrpos as rpos;
+  public use self::strspn as spn;
+  public use self::strstr as part;
+  public use self::strtok as tok;
+  public use self::strtolower as tolower;
+  public use self::strtoupper as toupper;
+  public use self::strtr as tr;
+}
+
+extern fn max;
+extern fn min;
+
+/**
+ * OOP String Wrapper
+ *  
+ * The compiler automatically uses this class for strings 
+ * with the "s" prefix: 
+ *   
+ *   let obj_str = s"a string value";
+ *   
+ * 
+ * Parameter hint and type check "str" matches both primitive 
+ * strings and this class.
+ * 
+ * Only a cast to "str" works for primitive strings only.
+ * But you can cast to "Str" to create a object-string.
+ * 
+ * 
+ * The "~" operator will call the concat() method.
+ * The "~=" operator will call the extend() method.
+ * The "==" operator will call the equals() method.
+ * 
+ * You can disable operator-overloading with the "-t" 
+ * command-line switch (recommended!)
+ */
+public class Str ~ Inable, Cmpable, ArrayAccess {
+  // @var string  internal memory
+  private mem;
+  
+  /**
+   * constructor
+   * 
+   * @param str
+   */
+  public new (str this.mem = c'') {
+    if (mem is self) {
+      /* dereference + copy internal value */
+      __php__ { "$this->mem = $this->mem->mem . '';" }
+    }
+  }
+  
+  public fn __tostring() =>
+    mem;
+    
+  public __hidden__ fn offsetGet(x) => 0;
+  public __hidden__ fn offsetSet(x, y) => 0;
+  public __hidden__ fn offsetExists(x) => 0;
+  public __hidden__ fn offsetUnset(x) => 0;
+  
+  /**
+   * "==" operator handler
+   *
+   * @param  str val
+   * @return bool
+   */
+  public fn equals(__unsafe__ val) {
+    /* inline-php avoids boilerplate code */
+    __php__ { "return $this->mem === $val;" }
+  }
+  
+  /* same as Str#equals() */
+  public fn eq(__unsafe__ val) {
+    /* inline-php avoids boilerplate code */
+    __php__ { "return $this->mem === $val;" }
+  }
+  
+  /**
+   * "~=" operator handler
+   *
+   * @param  str val
+   * @return self
+   */
+  public fn extend(__unsafe__ val) {
+    /* inline-php avoids boilerplate code */
+    __php__ { "$this->mem .= $val;" }
+    return this;
+  }
+  
+  /**
+   * "~" operator handler
+   *
+   * @param  str val
+   * @return self
+   */
+  public fn concat(__unsafe__ val) {
+    /* inline-php avoids boilerplate code */
+    __php__ { "return new static($this->mem . $val);"}
+  }
+  
+  /**
+   * return information about characters used in a string
+   *
+   * @param  int    mode
+   * @return self|List
+   */
+  public fn count_chars(int mode) {
+    let res = str::count_chars(mem, mode);
+    if (res is tup) {
+      let arr = [];
+      for (val in res) 
+        arr.push(new self(val));
+      return arr;
+    }
+    return new self(res);
+  }
+  
+  /**
+   * strip whitespace (or other characters) from the 
+   * beginning of a string
+   *
+   * @param  str    cl
+   * @return self
+   */
+  public fn ltrim(str cl?) =>
+    new self(cl ? str::ltrim(mem, cl) : str::ltrim(mem));
+  
+  /**
+   * strip whitespace (or other characters) from the end of a string
+   *
+   * @param  str    cl
+   * @return self
+   */
+  public fn rtrim(str cl?) =>
+    new self(cl ? str::rtrim(mem, cl) : str::rtrim(mem));
+    
+  /**
+   * strip whitespace (or other characters) from the end of a string
+   *
+   * @param  str    cl
+   * @return self
+   */
+  public fn trim(str cl?) =>
+    new self(cl ? str::trim(mem, cl) : str::trim(mem));
+    
+  /**
+   * make a string's first character uppercase
+   *
+   * @return self
+   */
+  public fn ucfirst() =>
+    new self(str::ucfirst(mem));
+    
+  /**
+   * uppercase the first character of each word in a string
+   *
+   * @return self
+   */
+  public fn ucwords() =>
+    new self(str::ucwords(mem));
+    
+  /**
+   * make a string's first character lowercase
+   *
+   * @return self
+   */
+  public fn lcfirst() =>
+    new self(str::lcfirst(mem));
+  
+  /**
+   * pad this string to a certain length with another string
+   *
+   * @param  int    len
+   * @param  str val
+   * @param  int type
+   * @return self
+   */
+  public fn pad(int len, str val = c' ', int type = str::PAD_RIGHT) =>
+    new self(str::pad(mem, len, val, type));
+  
+  /**
+   * replaces contents in the string
+   *
+   * @param  str    fnd
+   * @param  str    val
+   * @return self
+   */
+  public fn replace(str fnd, str val) =>
+    new self(str::replace(mem, fnd, val));
+  
+  /**
+   * replaces contents in the string
+   *
+   * @param  str    fnd
+   * @param  str    val
+   * @return self
+   */
+  public fn ireplace(str fnd, str val) =>
+    new self(str::ireplace(mem, fnd, val));
+  
+  /**
+   * repeat this string
+   *
+   * @param  int    t
+   * @return self
+   */
+  public fn repeat(int t) =>
+    new self(str::repeat(mem, t));
+  
+  /**
+   * perform the rot13 transform on this string
+   *
+   * @return self
+   */
+  public fn rot13() =>
+    new self(str::rot13(mem));
+  
+  /**
+   * randomly shuffles this string
+   *
+   * @return self
+   */
+  public fn shuffle() =>
+    new self(str::shuffle(mem));
+  
+  /**
+   * splits the strings and returns it as list
+   * 
+   * @param  int  len
+   * @return List
+   */
+  public fn split(int len) =>
+    str::split(mem, len) as List;
+  
+  /**
+   * return information about words used in this string 
+   *
+   * @return int
+   */
+  public fn count_words() =>
+    str::word_count(mem, 0);
+  
+  /**
+   * binary safe case-insensitive string comparison
+   *
+   * @param  str    oth
+   * @return int
+   */
+  public fn casecmp(str oth) =>
+    str::casecmp(mem, oth);
+  
+  /**
+   * binary safe string comparison
+   *
+   * @param  str    oth
+   * @return int
+   */
+  public fn cmp(str oth) =>
+    str::cmp(mem, oth);
+  
+  /**
+   * locale based string comparison
+   *
+   * @param  str    oth
+   * @return int
+   */
+  public fn coll(str oth) =>
+    str::coll(mem, oth);
+  
+  /**
+   * find length of initial segment not matching mask
+   * 
+   */
+  public fn cspn(str s2, int s = 0, int l = -1) =>
+    str::cspn(mem, s2, s, l == -1 ? max(len(), str::len(s2)) : l);
+  
+  /**
+   * find the position of the first occurrence of a 
+   * case-insensitive substring in this string
+   *
+   * @param  str    fnd
+   * @param  int    off
+   * @return int|false
+   */
+  public fn ipos(str fnd, int off = 0) =>
+    str::ipos(mem, fnd, off);
+  
+  /**
+   * case-insensitive strstr() / part()
+   *
+   * @param  str    tok
+   * @param  bool   bn 
+   * @return str
+   */
+  public fn ipart(str tok, bool bn = false) =>
+    new self(str::ipart(mem, tok, bn));
+  
+  /**
+   * get string length
+   *
+   * @return int
+   */
+  public fn len() =>
+    str::len(mem);
+   
+  /**
+   * case insensitive string comparisons using a 
+   * "natural order" algorithm
+   *
+   * @param  str    oth
+   * @return int
+   */
+  public fn natcasecmp(str oth) =>
+    str::natcasecmp(mem, oth);
+  
+  /**
+   * string comparisons using a "natural order" algorithm
+   *
+   * @param  str    oth
+   * @return int
+   */
+  public fn natcmp(str oth) =>
+    str::natcmp(mem, oth);
+  
+  /**
+   * binary safe case-insensitive string comparison of the first n characters
+   *
+   * @param  str    oth
+   * @param  int    len
+   * @return int
+   */
+  public fn ncasecmp(str oth, int len) =>
+    str::ncasecmp(mem, oth, len);
+  
+  /**
+   * binary safe string comparison of the first n characters
+   *
+   * @param  str    oth
+   * @param  int    len
+   * @return int
+   */
+  public fn ncmp(str oth, int len) =>
+    str::ncmp(mem, oth);
+  
+  /**
+   * search a string for any of a set of characters
+   *
+   * @param  str  cs
+   * @return self
+   */
+  public fn pbrk(str cs) =>
+    new self(str::pbrk(mem, cs));
+  
+  /**
+   * find the position of the first occurrence of a substring in a string
+   *
+   * @param  str    oth
+   * @param  int    off
+   * @return int|false
+   */
+  public fn pos(str oth, int off = 0) =>
+    str::pos(mem, oth);
+  
+  /**
+   * find the last occurrence of a character in a string
+   *
+   * @param  str|int cs
+   * @return self
+   */
+  public fn rchr(cs) =>
+    new self(str::rchr(mem, cs));
+  
+  /**
+   * reverse a string
+   *
+   * @return self
+   */
+  public fn rev() =>
+    new self(str::rev(mem));
+   
+  /**
+   * find the position of the last occurrence of a 
+   * case-insensitive substring in a string
+   *
+   * @param  str    oth
+   * @param  int    off
+   * @return int|false
+   */
+  public fn ripos(str oth, int off = 0) =>
+    str::ripos(mem, oth, off);
+    
+  /**
+   * find the position of the last occurrence of a substring in a string
+   *
+   * @param  str    oth
+   * @param  int    off
+   * @return int|false
+   */
+  public fn rpos(str oth, int off = 0) =>
+    str::rpos(oth, off);
+  
+  /**
+   * finds the length of the initial segment of a string consisting 
+   * entirely of characters contained within a given mask. 
+   *
+   * @param  str    msk
+   * @param  int    args...
+   * @return int
+   */
+  public fn spn(str msk, int ...args) =>
+    str::spn(mem, msk, ...args);
+  
+  /**
+   * find the first occurrence of a string
+   *
+   * @param  str    oth
+   * @param  bool   bf
+   * @return self
+   */
+  public fn part(str oth, bool bf = false) =>
+    new self(str::part(mem, oth, bf));
+  
+  /**
+   * makes the string lowercase
+   *
+   * @return self
+   */
+  public fn tolower() =>
+    new self(str::tolower(mem));
+  
+  /**
+   * makes the string uppercase
+   *
+   * @return self
+   */
+  public fn toupper() =>
+    new self(str::toupper(mem));
+  
+  /**
+   * translate characters or replace substrings
+   *
+   * @param  ... args
+   * @return self
+   */
+  public fn tr(...args) =>
+    new self(str::tr(mem, ...args));
+  
+  /**
+   * binary safe comparison of two strings from an offset, 
+   * up to length characters
+   *
+   * @param  str    oth
+   * @param  int    off
+   * @param  int    len
+   * @param  bool   ci
+   * @return int
+   */
+  public fn substr_compare(str oth, ...args) =>
+    str::substr_compare(oth, ...args);
+  
+  /* same as Str#substr_compare() */
+  public fn substr_cmp(str oth, ...args) =>
+    str::substr_compare(oth, ...args);
+  
+  /**
+   * count the number of substring occurrences
+   *
+   * @param  str    oth 
+   * @param  ...    args
+   * @return int
+   */
+  public fn substr_count(str oth, ...args) =>
+    str::substr_count(mem, oth, ...args);
+  
+  /**
+   * replace text within a portion of a string
+   *
+   * @param  str  rep
+   * @oaram  ...  args
+   * @return self
+   */
+  public fn substr_replace(str rep, ...args) =>
+    str::substr_replace(mem, rep, ...args);
+  
+  /**
+   * return part of a string
+   * 
+   * @param  ...  args
+   * @return self
+   */
+  public fn substr(...args) =>
+    str::substr(mem, ...args);
+  
+  /* ------------------------------------ */
+  /* extensions */
+  
+  //re_replace
+  //re_match
+  //char_at
+  //char_code_at
+  //code_point_at
+  //contains
+  //ends_with
+  //starts_with
+  //index_of
+  //last_index_of
+  //slice
+}
+
+class StrRef: Str {}
+
+let s = new StrRef("hello world");
+s.replace("hello", "hallo");
+print s.to_str();
 
 // language constructs
-extern __native__ array;
-extern __native__ callable;
 extern __native__ fn isset;
 extern __native__ fn empty;
 
@@ -97,6 +708,12 @@ extern fn array_push;
 extern fn array_pop;
 extern fn array_key_exists;
 
+/**
+ * OOP List Wrapper
+ * 
+ * All [ a, b, c ... ] literals are handled by this class.
+ * 
+ */
 public class List ~ Inable, ArrayAccess {
   // internal array
   private mem;
@@ -296,7 +913,7 @@ public class List ~ Inable, ArrayAccess {
    * @param  array  $mem
    * @return List_
    */
-  public fn swap(array mem) {
+  public fn swap(tup mem) {
     // the new array must be a tuple
     // associative keys can not be accessed in this list
     this.mem = mem;
@@ -445,10 +1062,14 @@ public class List ~ Inable, ArrayAccess {
    * @param  string $sep
    * @return string
    */
-  public fn join(string sep = ',') =>
+  public fn join(str sep = ',') =>
     implode(sep, array_map(fn tos(val) {
+      if (val == null) return 'null';
+      if (val == true) return 'true';
+      if (val == false) return 'false';
+        
       if (is_scalar(val) || val is Obj)
-        return val as string;
+        return val as str;
       
       // this is what Obj#__tostring() does
       if (is_object(val))
@@ -461,12 +1082,7 @@ public class List ~ Inable, ArrayAccess {
         // return (val as List).join(sep)
         return implode(sep, array_map(tos, val));
       
-      switch (val) {
-        case null: return '<null>';
-        case true: return '<true>';
-        case false: return '<false>';
-        default: return '<???>';
-      }
+      return '<???>';
     }, mem));
   
   /**
@@ -475,7 +1091,7 @@ public class List ~ Inable, ArrayAccess {
    * @param  string sep
    * @return string
    */
-  public fn unsafe_join(string sep = ',') =>
+  public fn unsafe_join(str sep = ',') =>
     implode(sep, mem);
   
   
@@ -703,7 +1319,7 @@ public class List ~ Inable, ArrayAccess {
    * @param  string $prop
    * @return List_
    */
-  public fn pluck(string prop) {
+  public fn pluck(str prop) {
     let lst = new self;
     lst.mem = array_map(fn (val) => val.{prop}, mem);
     return lst;
