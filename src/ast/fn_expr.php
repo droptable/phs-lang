@@ -6,6 +6,7 @@ class FnExpr extends Expr
 {
   public $id;
   public $params;
+  public $hint;
   public $body;
   
   // @var Scope
@@ -14,10 +15,11 @@ class FnExpr extends Expr
   // @var Symbol  only if `id` is not null
   public $symbol;
   
-  public function __construct($id, $params, $body)
+  public function __construct($id, $params, $hint, $body)
   {
     $this->id = $id;
     $this->params = $params;
+    $this->hint = $hint;
     $this->body = $body;
   }
 

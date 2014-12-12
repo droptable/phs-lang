@@ -554,9 +554,9 @@ vars
   ;
   
 var
-  : ident             { $$ = @VarItem($1, null, false); }
-  | ident '=' rxpr    { $$ = @VarItem($1, $3, false); }
-  | ident T_AREF nxpr { $$ = @VarItem($1, $3, true); }
+  : ident hint_opt             { $$ = @VarItem($1, $2, null, false); }
+  | ident hint_opt '=' rxpr    { $$ = @VarItem($1, $2, $4, false); }
+  | ident hint_opt T_AREF nxpr { $$ = @VarItem($1, $2, $4, true); }
   ;
 
 vars_noin
@@ -565,9 +565,9 @@ vars_noin
   ;
   
 var_noin
-  : ident               { $$ = @VarItem($1, null, false); }
-  | ident '=' rxpr_noin { $$ = @VarItem($1, $3, false); }
-  | ident T_AREF nxpr   { $$ = @VarItem($1, $3, true); }
+  : ident hint_opt               { $$ = @VarItem($1, $2, null, false); }
+  | ident hint_opt '=' rxpr_noin { $$ = @VarItem($1, $2, $4, false); }
+  | ident hint_opt T_AREF nxpr   { $$ = @VarItem($1, $2, $4, true); }
   ;
 
 inner
@@ -612,18 +612,18 @@ var_decl_noin_nosemi
   ;
 
 fn_decl
-  : mods_opt T_FN rewrite_opt ident pparams fn_decl_body 
+  : mods_opt T_FN rewrite_opt ident pparams hint_opt fn_decl_body 
     {
-      $$ = @FnDecl($1, $4, $5, $6); 
+      $$ = @FnDecl($1, $4, $5, $6, $7); 
     }
-  | mods_opt T_FN rewrite_opt ident pparams ';'
+  | mods_opt T_FN rewrite_opt ident pparams hint_opt ';'
     { 
-      $$ = @FnDecl($1, $4, $5, null); 
+      $$ = @FnDecl($1, $4, $5, $6, null); 
       $this->eat_semis(); 
     }
-  | mods_opt T_FN rewrite_opt ident ';'
+  | mods_opt T_FN rewrite_opt ident hint_opt ';'
     { 
-      $$ = @FnDecl($1, $4, null, null); 
+      $$ = @FnDecl($1, $4, $5, null, null); 
       $this->eat_semis(); 
     }
   ;
@@ -638,13 +638,13 @@ fn_decl_body
   ;
   
 fn_expr
-  : T_FN ident pparams fn_expr_body { $$ = @FnExpr($2, $3, $4); }
-  | T_FN       pparams fn_expr_body { $$ = @FnExpr(null, $2, $3); }
+  : T_FN ident pparams hint_opt fn_expr_body { $$ = @FnExpr($2, $3, $4, $5); }
+  | T_FN       pparams hint_opt fn_expr_body { $$ = @FnExpr(null, $2, $3, $4); }
   ;
   
 fn_expr_noin
-  : T_FN ident pparams fn_expr_body_noin { $$ = @FnExpr($2, $3, $4); }
-  | T_FN       pparams fn_expr_body_noin { $$ = @FnExpr(null, $2, $3); }
+  : T_FN ident pparams hint_opt fn_expr_body_noin { $$ = @FnExpr($2, $3, $4, $5); }
+  | T_FN       pparams hint_opt fn_expr_body_noin { $$ = @FnExpr(null, $2, $3, $4); }
   ;
   
 fn_expr_body
@@ -667,7 +667,9 @@ params
   : param            { $$ = [ $1 ]; }
   | params ',' param { $1[] = $3; $$ = $1; }
   ;
-  
+
+/* old syntax */
+/*
 param
   : ident                            { $$ = @Param(false, null, null, $1, null, false); }
   | ident '?'                        { $$ = @Param(false, null, null, $1, null, true); }
@@ -693,16 +695,32 @@ param
   | mods hint '&' ident              { $$ = @Param(true, $1, $2, $4, null, false); }
   | mods hint '&' ident '?'          { $$ = @Param(true, $1, $2, $4, null, true); }
   ;
-  
+*/
+
+param
+  : mods ident hint_opt          { $$ = @Param(false, $1, $2, $3, null, false); }
+  | mods ident hint_opt '?'      { $$ = @Param(false, $1, $2, $3, null, true); }
+  | mods ident hint_opt '=' rxpr { $$ = @Param(false, $1, $2, $3, $5, false); }
+  | mods '&' ident hint_opt      { $$ = @Param(true, $1, $3, $4, null, false); }
+  | mods '&' ident hint_opt '?'  { $$ = @Param(true, $1, $3, $4, null, true); }
+  | ident hint_opt               { $$ = @Param(false, null, $1, $2, null, false); }
+  | ident hint_opt '?'           { $$ = @Param(false, null, $1, $2, null, true); }
+  | ident hint_opt '=' rxpr      { $$ = @Param(false, null, $1, $2, $4, false); }
+  | '&' ident hint_opt           { $$ = @Param(true, null, $2, $3, null, false); }
+  | '&' ident hint_opt '?'       { $$ = @Param(true, null, $2, $3, null, true); }
+  | T_REST ident hint_opt        { $$ = @RestParam($2, $3, false); }
+  | '&' T_REST ident hint_opt    { $$ = @RestParam($3, $4, true); }  
+  ;
+
 hint_opt
   : /* empty */ { $$ = null; }
   | hint        { $$ = $1; }
   ;
   
 hint
-  : type_name { $$ = $1; }
+  : ':' type_name { $$ = $2; }
   ;
-  
+
 stmt
   : block                                             { $$ = $1; }
   | T_DO stmt T_WHILE pxpr ';'                        { $$ = @DoStmt($2, $4); }
@@ -779,10 +797,10 @@ catches
   ;
   
 catch
-  : T_CATCH block                        { $$ = @CatchItem(null, null, $2); }
-  | T_CATCH '(' name ')' block           { $$ = @CatchItem($3, null, $5); }
-  | T_CATCH '(' name ':' ident ')' block { $$ = @CatchItem($3, $5, $7); }
-  | T_CATCH '(' error ')' block          { $$ = null; }
+  : T_CATCH block                         { $$ = @CatchItem(null, null, $2); }
+  | T_CATCH '(' name ')' block            { $$ = @CatchItem($3, null, $5); }
+  | T_CATCH '(' name T_AS ident ')' block { $$ = @CatchItem($3, $5, $7); }
+  | T_CATCH '(' error ')' block           { $$ = null; }
   ;
   
 finally

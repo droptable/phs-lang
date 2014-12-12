@@ -7,6 +7,7 @@ class FnDecl extends Decl
   public $mods;
   public $id;
   public $params;
+  public $hint;
   public $body;
     
   // @var Scope
@@ -15,11 +16,12 @@ class FnDecl extends Decl
   // @var boolean
   public $nested;
   
-  public function __construct($mods, $id, $params, $body)
+  public function __construct($mods, $id, $params, $hint, $body)
   {
     $this->mods = $mods;
     $this->id = $id;
     $this->params = $params;
+    $this->hint = $hint;
     $this->body = $body;
   }
 
