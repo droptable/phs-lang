@@ -8,7 +8,7 @@
    - 1x if-elsif resolved by shift
    - 1x elsif-elsif resolved by shift
    - 1x if-else resolved by shift
-   - 1x '<' in generic type-names resolved by shift
+   - 1x '<' in generic type-names in cast_expr resolved by shift
 */ 
 %expect 4
 
@@ -381,7 +381,7 @@ gen_defs_opt
   
 gen_defs
   : ident                { $$ = null; }
-  | ident T_IS type_name { $$ = $null; }
+  | ident T_IS type_name { $$ = null; }
   | gen_defs ',' ident   { $$ = null; }
   ;
   
@@ -613,18 +613,18 @@ var_decl_noin_nosemi
   ;
 
 fn_decl
-  : mods_opt T_FN rewrite_opt ident pparams hint_opt fn_decl_body 
+  : mods_opt T_FN rewrite_opt ident gen_defs_opt pparams hint_opt fn_decl_body 
     {
-      $$ = @FnDecl($1, $4, $5, $6, $7); 
+      $$ = @FnDecl($1, $4, $6, $7, $8); 
     }
-  | mods_opt T_FN rewrite_opt ident pparams hint_opt ';'
+  | mods_opt T_FN rewrite_opt ident gen_defs_opt pparams hint_opt ';'
     { 
-      $$ = @FnDecl($1, $4, $5, $6, null); 
+      $$ = @FnDecl($1, $4, $6, $7, null); 
       $this->eat_semis(); 
     }
-  | mods_opt T_FN rewrite_opt ident hint_opt ';'
+  | mods_opt T_FN rewrite_opt ident gen_defs_opt hint_opt ';'
     { 
-      $$ = @FnDecl($1, $4, $5, null, null); 
+      $$ = @FnDecl($1, $4, $6, null, null); 
       $this->eat_semis(); 
     }
   ;
@@ -931,152 +931,154 @@ rseq_noin
 /* excluded variants are `obj` and `fn_expr` due to ambiguity */
   
 lxpr
-  : lxpr '+' rxpr           { $$ = @BinExpr($1, $2, $3); }
-  | lxpr '-' rxpr           { $$ = @BinExpr($1, $2, $3); }
-  | lxpr '*' rxpr           { $$ = @BinExpr($1, $2, $3); }
-  | lxpr '/' rxpr           { $$ = @BinExpr($1, $2, $3); }
-  | lxpr '%' rxpr           { $$ = @BinExpr($1, $2, $3); }
-  | lxpr T_POW rxpr         { $$ = @BinExpr($1, $2, $3); }
-  | lxpr '~' rxpr %prec '+' { $$ = @BinExpr($1, $2, $3); }
-  | lxpr '&' rxpr           { $$ = @BinExpr($1, $2, $3); }
-  | lxpr '|' rxpr           { $$ = @BinExpr($1, $2, $3); }
-  | lxpr '^' rxpr           { $$ = @BinExpr($1, $2, $3); }
-  | lxpr '<' rxpr           { $$ = @BinExpr($1, $2, $3); }
-  | lxpr '>' rxpr           { $$ = @BinExpr($1, $2, $3); }
-  | lxpr T_GTE rxpr         { $$ = @BinExpr($1, $2, $3); }
-  | lxpr T_LTE rxpr         { $$ = @BinExpr($1, $2, $3); }
-  | lxpr T_BOOL_AND rxpr    { $$ = @BinExpr($1, $2, $3); }
-  | lxpr T_BOOL_OR rxpr     { $$ = @BinExpr($1, $2, $3); }
-  | lxpr T_BOOL_XOR rxpr    { $$ = @BinExpr($1, $2, $3); }
-  | lxpr T_RANGE rxpr       { $$ = @BinExpr($1, $2, $3); }
-  | lxpr T_SL rxpr          { $$ = @BinExpr($1, $2, $3); }
-  | lxpr T_SR rxpr          { $$ = @BinExpr($1, $2, $3); }
-  | lxpr T_EQ rxpr          { $$ = @BinExpr($1, $2, $3); }
-  | lxpr T_NEQ rxpr         { $$ = @BinExpr($1, $2, $3); } 
-  | lxpr T_IN rxpr          { $$ = @BinExpr($1, $2, $3); }
-  | lxpr T_NIN rxpr         { $$ = @BinExpr($1, $2, $3); }
-  | lxpr T_IS type_name     { $$ = @CheckExpr($1, $2, $3); }
-  | lxpr T_NIS type_name    { $$ = @CheckExpr($1, $2, $3); }
-  | lxpr T_AS type_name     { $$ = @CastExpr($1, $3); }
-  | lxpr T_INC %prec '.'    { $$ = @UpdateExpr(false, $1, $2); }
-  | lxpr T_DEC %prec '.'    { $$ = @UpdateExpr(false, $1, $2); }
-  | lxpr '=' rxpr           { $$ = @AssignExpr($1, $2, $3); }
-  | lxpr T_AREF nxpr        { $$ = @AssignExpr($1, $2, $3); }
-  | lxpr T_APLUS rxpr       { $$ = @AssignExpr($1, $2, $3); }
-  | lxpr T_AMINUS rxpr      { $$ = @AssignExpr($1, $2, $3); }
-  | lxpr T_AMUL rxpr        { $$ = @AssignExpr($1, $2, $3); }
-  | lxpr T_ADIV rxpr        { $$ = @AssignExpr($1, $2, $3); }
-  | lxpr T_AMOD rxpr        { $$ = @AssignExpr($1, $2, $3); }
-  | lxpr T_APOW rxpr        { $$ = @AssignExpr($1, $2, $3); }
-  | lxpr T_ACONCAT rxpr     { $$ = @AssignExpr($1, $2, $3); }
-  | lxpr T_ABIT_OR rxpr     { $$ = @AssignExpr($1, $2, $3); }
-  | lxpr T_ABIT_AND rxpr    { $$ = @AssignExpr($1, $2, $3); }
-  | lxpr T_ABIT_XOR rxpr    { $$ = @AssignExpr($1, $2, $3); }
-  | lxpr T_ABOOL_OR rxpr    { $$ = @AssignExpr($1, $2, $3); }
-  | lxpr T_ABOOL_AND rxpr   { $$ = @AssignExpr($1, $2, $3); }
-  | lxpr T_ABOOL_XOR rxpr   { $$ = @AssignExpr($1, $2, $3); }
-  | lxpr T_ASHIFT_L rxpr    { $$ = @AssignExpr($1, $2, $3); }
-  | lxpr T_ASHIFT_R rxpr    { $$ = @AssignExpr($1, $2, $3); }
-  | lxpr '.' aid            { $$ = @MemberExpr($1, $3); }
-  | lxpr '.' '{' rxpr '}'   { $$ = @MemberExpr($1, $4, true); }
-  | lxpr '[' rxpr ']'       { $$ = @OffsetExpr($1, $3); }
-  | lxpr '[' error ']'      { $$ = null; }
-  | lxpr '?' rxpr ':' rxpr  { $$ = @CondExpr($1, $3, $5); } 
-  | lxpr '?' ':' rxpr       { $$ = @CondExpr($1, null, $4); }
-  | lxpr pargs              { $$ = @CallExpr($1, $2); }
-  | T_YIELD rxpr            { $$ = @YieldExpr(null, $2); }
-  | T_YIELD rxpr ':' rxpr   { $$ = @YieldExpr($2, $4); }
-  | '-' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
-  | '+' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
-  | '~' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
-  | '&' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
-  | '!' rxpr                { $$ = @UnaryExpr($1, $2); }
-  | T_INC rxpr %prec '!'    { $$ = @UpdateExpr(true, $2, $1); }
-  | T_DEC rxpr %prec '!'    { $$ = @UpdateExpr(true, $2, $1); }
-  | T_NEW type_id           { $$ = @NewExpr($2, null); }
-  | T_NEW type_id pargs     { $$ = @NewExpr($2, $3); }
-  | T_NEW nxpr              { $$ = @NewExpr($2, null); }
-  | T_NEW nxpr pargs        { $$ = @NewExpr($2, $3); }
-  | T_NEW pargs             { $$ = null; }
-  | T_DEL nxpr              { $$ = @DelExpr($2); }
-  | atom                    { $$ = $1; }
+  : lxpr '+' rxpr             { $$ = @BinExpr($1, $2, $3); }
+  | lxpr '-' rxpr             { $$ = @BinExpr($1, $2, $3); }
+  | lxpr '*' rxpr             { $$ = @BinExpr($1, $2, $3); }
+  | lxpr '/' rxpr             { $$ = @BinExpr($1, $2, $3); }
+  | lxpr '%' rxpr             { $$ = @BinExpr($1, $2, $3); }
+  | lxpr T_POW rxpr           { $$ = @BinExpr($1, $2, $3); }
+  | lxpr '~' rxpr %prec '+'   { $$ = @BinExpr($1, $2, $3); }
+  | lxpr '&' rxpr             { $$ = @BinExpr($1, $2, $3); }
+  | lxpr '|' rxpr             { $$ = @BinExpr($1, $2, $3); }
+  | lxpr '^' rxpr             { $$ = @BinExpr($1, $2, $3); }
+  | lxpr '<' rxpr             { $$ = @BinExpr($1, $2, $3); }
+  | lxpr '>' rxpr             { $$ = @BinExpr($1, $2, $3); }
+  | lxpr T_GTE rxpr           { $$ = @BinExpr($1, $2, $3); }
+  | lxpr T_LTE rxpr           { $$ = @BinExpr($1, $2, $3); }
+  | lxpr T_BOOL_AND rxpr      { $$ = @BinExpr($1, $2, $3); }
+  | lxpr T_BOOL_OR rxpr       { $$ = @BinExpr($1, $2, $3); }
+  | lxpr T_BOOL_XOR rxpr      { $$ = @BinExpr($1, $2, $3); }
+  | lxpr T_RANGE rxpr         { $$ = @BinExpr($1, $2, $3); }
+  | lxpr T_SL rxpr            { $$ = @BinExpr($1, $2, $3); }
+  | lxpr T_SR rxpr            { $$ = @BinExpr($1, $2, $3); }
+  | lxpr T_EQ rxpr            { $$ = @BinExpr($1, $2, $3); }
+  | lxpr T_NEQ rxpr           { $$ = @BinExpr($1, $2, $3); } 
+  | lxpr T_IN rxpr            { $$ = @BinExpr($1, $2, $3); }
+  | lxpr T_NIN rxpr           { $$ = @BinExpr($1, $2, $3); }
+  | lxpr T_IS type_name       { $$ = @CheckExpr($1, $2, $3); }
+  | lxpr T_NIS type_name      { $$ = @CheckExpr($1, $2, $3); }
+  | lxpr T_AS type_name       { $$ = @CastExpr($1, $3); }
+  | lxpr T_INC %prec '.'      { $$ = @UpdateExpr(false, $1, $2); }
+  | lxpr T_DEC %prec '.'      { $$ = @UpdateExpr(false, $1, $2); }
+  | lxpr '=' rxpr             { $$ = @AssignExpr($1, $2, $3); }
+  | lxpr T_AREF nxpr          { $$ = @AssignExpr($1, $2, $3); }
+  | lxpr T_APLUS rxpr         { $$ = @AssignExpr($1, $2, $3); }
+  | lxpr T_AMINUS rxpr        { $$ = @AssignExpr($1, $2, $3); }
+  | lxpr T_AMUL rxpr          { $$ = @AssignExpr($1, $2, $3); }
+  | lxpr T_ADIV rxpr          { $$ = @AssignExpr($1, $2, $3); }
+  | lxpr T_AMOD rxpr          { $$ = @AssignExpr($1, $2, $3); }
+  | lxpr T_APOW rxpr          { $$ = @AssignExpr($1, $2, $3); }
+  | lxpr T_ACONCAT rxpr       { $$ = @AssignExpr($1, $2, $3); }
+  | lxpr T_ABIT_OR rxpr       { $$ = @AssignExpr($1, $2, $3); }
+  | lxpr T_ABIT_AND rxpr      { $$ = @AssignExpr($1, $2, $3); }
+  | lxpr T_ABIT_XOR rxpr      { $$ = @AssignExpr($1, $2, $3); }
+  | lxpr T_ABOOL_OR rxpr      { $$ = @AssignExpr($1, $2, $3); }
+  | lxpr T_ABOOL_AND rxpr     { $$ = @AssignExpr($1, $2, $3); }
+  | lxpr T_ABOOL_XOR rxpr     { $$ = @AssignExpr($1, $2, $3); }
+  | lxpr T_ASHIFT_L rxpr      { $$ = @AssignExpr($1, $2, $3); }
+  | lxpr T_ASHIFT_R rxpr      { $$ = @AssignExpr($1, $2, $3); }
+  | lxpr '.' aid              { $$ = @MemberExpr($1, $3); }
+  | lxpr '.' '{' rxpr '}'     { $$ = @MemberExpr($1, $4, true); }
+  | lxpr '[' rxpr ']'         { $$ = @OffsetExpr($1, $3); }
+  | lxpr '[' error ']'        { $$ = null; }
+  | lxpr '?' rxpr ':' rxpr    { $$ = @CondExpr($1, $3, $5); } 
+  | lxpr '?' ':' rxpr         { $$ = @CondExpr($1, null, $4); }
+  | lxpr pargs                { $$ = @CallExpr($1, $2); }
+  | T_YIELD rxpr              { $$ = @YieldExpr(null, $2); }
+  | T_YIELD rxpr ':' rxpr     { $$ = @YieldExpr($2, $4); }
+  | '-' rxpr %prec '!'        { $$ = @UnaryExpr($1, $2); }
+  | '+' rxpr %prec '!'        { $$ = @UnaryExpr($1, $2); }
+  | '~' rxpr %prec '!'        { $$ = @UnaryExpr($1, $2); }
+  | '&' rxpr %prec '!'        { $$ = @UnaryExpr($1, $2); }
+  | '!' rxpr                  { $$ = @UnaryExpr($1, $2); }
+  | T_INC rxpr %prec '!'      { $$ = @UpdateExpr(true, $2, $1); }
+  | T_DEC rxpr %prec '!'      { $$ = @UpdateExpr(true, $2, $1); }
+  | T_NEW type_id             { $$ = @NewExpr($2, null); }
+  | T_NEW type_id pargs       { $$ = @NewExpr($2, $3); }
+  | T_NEW nxpr                { $$ = @NewExpr($2, null); }
+  | T_NEW nxpr pargs          { $$ = @NewExpr($2, $3); }              
+  | T_NEW pargs               { $$ = null; }
+  | T_NEW                     { $$ = null; }
+  | T_DEL nxpr                { $$ = @DelExpr($2); }
+  | atom                      { $$ = $1; }
   ;
 
 /* right expression */
 /* this kind of expression covers all valid operations */
 
 rxpr
-  : rxpr '+' rxpr           { $$ = @BinExpr($1, $2, $3); }
-  | rxpr '-' rxpr           { $$ = @BinExpr($1, $2, $3); }
-  | rxpr '*' rxpr           { $$ = @BinExpr($1, $2, $3); }
-  | rxpr '/' rxpr           { $$ = @BinExpr($1, $2, $3); }
-  | rxpr '%' rxpr           { $$ = @BinExpr($1, $2, $3); }
-  | rxpr T_POW rxpr         { $$ = @BinExpr($1, $2, $3); }
-  | rxpr '~' rxpr %prec '+' { $$ = @BinExpr($1, $2, $3); }
-  | rxpr '&' rxpr           { $$ = @BinExpr($1, $2, $3); }
-  | rxpr '|' rxpr           { $$ = @BinExpr($1, $2, $3); }
-  | rxpr '^' rxpr           { $$ = @BinExpr($1, $2, $3); }
-  | rxpr '>' rxpr           { $$ = @BinExpr($1, $2, $3); }
-  | rxpr '<' rxpr           { $$ = @BinExpr($1, $2, $3); }
-  | rxpr T_GTE rxpr         { $$ = @BinExpr($1, $2, $3); }
-  | rxpr T_LTE rxpr         { $$ = @BinExpr($1, $2, $3); }
-  | rxpr T_BOOL_AND rxpr    { $$ = @BinExpr($1, $2, $3); }
-  | rxpr T_BOOL_OR rxpr     { $$ = @BinExpr($1, $2, $3); }
-  | rxpr T_BOOL_XOR rxpr    { $$ = @BinExpr($1, $2, $3); }
-  | rxpr T_RANGE rxpr       { $$ = @BinExpr($1, $2, $3); }
-  | rxpr T_SL rxpr          { $$ = @BinExpr($1, $2, $3); }
-  | rxpr T_SR rxpr          { $$ = @BinExpr($1, $2, $3); }
-  | rxpr T_EQ rxpr          { $$ = @BinExpr($1, $2, $3); }
-  | rxpr T_NEQ rxpr         { $$ = @BinExpr($1, $2, $3); } 
-  | rxpr T_IN rxpr          { $$ = @BinExpr($1, $2, $3); }
-  | rxpr T_NIN rxpr         { $$ = @BinExpr($1, $2, $3); }
-  | rxpr T_IS type_name     { $$ = @CheckExpr($1, $2, $3); }
-  | rxpr T_NIS type_name    { $$ = @CheckExpr($1, $2, $3); }
-  | rxpr T_AS type_name     { $$ = @CastExpr($1, $3); }
-  | rxpr T_INC %prec '.'    { $$ = @UpdateExpr(false, $1, $2); }
-  | rxpr T_DEC %prec '.'    { $$ = @UpdateExpr(false, $1, $2); }
-  | rxpr '=' rxpr           { $$ = @AssignExpr($1, $2, $3); }
-  | rxpr T_AREF nxpr        { $$ = @AssignExpr($1, $2, $3); }
-  | rxpr T_APLUS rxpr       { $$ = @AssignExpr($1, $2, $3); }
-  | rxpr T_AMINUS rxpr      { $$ = @AssignExpr($1, $2, $3); }
-  | rxpr T_AMUL rxpr        { $$ = @AssignExpr($1, $2, $3); }
-  | rxpr T_ADIV rxpr        { $$ = @AssignExpr($1, $2, $3); }
-  | rxpr T_AMOD rxpr        { $$ = @AssignExpr($1, $2, $3); }
-  | rxpr T_APOW rxpr        { $$ = @AssignExpr($1, $2, $3); }
-  | rxpr T_ACONCAT rxpr     { $$ = @AssignExpr($1, $2, $3); }
-  | rxpr T_ABIT_OR rxpr     { $$ = @AssignExpr($1, $2, $3); }
-  | rxpr T_ABIT_AND rxpr    { $$ = @AssignExpr($1, $2, $3); }
-  | rxpr T_ABIT_XOR rxpr    { $$ = @AssignExpr($1, $2, $3); }
-  | rxpr T_ABOOL_OR rxpr    { $$ = @AssignExpr($1, $2, $3); }
-  | rxpr T_ABOOL_AND rxpr   { $$ = @AssignExpr($1, $2, $3); }
-  | rxpr T_ABOOL_XOR rxpr   { $$ = @AssignExpr($1, $2, $3); }
-  | rxpr T_ASHIFT_L rxpr    { $$ = @AssignExpr($1, $2, $3); }
-  | rxpr T_ASHIFT_R rxpr    { $$ = @AssignExpr($1, $2, $3); }
-  | rxpr '.' aid            { $$ = @MemberExpr($1, $3); }
-  | rxpr '.' '{' rxpr '}'   { $$ = @MemberExpr($1, $4, true); }
-  | rxpr '[' rxpr ']'       { $$ = @OffsetExpr($1, $3); }
-  | rxpr '[' error ']'      { $$ = null; }
-  | rxpr '?' rxpr ':' rxpr  { $$ = @CondExpr($1, $3, $5); } 
-  | rxpr '?' ':' rxpr       { $$ = @CondExpr($1, null, $4); }
-  | rxpr pargs              { $$ = @CallExpr($1, $2); }
-  | T_YIELD rxpr            { $$ = @YieldExpr(null, $2); }
-  | T_YIELD rxpr ':' rxpr   { $$ = @YieldExpr($2, $4); }
-  | '-' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
-  | '+' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
-  | '~' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
-  | '&' rxpr %prec '!'      { $$ = @UnaryExpr($1, $2); }
-  | '!' rxpr                { $$ = @UnaryExpr($1, $2); }
-  | T_INC rxpr %prec '!'    { $$ = @UpdateExpr(true, $2, $1); }
-  | T_DEC rxpr %prec '!'    { $$ = @UpdateExpr(true, $2, $1); }
-  | T_NEW type_id           { $$ = @NewExpr($2, null); }
-  | T_NEW type_id pargs     { $$ = @NewExpr($2, $3); }
-  | T_NEW nxpr              { $$ = @NewExpr($2, null); }
-  | T_NEW nxpr pargs        { $$ = @NewExpr($2, $3); }
-  | T_NEW pargs             { $$ = null; }
-  | T_DEL nxpr              { $$ = @DelExpr($2); }
-  | atom                    { $$ = $1; }
-  | obj                     { $$ = $1; }
-  | fn_expr                 { $$ = $1; }
+  : rxpr '+' rxpr             { $$ = @BinExpr($1, $2, $3); }
+  | rxpr '-' rxpr             { $$ = @BinExpr($1, $2, $3); }
+  | rxpr '*' rxpr             { $$ = @BinExpr($1, $2, $3); }
+  | rxpr '/' rxpr             { $$ = @BinExpr($1, $2, $3); }
+  | rxpr '%' rxpr             { $$ = @BinExpr($1, $2, $3); }
+  | rxpr T_POW rxpr           { $$ = @BinExpr($1, $2, $3); }
+  | rxpr '~' rxpr %prec '+'   { $$ = @BinExpr($1, $2, $3); }
+  | rxpr '&' rxpr             { $$ = @BinExpr($1, $2, $3); }
+  | rxpr '|' rxpr             { $$ = @BinExpr($1, $2, $3); }
+  | rxpr '^' rxpr             { $$ = @BinExpr($1, $2, $3); }
+  | rxpr '>' rxpr             { $$ = @BinExpr($1, $2, $3); }
+  | rxpr '<' rxpr             { $$ = @BinExpr($1, $2, $3); }
+  | rxpr T_GTE rxpr           { $$ = @BinExpr($1, $2, $3); }
+  | rxpr T_LTE rxpr           { $$ = @BinExpr($1, $2, $3); }
+  | rxpr T_BOOL_AND rxpr      { $$ = @BinExpr($1, $2, $3); }
+  | rxpr T_BOOL_OR rxpr       { $$ = @BinExpr($1, $2, $3); }
+  | rxpr T_BOOL_XOR rxpr      { $$ = @BinExpr($1, $2, $3); }
+  | rxpr T_RANGE rxpr         { $$ = @BinExpr($1, $2, $3); }
+  | rxpr T_SL rxpr            { $$ = @BinExpr($1, $2, $3); }
+  | rxpr T_SR rxpr            { $$ = @BinExpr($1, $2, $3); }
+  | rxpr T_EQ rxpr            { $$ = @BinExpr($1, $2, $3); }
+  | rxpr T_NEQ rxpr           { $$ = @BinExpr($1, $2, $3); } 
+  | rxpr T_IN rxpr            { $$ = @BinExpr($1, $2, $3); }
+  | rxpr T_NIN rxpr           { $$ = @BinExpr($1, $2, $3); }
+  | rxpr T_IS type_name       { $$ = @CheckExpr($1, $2, $3); }
+  | rxpr T_NIS type_name      { $$ = @CheckExpr($1, $2, $3); }
+  | rxpr T_AS type_name       { $$ = @CastExpr($1, $3); }
+  | rxpr T_INC %prec '.'      { $$ = @UpdateExpr(false, $1, $2); }
+  | rxpr T_DEC %prec '.'      { $$ = @UpdateExpr(false, $1, $2); }
+  | rxpr '=' rxpr             { $$ = @AssignExpr($1, $2, $3); }
+  | rxpr T_AREF nxpr          { $$ = @AssignExpr($1, $2, $3); }
+  | rxpr T_APLUS rxpr         { $$ = @AssignExpr($1, $2, $3); }
+  | rxpr T_AMINUS rxpr        { $$ = @AssignExpr($1, $2, $3); }
+  | rxpr T_AMUL rxpr          { $$ = @AssignExpr($1, $2, $3); }
+  | rxpr T_ADIV rxpr          { $$ = @AssignExpr($1, $2, $3); }
+  | rxpr T_AMOD rxpr          { $$ = @AssignExpr($1, $2, $3); }
+  | rxpr T_APOW rxpr          { $$ = @AssignExpr($1, $2, $3); }
+  | rxpr T_ACONCAT rxpr       { $$ = @AssignExpr($1, $2, $3); }
+  | rxpr T_ABIT_OR rxpr       { $$ = @AssignExpr($1, $2, $3); }
+  | rxpr T_ABIT_AND rxpr      { $$ = @AssignExpr($1, $2, $3); }
+  | rxpr T_ABIT_XOR rxpr      { $$ = @AssignExpr($1, $2, $3); }
+  | rxpr T_ABOOL_OR rxpr      { $$ = @AssignExpr($1, $2, $3); }
+  | rxpr T_ABOOL_AND rxpr     { $$ = @AssignExpr($1, $2, $3); }
+  | rxpr T_ABOOL_XOR rxpr     { $$ = @AssignExpr($1, $2, $3); }
+  | rxpr T_ASHIFT_L rxpr      { $$ = @AssignExpr($1, $2, $3); }
+  | rxpr T_ASHIFT_R rxpr      { $$ = @AssignExpr($1, $2, $3); }
+  | rxpr '.' aid              { $$ = @MemberExpr($1, $3); }
+  | rxpr '.' '{' rxpr '}'     { $$ = @MemberExpr($1, $4, true); }
+  | rxpr '[' rxpr ']'         { $$ = @OffsetExpr($1, $3); }
+  | rxpr '[' error ']'        { $$ = null; }
+  | rxpr '?' rxpr ':' rxpr    { $$ = @CondExpr($1, $3, $5); } 
+  | rxpr '?' ':' rxpr         { $$ = @CondExpr($1, null, $4); }
+  | rxpr pargs                { $$ = @CallExpr($1, $2); }
+  | T_YIELD rxpr              { $$ = @YieldExpr(null, $2); }
+  | T_YIELD rxpr ':' rxpr     { $$ = @YieldExpr($2, $4); }
+  | '-' rxpr %prec '!'        { $$ = @UnaryExpr($1, $2); }
+  | '+' rxpr %prec '!'        { $$ = @UnaryExpr($1, $2); }
+  | '~' rxpr %prec '!'        { $$ = @UnaryExpr($1, $2); }
+  | '&' rxpr %prec '!'        { $$ = @UnaryExpr($1, $2); }
+  | '!' rxpr                  { $$ = @UnaryExpr($1, $2); }
+  | T_INC rxpr %prec '!'      { $$ = @UpdateExpr(true, $2, $1); }
+  | T_DEC rxpr %prec '!'      { $$ = @UpdateExpr(true, $2, $1); }
+  | T_NEW type_id             { $$ = @NewExpr($2, null); }
+  | T_NEW type_id pargs       { $$ = @NewExpr($2, $3); }
+  | T_NEW nxpr                { $$ = @NewExpr($2, null); }
+  | T_NEW nxpr pargs          { $$ = @NewExpr($2, $3); }  
+  | T_NEW pargs               { $$ = null; }
+  | T_NEW                     { $$ = null; }
+  | T_DEL nxpr                { $$ = @DelExpr($2); }
+  | atom                      { $$ = $1; }
+  | obj                       { $$ = $1; }
+  | fn_expr                   { $$ = $1; }
   ;
   
 /* right-expression without the in-operator */
@@ -1147,13 +1149,14 @@ rxpr_noin
   | T_NEW type_id pargs               { $$ = @NewExpr($2, $3); }
   | T_NEW nxpr                        { $$ = @NewExpr($2, null); }
   | T_NEW nxpr pargs                  { $$ = @NewExpr($2, $3); }
-  | T_NEW pargs             { $$ = null; }
+  | T_NEW pargs                       { $$ = null; }
+  | T_NEW                             { $$ = null; }
   | T_DEL nxpr                        { $$ = @DelExpr($2); }
   | atom                              { $$ = $1; }
   | obj                               { $$ = $1; }
   | fn_expr_noin                      { $$ = $1; }
-  ;
- 
+  ; 
+
 nxpr
   : nxpr '.' ident        { $$ = @MemberExpr($1, $3); }
   | nxpr '.' '{' rxpr '}' { $$ = @MemberExpr($1, $4, true); }
@@ -1216,6 +1219,7 @@ name
   | T_SELF T_DDDOT aid    { $$ = @Name($3, false, $1->type); }
   | T_DDDOT aid           { $$ = @Name($2, true); }
   | name T_DDDOT aid      { $1->add($3); $$ = $1; }
+  | name T_DDDOT gen_args { $$ = null; }
   ;
 
 type_name
