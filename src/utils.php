@@ -194,8 +194,7 @@ function type_to_str($type) {
     T_TBOOL => 'bool',
     T_TSTR => 'str',
     T_TDEC => 'dec',
-    T_TOBJ => 'obj',
-    T_TCALLABLE => 'callable',
+    T_TANY => 'any',
     T_SELF => 'self',
   ];
     

@@ -8,8 +8,9 @@
    - 1x if-elsif resolved by shift
    - 1x elsif-elsif resolved by shift
    - 1x if-else resolved by shift
+   - 1x '<' in generic type-names resolved by shift
 */ 
-%expect 3
+%expect 4
 
 %left ','
 %right T_ARR
@@ -48,6 +49,7 @@
 %token T_LET
 %token T_USE
 %token T_ENUM
+%token T_TYPE
 %token T_CLASS
 %token T_TRAIT
 %token T_IFACE
@@ -123,9 +125,7 @@
 %token T_TSTR   /* str */
 %token T_TTUP   /* tup */
 %token T_TDEC   /* dec */
-%token T_TOBJ   /* obj */
 %token T_TANY   /* any */
-%token T_TCALLABLE /* callable */
 
 /* parse-time constants */
 %token T_CDIR
@@ -175,11 +175,6 @@ module
       $$ = @Module($2, null, $4); 
       $this->eat_semis();
     }
-  | T_MODULE T_FOR type_kw ';' content
-    {
-      $$ = @Module(null, $3->type, $5);
-      $this->eat_semis();
-    }
   ;
  
 content
@@ -196,6 +191,7 @@ topex
   //| attrs ';'      { $$ = $1; }
   | use_decl       { $$ = $1; }
   | enum_decl      { $$ = $1; }
+  | type_decl      { $$ = $1; }
   | class_decl     { $$ = $1; }
   | trait_decl     { $$ = $1; }
   | iface_decl     { $$ = $1; }
@@ -277,16 +273,6 @@ module_nst
     { 
       $$ = @Module(null, null, $3); 
       $this->eat_semis(); 
-    }
-  | T_MODULE T_FOR type_kw '{' '}'
-    {
-      $$ = @Module(null, $3->type, null);
-      $this->eat_semis();
-    }
-  | T_MODULE T_FOR type_kw '{' content '}'
-    {
-      $$ = @Module(null, $3->type, $5);
-      $this->eat_semis();
     }
   ;
 
@@ -370,28 +356,33 @@ enum_var
   : ident          { $$ = @EnumVar($1, null); }
   | ident '=' rxpr { $$ = @EnumVar($1, $3); }
   ;
+  
+type_decl
+  : mods_opt T_TYPE type_name ident ';' { $$ = null; }
+  ;
    
 class_decl
-  : mods_opt T_CLASS ident genc_opt ext_opt impl_opt '{' trait_uses_opt members_opt '}'
+  : mods_opt T_CLASS ident gen_defs_opt ext_opt impl_opt '{' trait_uses_opt members_opt '}'
     { 
       $$ = @ClassDecl($1, $3, $4, $5, $6, $8, $9); 
       $this->eat_semis(); 
     }
-  | mods_opt T_CLASS ident genc_opt ext_opt impl_opt ';'               
+  | mods_opt T_CLASS ident gen_defs_opt ext_opt impl_opt ';'               
     { 
       $$ = @ClassDecl($1, $3, $4, $5, $6, null, null, true); 
       $this->eat_semis(); 
     }
   ;
   
-genc_opt
-  : /* empty */  { $$ = null; }
-  | '<' genc '>' { $$ = null; }
+gen_defs_opt
+  : /* empty */      { $$ = null; }
+  | '<' gen_defs '>' { $$ = null; }
   ;
   
-genc
-  : ident          { $$ = null; }
-  | genc ',' ident { $$ = null; }
+gen_defs
+  : ident                { $$ = null; }
+  | ident T_IS type_name { $$ = $null; }
+  | gen_defs ',' ident   { $$ = null; }
   ;
   
 ext_opt
@@ -546,12 +537,12 @@ trait_decl
   ;
 
 iface_decl
-  : mods_opt T_IFACE ident genc_opt exts_opt '{' members_opt '}' 
+  : mods_opt T_IFACE ident gen_defs_opt exts_opt '{' members_opt '}' 
     { 
       $$ = @IfaceDecl($1, $3, $4, $5, $7); 
       $this->eat_semis(); 
     }
-  | mods_opt T_IFACE ident genc_opt exts_opt ';' /* allowed? */                
+  | mods_opt T_IFACE ident gen_defs_opt exts_opt ';' /* allowed? */                
     { 
       $$ = @IfaceDecl($1, $3, $4, $5, null, true); 
       $this->eat_semis(); 
@@ -737,9 +728,8 @@ hint_types
   ;
   
 hint_type
-  : type_name                   { $$ = $1; }
-  | name '<' hint_types '>'     { $$ = null; }
-  | T_FN  hint_pparams hint_opt { $$ = null; }
+  : type_name                  { $$ = $1; }
+  | T_FN hint_pparams hint_opt { $$ = null; }
   ;
 
 hint_pparams
@@ -1007,6 +997,7 @@ lxpr
   | T_NEW type_id pargs     { $$ = @NewExpr($2, $3); }
   | T_NEW nxpr              { $$ = @NewExpr($2, null); }
   | T_NEW nxpr pargs        { $$ = @NewExpr($2, $3); }
+  | T_NEW pargs             { $$ = null; }
   | T_DEL nxpr              { $$ = @DelExpr($2); }
   | atom                    { $$ = $1; }
   ;
@@ -1081,6 +1072,7 @@ rxpr
   | T_NEW type_id pargs     { $$ = @NewExpr($2, $3); }
   | T_NEW nxpr              { $$ = @NewExpr($2, null); }
   | T_NEW nxpr pargs        { $$ = @NewExpr($2, $3); }
+  | T_NEW pargs             { $$ = null; }
   | T_DEL nxpr              { $$ = @DelExpr($2); }
   | atom                    { $$ = $1; }
   | obj                     { $$ = $1; }
@@ -1155,6 +1147,7 @@ rxpr_noin
   | T_NEW type_id pargs               { $$ = @NewExpr($2, $3); }
   | T_NEW nxpr                        { $$ = @NewExpr($2, null); }
   | T_NEW nxpr pargs                  { $$ = @NewExpr($2, $3); }
+  | T_NEW pargs             { $$ = null; }
   | T_DEL nxpr                        { $$ = @DelExpr($2); }
   | atom                              { $$ = $1; }
   | obj                               { $$ = $1; }
@@ -1219,33 +1212,38 @@ reg
   ;
   
 name
-  : ident               { $$ = @Name($1, false); }
-  | type_kw T_DDDOT aid { $$ = @Name($3, false, $1->type); }
-  | T_SELF T_DDDOT aid  { $$ = @Name($3, false, $1->type); }
-  | T_DDDOT aid         { $$ = @Name($2, true); }
-  | name T_DDDOT aid    { $1->add($3); $$ = $1; }
+  : ident                 { $$ = @Name($1, false); }
+  | T_SELF T_DDDOT aid    { $$ = @Name($3, false, $1->type); }
+  | T_DDDOT aid           { $$ = @Name($2, true); }
+  | name T_DDDOT aid      { $1->add($3); $$ = $1; }
   ;
 
 type_name
-  : name    { $$ = $1; }
-  | type_id { $$ = $1; }
+  : name          { $$ = $1; }
+  | name gen_args { $$ = null; }
+  | type_id       { $$ = $1; }
   ;
 
 type_id
-  : type_kw  { $$ = @TypeId($1->type); }
-  | T_SELF   { $$ = @SelfExpr; }
+  : T_SELF   { $$ = @SelfExpr; }
+  | T_TINT   { $$ = @TypeId($1->type); }
+  | T_TBOOL  { $$ = @TypeId($1->type); }
+  | T_TFLOAT { $$ = @TypeId($1->type); }
+  | T_TSTR   { $$ = @TypeId($1->type); }
+  | T_TDEC   { $$ = @TypeId($1->type); }
+  | T_TANY   { $$ = @TypeId($1->type); }
   ;
-
-type_kw
-  : T_TINT      { $$ = $1; }
-  | T_TBOOL     { $$ = $1; }
-  | T_TFLOAT    { $$ = $1; }
-  | T_TSTR      { $$ = $1; }
-  | T_TTUP      { $$ = $1; }
-  | T_TDEC      { $$ = $1; }
-  | T_TOBJ      { $$ = $1; }
-  | T_TANY      { $$ = $1; }
-  | T_TCALLABLE { $$ = $1; }
+    
+gen_args
+  : '<' hint_types '>'  { $$ = null; }
+  | '<' hint_types T_SR
+    { 
+      $tok = new Token(T_GT, '>');
+      $tok->loc = $3->loc;
+      $tok->loc->pos->coln += 1;
+      $this->lex->push($tok);
+      $$ = null;
+    }
   ;
 
 ident
@@ -1399,7 +1397,6 @@ rid
   | T_TSTR      { $$ = $1; }
   | T_TTUP      { $$ = $1; }
   | T_TDEC      { $$ = $1; }
-  | T_TOBJ      { $$ = $1; }
   | T_CDIR      { $$ = $1; }
   | T_CFILE     { $$ = $1; }
   | T_CLINE     { $$ = $1; }

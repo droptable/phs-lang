@@ -78,6 +78,9 @@ class Lexer
   // track new-lines "\n"
   private $tnl = false;
   
+  // next '<' is part of a type-name
+  private $genc = false;
+  
   // end-of-file reached?
   private $end = false, $eof = false, $eof_token;
   
@@ -162,6 +165,11 @@ class Lexer
     else
       $tok = $this->scan();
     
+    if ($tok->type === T_LT && $this->genc)
+      $tok->type = T_GENC;
+    
+    $this->genc = false;
+    
     return $tok;
   }
   
@@ -206,6 +214,15 @@ class Lexer
       array_shift($this->queue);
     else
       $this->scan();
+  }
+  
+  /**
+   * next token can be a T_GENC (generic '<')
+   *
+   */
+  public function genc()
+  {
+    $this->genc = true;
   }
   
   /**
@@ -891,6 +908,7 @@ class Lexer
     'let' => T_LET,
     'use' => T_USE,
     'enum' => T_ENUM,
+    'type' => T_TYPE,
     'class' => T_CLASS,
     'trait' => T_TRAIT,
     'iface' => T_IFACE,
@@ -965,9 +983,6 @@ class Lexer
     'bool' => T_TBOOL,
     'str' => T_TSTR,
     'dec' => T_TDEC, /* int or float */  
-    'obj' => T_TOBJ,
-    'any' => T_TANY,
-    'callable' => T_TCALLABLE,
     
     // hardcoded "special" constants
     '__dir__'  => T_CDIR,

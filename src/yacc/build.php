@@ -77,7 +77,9 @@ function deploy($O, $ctx) {
   if (is_file($P)) unlink($P);
   
   $t = !empty ($ctx->opts['--debug']) ? '-t' : '';
-  $y = `kmyacc -v -m "parser.sk" $t -p "Parser" -l -L php "$O" 2>&1`;
+  $c = "kmyacc -v -m \"parser.sk\" $t -p \"Parser\" -l -L php \"$O\" 2>&1";
+  verbose($ctx, "$> " . $c);
+  $y = `$c`;
   
   if (!empty($y)) {
     print "\nkmyacc returned with error(s):\n";
