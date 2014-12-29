@@ -2,19 +2,40 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class IfStmt extends Stmt
 {
+  // @var Expr  condition
   public $test;
-  public $stmt;
-  public $elsifs;
-  public $els;
   
-  public function __construct($test, $stmt, $elsifs, $els)
+  // @var Stmt  inner statements
+  public $stmt;
+  
+  // @var array<ElifItem>
+  public $elifs;
+  
+  // @var ElseItem
+  public $altn;
+  
+  /**
+   * constructor
+   *
+   * @param Location      $loc
+   * @param Expr          $test
+   * @param Stmt          $stmt
+   * @param array|null    $elifs
+   * @param ElseItem|null $altn
+   */
+  public function __construct(Location $loc, Expr $test, Stmt $stmt, 
+                              array $elifs = null, ElseItem $altn = null)
   {
+    parent::__construct($loc);
+    
     $this->test = $test;
     $this->stmt = $stmt;
-    $this->elsifs = $elsifs;
-    $this->els = $els;
+    $this->elifs = $elifs;
+    $this->altn = $altn;
   }
 
   public function __clone()

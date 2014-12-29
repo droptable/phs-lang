@@ -9,6 +9,8 @@ class EnumDecl extends Decl
   
   public function __construct($mods, $vars)
   {
+    throw new \Exception('TODO: implement enums');
+    
     $this->mods = $mods;
     $this->vars = $vars;
   }

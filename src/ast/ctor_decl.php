@@ -2,14 +2,32 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class CtorDecl extends Decl
 {
+  // @var array<Token>  modifiers
   public $mods;
+  
+  // @var array<ParamDecl>  parameters
   public $params;
+  
+  // @var Block  inner statements
   public $body;
   
-  public function __construct($mods, $params, $body)
+  /**
+   * constructor
+   *
+   * @param Location   $loc
+   * @param array      $mods
+   * @param array      $params
+   * @param Block|null $body
+   */
+  public function __construct(Location $loc, array $mods, 
+                              array $params, Block $body = null)
   {
+    parent::__construct($loc);
+    
     $this->mods = $mods;
     $this->params = $params;
     $this->body = $body;

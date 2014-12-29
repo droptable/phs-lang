@@ -2,13 +2,27 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class CaseItem extends Node
 {
+  // @var array<CaseLabel>  labels
   public $labels;
+  
+  // @var array<Stmt>  inner statements
   public $body;
   
-  public function __construct($labels, $body)
+  /**
+   * constructor
+   *
+   * @param Location $loc
+   * @param array    $labels
+   * @param array    $body
+   */
+  public function __construct(Location $loc, array $labels, array $body)
   {
+    parent::__construct($loc);
+    
     $this->labels = $labels;
     $this->body = $body;
   }

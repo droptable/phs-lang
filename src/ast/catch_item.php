@@ -2,15 +2,32 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class CatchItem extends Node
 {
-  public $name;
+  // @var TypeName
+  public $type;
+  
+  // @var Ident
   public $id;
+  
+  // @var Block
   public $body;
   
-  public function __construct($name, $id, $body)
+  /**
+   * constructor
+   *
+   * @param Location $loc
+   * @param TypeName $name
+   * @param Ident    $id
+   * @param Block    $body
+   */
+  public function __construct(Location $loc, TypeName $type, Ident $id, Block $body)
   {
-    $this->name = $name;
+    parent::__construct($loc);
+    
+    $this->type = $type;
     $this->id = $id;
     $this->body = $body;
   }

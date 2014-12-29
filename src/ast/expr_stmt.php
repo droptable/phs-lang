@@ -2,23 +2,33 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class ExprStmt extends Stmt
 {
-  public $expr;
+  // @var array<Expr>
+  public $seq;
   
-  public function __construct($expr)
+  /**
+   * constructor
+   *
+   * @param Location $loc
+   * @param array    $seq
+   */
+  public function __construct(Location $loc, array $seq)
   {
-    $this->expr = $expr;
+    parent::__construct($loc);
+    $this->seq = $seq;
   }
 
   public function __clone()
   {
-    if ($this->expr) {
-      $expr = $this->expr;
-      $this->expr = []; // it's a sequence
+    if ($this->seq) {
+      $seq = $this->seq;
+      $this->seq = [];
       
-      foreach ($expr as $node)
-        $this->expr[] = clone $node;
+      foreach ($seq as $expr)
+        $this->seq[] = clone $expr;
     }
     
     parent::__clone();

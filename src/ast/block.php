@@ -2,18 +2,26 @@
 
 namespace phs\ast;
 
+use phs\Scope;
+use phs\Location;
+
 class Block extends Stmt
 {
+  // @var array  inner statements
   public $body;
   
-  // not bound to a function
-  public $solitary = true;
-  
-  // gets filled-in by the analyzer
+  // @var Scope  block-scope
   public $scope;
   
-  public function __construct($body)
+  /**
+   * constructor
+   *
+   * @param Location $loc
+   * @param array    $body
+   */
+  public function __construct(Location $loc, array $body)
   {
+    parent::__construct($loc);
     $this->body = $body;
   }
   

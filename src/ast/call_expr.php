@@ -2,13 +2,27 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class CallExpr extends Expr
 {
+  // @var Expr  callee, well, that's it
   public $callee;
+  
+  // @var array<Expr>  arguments
   public $args;
   
-  public function __construct($callee, $args)
+  /**
+   * constructor
+   *
+   * @param Location $loc
+   * @param Expr     $callee
+   * @param array    $args
+   */
+  public function __construct(Location $loc, Expr $callee, array $args)
   {
+    parent::__construct($loc);
+    
     $this->callee = $callee;
     $this->args = $args;
   }

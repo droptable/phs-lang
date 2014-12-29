@@ -2,20 +2,43 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class IfaceDecl extends Decl
 {
+  // @var array<Token>  modifiers
   public $mods;
+  
+  // @var Ident
   public $id;
+  
+  // @var array<Ident>  generic arguments
   public $genc;
+  
+  // @var array<Name>  interfaces
   public $impl;
+  
+  // @var array<FnDecl>
   public $members;
-  public $incomp;
   
   // @var Scope  member-scope
   public $scope;
   
-  public function __construct($mods, $id, $genc, $impl, $members, $incomp = false)
+  /**
+   * construct
+   *
+   * @param Location $loc
+   * @param array    $mods
+   * @param Ident    $id
+   * @param array    $genc
+   * @param array    $impl
+   * @param array    $members
+   */
+  public function __construct(Location $loc, array $mods, Ident $id, 
+                              array $genc, array $impl, array $members)
   {
+    parent::__construct($loc);
+    
     $this->mods = $mods;
     $this->id = $id;
     $this->genc = $genc;

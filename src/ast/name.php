@@ -2,27 +2,51 @@
 
 namespace phs\ast;
 
+use phs\Symbol;
+use phs\Location;
+
 class Name extends Node
 {
+  // @var Ident
   public $base;
+  
+  // @var bool
   public $root;
-  public $type;
+  
+  // @var bool
   public $self;
+  
+  // @var array<Ident>
   public $parts;
   
   // @var Symbol
-  public $symbol;
+  public $sym;
   
-  public function __construct($base, $root, $type = null)
+  /**
+   * constructor
+   *
+   * @param Location $loc
+   * @param Ident    $base
+   * @param bool     $root
+   * @param bool     $self
+   */
+  public function __construct(Location $loc, Ident $base, $root, $self)
   {
+    parent::__construct($loc);
+
     $this->base = $base;
     $this->root = $root;
-    $this->type = $type;
+    $this->self = $self;
   }
   
-  public function add($name)
+  /**
+   * add a part
+   *
+   * @param Ident $id
+   */
+  public function add(Ident $id)
   {
-    $this->parts[] = $name;
+    $this->parts[] = $id;
   }
 
   public function __clone()

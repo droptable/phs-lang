@@ -2,14 +2,32 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class DtorDecl extends Decl
 {
+  // @var array<Token>  modifiers
   public $mods;
+  
+  // @var array<ParamDecl>  parameters
   public $params;
+  
+  // @var Block  inner statements
   public $body;
   
-  public function __construct($mods, $params, $body)
+  /**
+   * constructor
+   *
+   * @param Location   $loc
+   * @param array      $mods
+   * @param array      $params
+   * @param Block|null $body
+   */
+  public function __construct(Location $loc, array $mods, 
+                              array $params, Block $body = null)
   {
+    parent::__construct($loc);
+    
     $this->mods = $mods;
     $this->params = $params;
     $this->body = $body;
@@ -30,10 +48,11 @@ class DtorDecl extends Decl
       $this->params = [];
       
       foreach ($params as $param)
-        $this->params[] = clone $param;
+        $this->params[] = clone $param;      
     }
     
-    $this->body = clone $this->body;
+    if ($this->body)
+      $this->body = clone $this->body;
     
     parent::__clone();
   }

@@ -2,13 +2,27 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class ElifItem extends Node
 {
+  // @var Expr  condition
   public $test;
+  
+  // @var Stmt
   public $stmt;
   
-  public function __construct($test, $stmt)
+  /**
+   * constructor
+   *
+   * @param Location $loc
+   * @param Expr     $test
+   * @param Stmt     $stmt
+   */
+  public function __construct(Location $loc, Expr $test, Stmt $stmt)
   {
+    parent::__construct($loc);
+    
     $this->test = $test;
     $this->stmt = $stmt;
   }

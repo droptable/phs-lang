@@ -2,14 +2,28 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class NewExpr extends Expr
 {
-  public $name;
+  // @var TypeName
+  public $type;
+  
+  // @var array<Expr|NamedArg>
   public $args;
   
-  public function __construct($name, $args)
+  /**
+   * construct
+   *
+   * @param Location $loc
+   * @param TypeName $type
+   * @param array    $args
+   */
+  public function __construct(Location $loc, TypeName $type, array $args)
   {
-    $this->name = $name;
+    parent::__construct($loc);
+    
+    $this->type = $type;
     $this->args = $args;
   }
 

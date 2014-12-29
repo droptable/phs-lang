@@ -2,15 +2,25 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class Ident extends Node
 {
+  // @var string
   public $data;
   
-  // symbol lookup cache
-  public $symbol;
+  // @var Symbol
+  public $sym;
   
-  public function __construct($data)
+  /**
+   * constructor
+   *
+   * @param Location $loc
+   * @param string   $data
+   */
+  public function __construct(Location $loc, $data)
   {
+    parent::__construct($loc);
     $this->data = $data;
   }
 

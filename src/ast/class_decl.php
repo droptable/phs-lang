@@ -2,22 +2,54 @@
 
 namespace phs\ast;
 
+use phs\Scope;
+use phs\MemberScope;
+use phs\Location;
+
 class ClassDecl extends Decl
 {
+  // @var array<Token>  modifiers
   public $mods;
-  public $id;
-  public $genc;
-  public $ext;
-  public $impl;
-  public $traits;
-  public $members;
-  public $incomp;
   
-  // class-scope
+  // @var Ident
+  public $id;
+  
+  // @var array<Ident>  generic arguments
+  public $genc;
+  
+  // @var Name  super class
+  public $ext;
+  
+  // @var array<Name>  interfaces
+  public $impl;
+  
+  // @var array<TraitUse>
+  public $traits;
+  
+  // @var array<VarDecl|FnDecl>  members
+  public $members;
+  
+  // @var MemberScope  class-scope
   public $scope;
   
-  public function __construct($mods, $id, $genc, $ext, $impl, $traits, $members, $incomp = false)
+  /**
+   * constructor
+   *
+   * @param Location $loc
+   * @param array    $mods
+   * @param Ident    $id
+   * @param array    $genc
+   * @param Name     $ext
+   * @param array    $impl
+   * @param array    $traits
+   * @param array    $members
+   */
+  public function __construct(Location $loc, array $mods, Ident $id, 
+                              array $genc, Name $ext, array $impl, 
+                              array $traits, array $members)
   {
+    parent::__construct($loc);
+    
     $this->mods = $mods;
     $this->id = $id;
     $this->genc = $genc;
@@ -25,7 +57,6 @@ class ClassDecl extends Decl
     $this->impl = $impl;
     $this->traits = $traits;
     $this->members = $members;
-    $this->incomp = $incomp;
   }
 
   public function __clone()

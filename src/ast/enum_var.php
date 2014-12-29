@@ -9,6 +9,7 @@ class EnumVar extends Node
   
   public function __construct($id, $init)
   {
+    throw new \Exception('TODO: implement enums');
     $this->id = $id;
     $this->init = $init;
   }

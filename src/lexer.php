@@ -37,6 +37,131 @@ const
   T_EOF  = 0       // end of file
 ;
 
+const
+  T_APLUS = 259,
+  T_AMINUS = 260,
+  T_AMUL = 261,
+  T_ADIV = 262,
+  T_AMOD = 263,
+  T_APOW = 264,
+  T_ACONCAT = 265,
+  T_ABIT_OR = 266,
+  T_ABIT_AND = 267,
+  T_ABIT_XOR = 268,
+  T_ABOOL_OR = 269,
+  T_ABOOL_AND = 270,
+  T_ABOOL_XOR = 271,
+  T_ASHIFT_L = 272,
+  T_ASHIFT_R = 273,
+  T_AREF = 274
+;
+
+const 
+  T_ARR = 257,
+  T_YIELD = 258,
+  T_RANGE = 275,
+  T_BOOL_OR = 276,
+  T_BOOL_XOR = 277,
+  T_BOOL_AND = 278,
+  T_EQ = 279,
+  T_NEQ = 280,
+  T_IN = 281,
+  T_NIN = 282,
+  T_IS = 283,
+  T_NIS = 284,
+  T_GTE = 285,
+  T_LTE = 286,
+  T_SL = 287,
+  T_SR = 288,
+  T_AS = 289,
+  T_REST = 290,
+  T_DEL = 291,
+  T_INC = 292,
+  T_DEC = 293,
+  T_POW = 294,
+  T_NEW = 295,
+  T_DDDOT = 296,
+  T_FN = 297,
+  T_LET = 298,
+  T_USE = 299,
+  T_ENUM = 300,
+  T_TYPE = 301,
+  T_CLASS = 302,
+  T_TRAIT = 303,
+  T_IFACE = 304,
+  T_MODULE = 305,
+  T_REQUIRE = 306,
+  T_IDENT = 307,
+  T_LNUM = 308,
+  T_DNUM = 309,
+  T_SNUM = 310,
+  T_STRING = 311,
+  T_REGEXP = 312,
+  T_TRUE = 313,
+  T_FALSE = 314,
+  T_NULL = 315,
+  T_THIS = 316,
+  T_SUPER = 317,
+  T_SELF = 318,
+  T_GET = 319,
+  T_SET = 320,
+  T_DO = 321,
+  T_IF = 322,
+  T_ELIF = 323,
+  T_ELSE = 324,
+  T_FOR = 325,
+  T_TRY = 326,
+  T_GOTO = 327,
+  T_BREAK = 328,
+  T_CONTINUE = 329,
+  T_PRINT = 330,
+  T_THROW = 331,
+  T_CATCH = 332,
+  T_FINALLY = 333,
+  T_WHILE = 334,
+  T_ASSERT = 335,
+  T_SWITCH = 336,
+  T_CASE = 337,
+  T_DEFAULT = 338,
+  T_RETURN = 339,
+  T_CONST = 340,
+  T_FINAL = 341,
+  T_GLOBAL = 342,
+  T_STATIC = 343,
+  T_EXTERN = 344,
+  T_PUBLIC = 345,
+  T_PRIVATE = 346,
+  T_PROTECTED = 347,
+  T_SEALED = 348,
+  T_INLINE = 349,
+  T_UNSAFE = 350,
+  T_NATIVE = 351,
+  T_HIDDEN = 352,
+  T_REWRITE = 353,
+  T_PHP = 354,
+  T_TEST = 355,
+  T_NL = 356,
+  T_SUBST = 357,
+  T_TINT = 358,
+  T_TBOOL = 359,
+  T_TFLOAT = 360,
+  T_TSTR = 361,
+  T_TTUP = 362,
+  T_TDEC = 363,
+  T_TANY = 364,
+  T_CDIR = 365,
+  T_CFILE = 366,
+  T_CLINE = 367,
+  T_CCOLN = 368,
+  T_CFN = 369,
+  T_CCLASS = 370,
+  T_CTRAIT = 371,
+  T_CMETHOD = 372,
+  T_CMODULE = 373,
+  T_INVL = 374,
+  T_END = 375
+;
+
 /**
  * lexer class
  * produces tokens from a given input-string
@@ -99,6 +224,7 @@ class Lexer
     $this->coln = 1;
     $this->data = $src->get_data();
     $this->file = $src->get_path();
+    $this->dir = dirname($this->file);
     
     // load pattern
     if (!self::$re)
@@ -118,6 +244,16 @@ class Lexer
     
     exit;
     */
+  }
+  
+  /**
+   * returns the directory of the current file
+   *
+   * @return string
+   */
+  public function get_dir()
+  {
+    return $this->dir;
   }
   
   /**
@@ -165,30 +301,25 @@ class Lexer
     else
       $tok = $this->scan();
     
-    if ($tok->type === T_LT && $this->genc)
-      $tok->type = T_GENC;
-    
-    $this->genc = false;
-    
     return $tok;
   }
   
   /**
    * peeks a token
    * 
-   * @return [type] [description]
+   * @param  int   $num
+   * @return Token
    */
-  public function peek()
+  public function peek($num = 1)
   {
-    if (!empty($this->queue))
-      return $this->queue[0];
+    assert(isset ($this->queue));
     
-    $tok = $this->scan();
+    $avl = count($this->queue);
     
-    if ($tok->type !== T_EOF)
-      $this->push($tok);
+    for (; $avl < $num; ++$avl)
+      array_push($this->queue, $this->scan());
     
-    return $tok;
+    return $this->queue[$num - 1];
   }
   
   /**
@@ -217,12 +348,44 @@ class Lexer
   }
   
   /**
-   * next token can be a T_GENC (generic '<')
+   * returns a string-representation of a token-id
    *
+   * @param  Token|int  $tok
+   * @return string
    */
-  public function genc()
+  public function lookup($tok)
   {
-    $this->genc = true;
+    $req = -1;
+    
+    if (is_int($tok))
+      $req = $tok;
+    else {
+      assert($tok instanceof Token);
+      $req = $tok->type;
+    }
+    
+    switch ($req) {
+      case T_EOF:
+        return 'end-of-file';
+      case T_INVL:
+        return '{invalid token}';
+      case T_LNUM: case T_DNUM:
+        return 'number';
+      case T_STRING:
+        return 'string';
+      case T_REGEXP:
+        return 'regular expression';
+    }
+    
+    foreach (self::$rids as $str => $rid)
+      if ($req === $rid)
+        return "`$str`";
+      
+    foreach (self::$table as $str => $tid)
+      if ($req === $tid)
+        return "\"$str\"";
+      
+    return '???';
   }
   
   /**
@@ -349,7 +512,6 @@ class Lexer
   {
     // free remaining data
     unset ($this->data);
-    unset ($this->queue);
     
     if ($this->subst !== 0) {
       Logger::error_at($this->loc(), 'unterminated string-literal');
@@ -867,42 +1029,46 @@ class Lexer
   
   /* ------------------------------------ */
   
-  private static $sync_tok = [
-    T_FN,
-    T_LET,
-    T_USE,
-    T_ENUM,
-    T_CLASS,
-    T_TRAIT,
-    T_IFACE,
-    T_MODULE,
-    T_REQUIRE,
-    T_DO,
-    T_IF,
-    T_FOR,
-    T_TRY,
-    T_GOTO,
-    T_BREAK,
-    T_CONTINUE,
-    T_THROW,
-    T_WHILE,
-    T_ASSERT,
-    T_SWITCH,
-    T_RETURN,
-    T_CONST,
-    T_FINAL,
-    T_GLOBAL,
-    T_STATIC,
-    T_EXTERN,
-    T_PUBLIC,
-    T_PRIVATE,
-    T_PROTECTED,
-    T_SEALED,
-    T_INLINE,
-    T_PHP,
-    T_TEST
-  ];
+  /**
+   * checks is a token is defined as operator
+   *
+   * @param  Token|int  $tok
+   * @return boolean
+   */
+  public static function is_op($tok)
+  {
+    if ($tok instanceof Token)
+      $tok = $tok->type;
+    else
+      assert(is_int($tok));
+    
+    foreach (self::$table as $str => $tid)
+      if ($tid === $tok) return true;
+    
+    return false;
+  }
   
+  /**
+   * checks if a token is defined as reserved identifier
+   *
+   * @param  Token|int  $tok
+   * @return boolean
+   */
+  public static function is_rid($tok)
+  {
+    if ($tok instanceof Token)
+      $tok = $tok->type;
+    else
+      assert(is_int($tok));
+    
+    foreach (self::$rids as $rid => $tid)
+      if ($tid === $tok) return true;
+    
+    return false;
+  }
+  
+  /* ------------------------------------ */
+    
   private static $rids = [   
     'fn' => T_FN,
     'let' => T_LET,
@@ -999,7 +1165,7 @@ class Lexer
   
   // some tokens are ascii-tokens, see comment at the top of this file
   private static $table = [   
-    // this is aspecial token used for new-lines
+    // this is a special token used for new-lines
     "\n" => T_NL,
     
     '$' => T_DOLLAR,

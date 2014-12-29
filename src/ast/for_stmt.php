@@ -2,18 +2,39 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class ForStmt extends Stmt
 {
+  // @var VarDecl|Expr  initializer
   public $init;
+  
+  // @var Expr  condition
   public $test;
+  
+  // @var Expr  update
   public $each;
+  
+  // @var Stmt  inner statements
   public $stmt;
   
   // @var Scope own scope
   public $scope;
   
-  public function __construct($init, $test, $each, $stmt)
+  /**
+   * constructor
+   *
+   * @param Location $loc
+   * @param Node     $init
+   * @param Expr     $test
+   * @param Expr     $each
+   * @param Stmt     $stmt
+   */
+  public function __construct(Location $loc, Node $init, Expr $test, 
+                              Expr $each, Stmt $stmt)
   {
+    parent::__construct($loc);
+    
     $this->init = $init;
     $this->test = $test;
     $this->each = $each;

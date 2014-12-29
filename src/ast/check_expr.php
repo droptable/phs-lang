@@ -2,14 +2,31 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class CheckExpr extends Expr
 {
+  // @var Expr
   public $left;
+  
+  // @var int  is or !is
   public $op;
+  
+  // @var TypeName
   public $right;
   
-  public function __construct($left, $op, $right)
+  /**
+   * constructor
+   *
+   * @param Location $loc
+   * @param Expr     $left
+   * @param int      $op
+   * @param TypeName $right
+   */
+  public function __construct(Location $loc, Expr $left, $op, TypeName $right)
   {
+    parent::__construct($loc);
+    
     $this->left = $left;
     $this->op = $op;
     $this->right = $right;

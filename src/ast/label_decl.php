@@ -2,13 +2,27 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class LabelDecl extends Decl
 {
+  // @var Ident
   public $id;
+  
+  // @var Stmt
   public $stmt;
   
-  public function __construct($id, $stmt)
+  /**
+   * constructor
+   *
+   * @param Location $loc
+   * @param Ident    $id
+   * @param Stmt     $stmt
+   */
+  public function __construct(Location $loc, Ident $id, Stmt $stmt)
   {
+    parent::__construct($loc);
+    
     $this->id = $id;
     $this->stmt = $stmt;
   }

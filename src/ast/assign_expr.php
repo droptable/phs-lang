@@ -2,14 +2,31 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class AssignExpr extends Expr
 {
+  // @var Expr  left-hand-side
   public $left;
+  
+  // @var int  operator
   public $op;
+  
+  // @var Expr  assignment
   public $right;
   
-  public function __construct($left, $op, $right)
+  /**
+   * constructor
+   *
+   * @param Location $loc
+   * @param Expr     $left
+   * @param int      $op
+   * @param Expr     $right
+   */
+  public function __construct(Location $loc, Expr $left, $op, Expr $right)
   {
+    parent::__construct($loc);
+    
     $this->left = $left;
     $this->op = $op;
     $this->right = $right;

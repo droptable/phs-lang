@@ -2,14 +2,17 @@
 
 namespace phs\ast;
 
+use phs\Symbol;
+use phs\Location;
+
 abstract class Decl extends Node
 {
-  // the computed symbol for this declaration
-  public $symbol;
-
+  // @var Symbol  the computed symbol for this declaration
+  public $sym;
+  
   public function __clone()
   {
-    $this->symbol = null;
+    $this->sym = null;
     
     parent::__clone();
   }

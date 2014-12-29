@@ -2,20 +2,34 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class NamedArg extends Node
 {
-  public $name;
+  // @var Ident
+  public $id;
+  
+  // @var Expr
   public $expr;
   
-  public function __construct($name, $expr)
+  /**
+   * constructor
+   *
+   * @param Location $loc
+   * @param Ident    $id
+   * @param Expr     $expr
+   */
+  public function __construct(Location $loc, Ident $id, Expr $expr)
   {
-    $this->name = $name;
+    parent::__construct($loc);
+    
+    $this->id = $id;
     $this->expr = $expr;
   }
 
   public function __clone()
   {
-    $this->name = clone $this->name;
+    $this->id = clone $this->id;
     $this->expr = clone $this->expr;
     
     parent::__clone();

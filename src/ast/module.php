@@ -2,22 +2,33 @@
 
 namespace phs\ast;
 
+use phs\Scope;
+use phs\ModuleScope;
+use phs\Location;
+
 class Module extends Node
 {
+  // @var Name
   public $name;
-  public $type;
+  
+  // @var Content
   public $body;
   
   // @var ModuleScope 
   public $scope;
   
-  public function __construct($name, $type, $body)
+  /**
+   * constructor
+   *
+   * @param Location     $loc
+   * @param Name         $name
+   * @param Content|null $body
+   */
+  public function __construct(Location $loc, Name $name, Content $body = null)
   {
-    assert($body === null ||
-           $body instanceof Content);
+    parent::__construct($loc);
     
     $this->name = $name;
-    $this->type = $type;
     $this->body = $body;
   }
 
