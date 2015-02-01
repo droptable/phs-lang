@@ -2,9 +2,12 @@
 
 namespace phs\ast;
 
+use phs\Symbol;
+use phs\Location;
+
 class SelfExpr extends Expr
 {
-  // @var Symbol  resolved symbol
+  // @var Symbol
   public $symbol;
   
   public function __clone()

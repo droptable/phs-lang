@@ -8,7 +8,8 @@ require_once 'scope.php';
 
 // front-end tasks
 require_once 'lexer.php';
-require_once 'parser.php';
+#require_once 'parser.php';
+require_once 'parser-v2.php';
 require_once 'validate.php';
 require_once 'desugar.php';
 require_once 'collect.php';
@@ -77,10 +78,10 @@ class Compiler
       // 5. collect classes and interfaces
       // 6. collect functions and variables
       // 7. collect usage
-      new CollectTask($this->sess),
+      #new CollectTask($this->sess),
       
       // 8. export global symbols
-      new ExportTask($this->sess),
+      #new ExportTask($this->sess),
       
       // 9. reduce constant expressions
       new ReduceTask($this->sess),

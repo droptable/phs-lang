@@ -2,14 +2,32 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class SetterDecl extends Decl
 {
+  // @var Ident
   public $id;
+  
+  // @var array<Param>
   public $params;
+  
+  // @var Block|Expr
   public $body;
   
-  public function __construct($id, $params, $body)
+  /**
+   * constructor
+   *
+   * @param Location $loc
+   * @param Ident    $id
+   * @param array    $params
+   * @param Node     $body
+   */
+  public function __construct(Location $loc, Ident $id, array $params, 
+                              Node $body)
   {
+    parent::__construct($loc);
+    
     $this->id = $id;
     $this->params = $params;
     $this->body = $body;

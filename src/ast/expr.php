@@ -2,15 +2,13 @@
 
 namespace phs\ast;
 
+use phs\Value;
 use phs\Location;
 
 abstract class Expr extends Node
 {
   // @var Value  if the expression is reducible at compile-time
   public $value;
-  
-  // @var TypeSet  inferred types
-  public $types;
   
   public function __clone()
   {

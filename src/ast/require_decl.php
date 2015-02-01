@@ -2,16 +2,30 @@
 
 namespace phs\ast;
 
+use phs\Source;
+use phs\Location;
+
 class RequireDecl extends Node
 {
+  // @var bool  unused
   public $php;
+  
+  // @var Expr
   public $expr;
   
-  // @var Source  the resolved source
+  // @var Source
   public $source;
   
-  public function __construct($php, $expr)
+  /**
+   * constructor
+   *
+   * @param Location $loc
+   * @param Expr     $expr
+   */
+  public function __construct(Location $loc, /* $php, */ Expr $expr)
   {
+    parent::__construct($loc);
+    
     $this->php = $php;
     $this->expr = $expr;
   }

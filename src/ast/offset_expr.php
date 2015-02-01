@@ -2,16 +2,31 @@
 
 namespace phs\ast;
 
+use phs\Symbol;
+use phs\Location;
+
 class OffsetExpr extends Expr
 {
+  // @var Expr
   public $object;
+  
+  // @var Expr
   public $offset;
   
   // @var Symbol
   public $symbol;
   
-  public function __construct($object, $offset)
+  /**
+   * constructor
+   *
+   * @param Location $loc
+   * @param Expr     $object
+   * @param Expr     $offset
+   */
+  public function __construct(Location $loc, Expr $object, Expr $offset)
   {
+    parent::__construct($loc);
+    
     $this->object = $object;
     $this->offset = $offset;
   }

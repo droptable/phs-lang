@@ -2,13 +2,28 @@
 
 namespace phs\ast;
 
+// unused in parser v2
+use phs\Location;
+
 class PhpUseItem extends Node
 {
+  // @var Ident
   public $id;
+  
+  // @var Ident
   public $alias;
   
-  public function __construct($id, $alias)
+  /**
+   * constructor
+   *
+   * @param Location   $loc
+   * @param Ident      $id
+   * @param Ident|null $alias
+   */
+  public function __construct(Location $loc, Ident $id, Ident $alias = null)
   {
+    parent::__construct($loc);
+    
     $this->id = $id;
     $this->alias = $alias;
   }

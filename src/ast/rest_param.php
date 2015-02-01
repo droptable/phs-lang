@@ -2,17 +2,35 @@
 
 namespace phs\ast;
 
+use phs\Symbol;
+use phs\Location;
+
 class RestParam extends Node
 {
+  // @var Ident
   public $id;
+  
+  // @var boolean  pass-by-ref
   public $ref;
+  
+  // @var TypeName
   public $hint;
   
-  // @var ParamSymbol
+  // @var Symbol
   public $symbol;
   
-  public function __construct($hint, $id, $ref)
+  /**
+   * constructor
+   *
+   * @param Location $loc
+   * @param bool     $ref
+   * @param Ident    $id
+   * @param TypeName $hint
+   */
+  public function __construct(Location $loc, $ref, Ident $id, TypeName $hint)
   {
+    parent::__construct($loc);
+    
     $this->hint = $hint;
     $this->id = $id;
     $this->ref = $ref;

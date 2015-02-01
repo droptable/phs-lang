@@ -831,11 +831,9 @@ class UnitScope extends RootScope
    * constructor
    *    
    */
-  public function __construct(Session $root, Unit $unit)
+  public function __construct(GlobScope $root)
   {
-    parent::__construct($root->scope);
-    $this->unit = $unit;
-    $this->file = $unit->loc->file;
+    parent::__construct($root);
   }
   
   public function __tostring()

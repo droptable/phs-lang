@@ -371,6 +371,8 @@ class Lexer
         return '{invalid token}';
       case T_LNUM: case T_DNUM:
         return 'number';
+      case T_IDENT:
+        return 'ident';
       case T_STRING:
         return 'string';
       case T_REGEXP:
@@ -385,7 +387,7 @@ class Lexer
       if ($req === $tid)
         return "\"$str\"";
       
-    return '???';
+    return '??? (id=' . $req . ')';
   }
   
   /**

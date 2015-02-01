@@ -2,14 +2,30 @@
 
 namespace phs\ast;
 
+use phs\Token;
+use phs\Location;
+
 class StrLit extends Expr
 {
+  // @var string
   public $data;
+  
+  // @var string
   public $flag;
+  
+  // @var string
   public $delim;
+  
+  // @var array<Expr|StrLit>
   public $parts;
   
-  public function __construct($tok)
+  /**
+   * constructor
+   *
+   * @param Location $loc
+   * @param Token    $tok
+   */
+  public function __construct(Location $loc, Token $tok)
   {
     $this->data = $tok->value;
     $this->flag = $tok->flag;
@@ -17,7 +33,12 @@ class StrLit extends Expr
     $this->parts = [];
   }
   
-  public function add($slice)
+  /**
+   * adds a part
+   *
+   * @param Expr $slice
+   */
+  public function add(Expr $slice)
   {
     $this->parts[] = $slice;
   }

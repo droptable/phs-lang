@@ -3,7 +3,7 @@
 namespace phs;
 
 require_once 'glob.php';
-require_once 'parser.php';
+#require_once 'parser.php';
 require_once 'visitor.php';
 
 use phs\ast\Unit;

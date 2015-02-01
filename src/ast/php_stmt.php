@@ -2,13 +2,28 @@
 
 namespace phs\ast;
 
+// unused in the parser v2
+use phs\Location;
+
 class PhpStmt extends Stmt
 {
+  // @var array<PhpUse>
   public $usage;
+  
+  // @var StrLit
   public $code;
   
-  public function __construct($usage, $code)
+  /**
+   * constructor
+   *
+   * @param Location $loc
+   * @param array    $usage
+   * @param StrLit   $code
+   */
+  public function __construct(Location $loc, array $usage, StrLit $code)
   {
+    parent::__construct($loc);
+    
     $this->usage = $usage;
     $this->code = $code;
   }
