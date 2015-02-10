@@ -2,17 +2,32 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class ThisParam extends Node
 {
-  public $hint;
+  // @var Ident
   public $id;
+  
+  // @var Expr
   public $init;
+  
+  // @var bool
   public $ref;
   
-  public function __construct($id, $hint, $init, $ref)
+  /**
+   * constructor
+   *
+   * @param Location  $loc
+   * @param bool      $ref
+   * @param Ident     $id 
+   * @param Expr|null $init
+   */
+  public function __construct(Location $loc, $ref, Ident $id, Expr $init = null)
   {
+    parent::__construct($loc);
+    
     $this->id = $id;
-    $this->hint = $hint;
     $this->init = $init;
     $this->ref = $ref;
   }

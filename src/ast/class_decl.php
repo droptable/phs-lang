@@ -44,9 +44,10 @@ class ClassDecl extends Decl
    * @param array    $traits
    * @param array    $members
    */
-  public function __construct(Location $loc, array $mods, Ident $id, 
-                              array $genc, Name $ext, array $impl, 
-                              array $traits, array $members)
+  public function __construct(Location $loc, array $mods = null, Ident $id, 
+                              array $genc = null, Name $ext = null, 
+                              array $impl = null, array $traits = null, 
+                              array $members = null)
   {
     parent::__construct($loc);
     

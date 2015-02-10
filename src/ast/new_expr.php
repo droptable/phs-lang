@@ -19,7 +19,9 @@ class NewExpr extends Expr
    * @param TypeName $type
    * @param array    $args
    */
-  public function __construct(Location $loc, TypeName $type, array $args)
+  public function __construct(Location $loc, 
+                              TypeName $type = null, 
+                              array $args = null)
   {
     parent::__construct($loc);
     

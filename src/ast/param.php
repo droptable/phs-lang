@@ -15,7 +15,7 @@ class Param extends Node
   public $mods;
   
   // @var TypeName  
-  public $hint;
+  public $type;
   
   // @var Ident
   public $id;
@@ -36,20 +36,20 @@ class Param extends Node
    * @param bool      $ref
    * @param array     $mods
    * @param Ident     $id 
-   * @param TypeName  $hint
+   * @param TypeName  $type
    * @param Expr|null $init
    * @param bool      $opt
    */
-  public function __construct(Location $loc, $ref, $mods, Ident $id, 
-                              TypeName $hint, Expr $init = null, 
+  public function __construct(Location $loc, $mods, $ref, Ident $id = null, 
+                              TypeName $type = null, Expr $init = null, 
                               $opt = false)
   {
     parent::__construct($loc);
     
-    $this->ref = $ref;
     $this->mods = $mods;
-    $this->hint = $hint;
+    $this->ref = $ref;
     $this->id = $id;
+    $this->type = $type;
     $this->init = $init;
     $this->opt = $opt;
   }

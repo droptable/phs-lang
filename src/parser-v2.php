@@ -193,15 +193,24 @@ class Parser
    * @return Token
    * @throws SyntaxError
    */
-  protected function expect($tid)
+  protected function expect(...$tid)
   {
     $tok = $this->next();
     
-    if ($tok->type !== $tid) {
+    if (!in_array($tok->type, $tid, true)) {
+      $exp = '';
+      if (count($tid) === 1)
+        $exp = $this->lex->lookup($tid[0]);
+      else {
+        $axp = array_map([ $this->lex, 'lookup' ], $tid);
+        $lst = array_pop($axp);
+        $exp = implode(', ', $axp) . ' or ' . $lst;
+      }
+      
       Logger::error_at($tok->loc, 
         'syntax error: unexpected %s, expected %s', 
         $this->lex->lookup($tok),
-        $this->lex->lookup($tid)
+        $exp
       );
       
       // Logger::error('%s', $this->lex->span($loc));
@@ -298,7 +307,9 @@ class Parser
    * @return ast\Unit
    */
   protected function parse_unit() 
-  {
+  { 
+    Logger::debug('%s', 'parse_unit');
+
     $this->enter(new UnitScope($this->scope));
     $nloc = $this->peek()->loc;
     $body = $this->parse_unit_decls();
@@ -312,6 +323,8 @@ class Parser
    */
   protected function parse_unit_decls()
   {
+    Logger::debug('%s', 'parse_unit_decls');
+
     // first module can be "module {name};"
     if ($this->peek()->type === T_MODULE)
       return $this->parse_module_decl(true);
@@ -324,6 +337,8 @@ class Parser
    */
   protected function parse_decls()
   {
+    Logger::debug('%s', 'parse_decls');
+
     $decls = [];
     
     for (;;) {
@@ -344,6 +359,8 @@ class Parser
    */
   protected function parse_decl()
   {
+    Logger::debug('%s', 'parse_decl');
+
     $peek = $this->peek();
     $decl = null;
     // module-declaration
@@ -352,7 +369,7 @@ class Parser
     // variable-declaration without modifiers
     elseif ($peek->type === T_LET)
       $decl = $this->parse_var_decl();
-    // everything other
+    // everything else
     else {
       $mods = $this->parse_maybe_mods();
       $peek = $this->peek();
@@ -371,7 +388,7 @@ class Parser
           $decl = $this->parse_trait_decl($mods);
           break;
         default:
-          $decl = $mods ?
+          $decl = $peek->type === T_FN || $mods ?
             $this->parse_value_decl($mods) :
             $this->parse_label_or_stmt();
       }
@@ -385,6 +402,8 @@ class Parser
    */
   protected function parse_maybe_mods()
   {
+    Logger::debug('%s', 'parse_maybe_mods');
+
     $mods = [];
     
     for (;;) {
@@ -414,6 +433,8 @@ class Parser
    */
   protected function parse_module_decl($glob = false)
   {
+    Logger::debug('%s', 'parse_module_decl');
+
     $nloc = $this->expect(T_MODULE)->loc;
     $name = null;
     $this->enter(new ModuleScope($this->scope));
@@ -443,6 +464,8 @@ class Parser
    */
   protected function parse_use_decl(array $mods = null)
   {
+    Logger::debug('%s', 'parse_use_decl');
+
     $nloc = null;
     
     if ($mods !== null) {
@@ -466,6 +489,8 @@ class Parser
    */
   protected function parse_use_decl_item()
   {
+    Logger::debug('%s', 'parse_use_decl_item');
+
     $name = $this->parse_name();
     // use_name T_AS ident
     if ($this->consume(T_AS)) {
@@ -475,7 +500,9 @@ class Parser
     }
     // use_name '{' use_items '}'
     if ($this->consume(T_LBRACE)) {
-      $list = $this->parse_use_decl_items();
+      $list = $this->parse_use_decl_items(false);
+      $this->consume(T_COMMA); // allow trailing comma
+      $this->expect(T_RBRACE);
       $node = new ast\UseUnpack($name->loc, $name, $list);
       return $node;
     }
@@ -486,18 +513,17 @@ class Parser
   /**
    * @return array<use_item>
    */
-  protected function parse_use_decl_items()
+  protected function parse_use_decl_items($open = true)
   {
+    Logger::debug('%s', 'parse_use_decl_items');
+
     $list = [];
-    
     for (;;) {
       $list[] = $this->parse_use_decl_item();
-      $peek = $this->peek();
       // halt if no comma
-      if ($peek->type !== T_COMMA)
+      if (!$this->consume(T_COMMA))
         break;
     }
-    
     return $list;
   }
   
@@ -507,6 +533,8 @@ class Parser
    */
   protected function parse_class_decl(array $mods = null)
   {
+    Logger::debug('%s', 'parse_class_decl');
+
     $nloc = null;
     
     if ($mods !== null) {
@@ -550,6 +578,8 @@ class Parser
    */
   protected function parse_trait_decl(array $mods = null)
   {
+    Logger::debug('%s', 'parse_trait_decl');
+
     $nloc = null;
     
     if ($mods !== null) {
@@ -592,6 +622,8 @@ class Parser
    */
   protected function parse_iface_decl(array $mods = null)
   {
+    Logger::debug('%s', 'parse_iface_decl');
+
     $nloc = null;
     
     if ($mods !== null) {
@@ -626,14 +658,21 @@ class Parser
   }
   
   /**
-   * @return ast\TypeName|null
+   * @return array|null
    */
   protected function parse_maybe_generic_def()
   {
+    Logger::debug('%s', 'parse_maybe_generic_def');
+
     if ($this->consume(T_LT)) {
-      $type = $this->parse_type_name();
+      $defs = [];
+      for (;;) {
+        $defs[] = $this->parse_ident();
+        if (!$this->consume(T_COMMA))
+          break;
+      }
       $this->expect(T_GT);
-      return $type;
+      return $defs;
     }
     // nothing
     return null;
@@ -644,6 +683,8 @@ class Parser
    */
   protected function parse_maybe_class_ext()
   {
+    Logger::debug('%s', 'parse_maybe_class_ext');
+
     if ($this->consume(T_DDOT))
       return $this->parse_name();
     // nothing
@@ -655,6 +696,8 @@ class Parser
    */
   protected function parse_maybe_class_impl()
   {
+    Logger::debug('%s', 'parse_maybe_class_impl');
+
     if ($this->consume(T_BIT_NOT)) {
       $impls = [];
       for (;;) {
@@ -674,6 +717,8 @@ class Parser
    */
   protected function parse_maybe_class_members()
   {
+    Logger::debug('%s', 'parse_maybe_class_members');
+
     $mems = [];
     for (;;) {
       $peek = $this->peek();
@@ -691,6 +736,8 @@ class Parser
    */
   protected function parse_class_member()
   {
+    Logger::debug('%s', 'parse_class_member');
+
     $mods = $this->parse_maybe_mods();
     // check mods
     if ($mods !== null) {
@@ -713,6 +760,8 @@ class Parser
    */
   protected function parse_maybe_trait_uses()
   {
+    Logger::debug('%s', 'parse_maybe_trait_uses');
+
     $uses = [];
     for (;;) {
       // halt if no more "use"
@@ -729,6 +778,8 @@ class Parser
    */
   protected function parse_trait_use()
   {
+    Logger::debug('%s', 'parse_trait_use');
+
     $nloc = $this->expect(T_USE)->loc;
     $name = $this->parse_name();
     // formal definition (items)
@@ -753,6 +804,8 @@ class Parser
    */
   protected function parse_trait_use_item()
   {
+    Logger::debug('%s', 'parse_trait_use_item');
+
     $base = $this->parse_ident();
     $mods = null;
     $alias = null;
@@ -775,6 +828,8 @@ class Parser
    */
   protected function parse_maybe_iface_ext()
   {
+    Logger::debug('%s', 'parse_maybe_iface_ext');
+
     if ($this->consume(T_DDOT)) {
       $exts = [];
       for (;;) {
@@ -793,6 +848,8 @@ class Parser
    */
   protected function parse_maybe_iface_members()
   {
+    Logger::debug('%s', 'parse_maybe_iface_members');
+
     $mems = $this->parse_maybe_class_members();
     $this->check_iface_members($mems);
     return $mems;
@@ -804,6 +861,8 @@ class Parser
    */
   protected function parse_value_decl(array $mods = null)
   {
+    Logger::debug('%s', 'parse_value_decl');
+
     // function
     if ($this->peek()->type === T_FN)
       return $this->parse_fn_decl($mods);
@@ -817,6 +876,8 @@ class Parser
    */
   protected function parse_fn_decl(array $mods = null)
   {
+    Logger::debug('%s', 'parse_fn_decl');
+
     $nloc = null;
     
     if ($mods !== null) {
@@ -828,13 +889,12 @@ class Parser
     // use token location
     if ($nloc === null) $nloc = $tok->loc;
     
-    $fnrw = $this->parse_maybe_rewrite();
     $name = $this->parse_ident();
     $gdef = $this->parse_maybe_generic_def();
     $params = $this->parse_fn_params();
     $hint = $this->parse_maybe_hint();
     
-    $this->add_fn_sym($name, $gdef);
+    //$this->add_fn_sym($name, $gdef);
     
     $body = null;
     $this->enter(new FnScope);
@@ -843,10 +903,138 @@ class Parser
       $body = $this->parse_fn_body();
     
     $this->consume_semis();
-    $node = new ast\FnDecl($loc, $fnrw, $name, $gdef, 
+    $node = new ast\FnDecl($nloc, $mods, $name, $gdef, 
                            $params, $hint, $body);
     $node->scope = $this->leave();
     return $node;
+  }
+  
+  /**
+   * @return array<ast\Param>
+   */
+  protected function parse_fn_params()
+  {
+    Logger::debug('%s', 'parse_fn_params');
+
+    $this->expect(T_LPAREN);
+    $list = [];
+    if (!$this->consume(T_RPAREN)) {
+      for (;;) {
+        $list[] = $this->parse_fn_param();
+        // no more ',' => end of list
+        if (!$this->consume(T_COMMA))
+          break;
+        // allow trailing ','
+        if ($this->consume(T_RPAREN))
+          goto out;
+      }
+      // ending ')'
+      $this->expect(T_RPAREN);
+    }
+    out:
+    return $list;
+  }
+  
+  /**
+   * @return ast\Param|ast\ThisParam|ast\RestParam
+   */
+  protected function parse_fn_param()
+  {
+    Logger::debug('%s', 'parse_fn_param');
+
+    // location tracking is a bit tricky here
+    // so we use a stack of tokens and pick the first one
+    $lstk = [];
+    $mods = $this->parse_maybe_mods();
+    if ($mods)
+      // the first one is enough
+      $lstk[] = $mods[0];
+    $rtok = $this->consume(T_BIT_AND);
+    if (($aref = $rtok !== null))
+      // push ref-token
+      $lstk[] = $rtok;
+    $peek = $this->peek();
+    // push peek
+    $lstk[] = $peek;
+    // now generate location
+    $nloc = $lstk[0]->loc;
+    
+    // normal param
+    if ($peek->type === T_IDENT ||
+        $peek->type === T_DDOT) {
+      $name = null;
+      $hint = null;
+      $init = null;
+      $popt = false;
+      // name
+      if ($peek->type === T_IDENT)
+        $name = $this->parse_ident();
+      // hint
+      if ($this->consume(T_DDOT))
+        $hint = $this->parse_type_name();
+      // init ...
+      if ($this->consume(T_ASSIGN))
+        $init = $this->parse_expr();
+      // ... or implicit default-value
+      elseif ($this->consume(T_QM))
+        $popt = true;
+      // done
+      $node = new ast\Param($nloc, $mods, $aref, $name, 
+                            $hint, $init, $popt);
+      return $node;
+    } 
+    
+    // this-param
+    elseif ($this->consume(T_THIS)) {
+      $this->expect(T_DOT);
+      $name = $this->parse_ident();
+      $init = null;
+      $popt = false;
+      // init
+      if ($this->consume(T_ASSIGN))
+        $init = $this->parse_expr();
+      // optional
+      elseif ($this->consume(T_QM))
+        $popt = true;
+      $node = new ast\ThisParam($nloc, $mods, $aref, $name,
+                                $init, $popt);
+      return $node;
+    }
+    
+    // rest-param
+    elseif ($peek->type === T_REST) {
+      $name = $this->parse_ident();
+      $type = null;
+      if ($this->consume(T_DDOT))
+        $type = $this->parse_type_name();
+      $node = new ast\RestParam($nloc, $mods, $aref, $name, $type);
+      return $node;
+    }
+    
+    // error
+    else
+      // bail-out
+      // note: "this", "..." and ":" are not listed here,
+      // because those param-starters are not always valid.
+      $this->expect(T_IDENT, T_BIT_AND);
+  }
+  
+  /**
+   * @return ast\Expr|ast\Block
+   */
+  protected function parse_fn_body()
+  {
+    Logger::debug('%s', 'parse_fn_body');
+
+    if ($this->consume(T_ARR)) {
+      // => expr
+      $node = $this->parse_expr();
+      $this->expect(T_SEMI);
+      $this->consume_semis();
+      return $node;
+    }
+    // '{' ... '}'
+    return $this->parse_block();
   }
   
   /**
@@ -855,6 +1043,8 @@ class Parser
    */
   protected function parse_var_decl(array $mods = null)
   {
+    Logger::debug('%s', 'parse_var_decl');
+
     $node = $this->parse_var_decl_no_semi($mods);
     $this->expect(T_SEMI);
     $this->consume_semis();
@@ -869,6 +1059,8 @@ class Parser
   protected function parse_var_decl_no_semi(array $mods = null, 
                                             $allow_in = true)
   {
+    Logger::debug('%s', 'parse_var_decl_no_semi');
+
     $loc = null;
     
     if ($mods !== null) {
@@ -905,6 +1097,8 @@ class Parser
                                          array $mods = null,
                                          $allow_in = true)
   {
+    Logger::debug('%s', 'parse_var_list_decl');
+
     $this->expect(T_LPAREN);
     $list = [];
     
@@ -918,7 +1112,7 @@ class Parser
     $this->expect(T_RPAREN);
     $this->expect(T_ASSIGN);
     $expr = $this->parse_expr($allow_in);
-    $node = new ast\VarList($loc, $mods, $vars, $expr);
+    $node = new ast\VarList($loc, $mods, $list, $expr);
     return $node;
   }
   
@@ -928,6 +1122,8 @@ class Parser
    */
   protected function parse_var_item($allow_in = true)
   {
+    Logger::debug('%s', 'parse_var_item');
+
     $name = $this->parse_ident();
     $hint = $this->parse_maybe_hint();
     
@@ -950,7 +1146,9 @@ class Parser
    * @return ast\TypeName|null
    */
   protected function parse_maybe_hint() 
-  {
+  { 
+    Logger::debug('%s', 'parse_maybe_hint');
+
     if ($this->consume(T_DDOT))
       return $this->parse_type_name();
     // no type, implicit "any"
@@ -962,6 +1160,8 @@ class Parser
    */
   protected function parse_require_decl()
   {
+    Logger::debug('%s', 'parse_require_decl');
+
     $nloc = $this->expect(T_REQUIRE)->loc;
     $expr = $this->parse_expr();
     $this->expect(T_SEMI);
@@ -974,6 +1174,8 @@ class Parser
    */
   protected function parse_stmt()
   {
+    Logger::debug('%s', 'parse_stmt');
+
     $peek = $this->peek();
     
     switch ($peek->type) {
@@ -1015,6 +1217,8 @@ class Parser
    */
   protected function parse_block()
   {
+    Logger::debug('%s', 'parse_block');
+
     $nloc = $this->expect(T_LBRACE)->loc;
     $body = [];
     
@@ -1030,6 +1234,8 @@ class Parser
    */
   protected function parse_comp()
   {
+    Logger::debug('%s', 'parse_comp');
+
     $peek = $this->peek();
     // variable-declaration without modifiers
     if ($peek->type === T_LET)
@@ -1051,6 +1257,8 @@ class Parser
    */
   protected function parse_label_or_stmt()
   {
+    Logger::debug('%s', 'parse_label_or_stmt');
+
     if ($this->peek(1)->type === T_IDENT &&
         $this->peek(2)->type === T_DDOT) {
       $id = $this->parse_ident();
@@ -1068,6 +1276,8 @@ class Parser
    */
   protected function parse_do_stmt()
   {
+    Logger::debug('%s', 'parse_do_stmt');
+
     $nloc = $this->expect(T_DO)->loc;
     $stmt = $this->parse_stmt();
     $this->expect(T_WHILE);
@@ -1081,6 +1291,8 @@ class Parser
    */
   protected function parse_if_stmt()
   {
+    Logger::debug('%s', 'parse_if_stmt');
+
     $nloc = $this->expect(T_IF)->loc;
     $expr = $this->parse_paren_expr();
     $stmt = $this->parse_stmt();
@@ -1110,6 +1322,8 @@ class Parser
    */
   protected function parse_for_stmt()
   {
+    Logger::debug('%s', 'parse_for_stmt');
+
     $nloc = $this->expect(T_FOR)->loc;
     
     $init = null;
@@ -1172,6 +1386,8 @@ class Parser
    */
   protected function parse_try_stmt()
   {
+    Logger::debug('%s', 'parse_try_stmt');
+
     $nloc = $this->expect(T_TRY)->loc;
     $stmt = $this->parse_block();
     $catches = [];
@@ -1216,6 +1432,8 @@ class Parser
    */
   protected function parse_goto_stmt()
   {
+    Logger::debug('%s', 'parse_goto_stmt');
+
     $nloc = $this->expect(T_GOTO)->loc;
     $id = $this->parse_ident();
     $node = new ast\GotoStmt($nloc, $id);
@@ -1227,6 +1445,8 @@ class Parser
    */
   protected function parse_test_stmt()
   {
+    Logger::debug('%s', 'parse_test_stmt');
+
     $nloc = $this->expect(T_TEST)->loc;
     $peek = $this->peek();
     
@@ -1244,6 +1464,8 @@ class Parser
    */
   protected function parse_break_stmt()
   {
+    Logger::debug('%s', 'parse_break_stmt');
+
     $nloc = $this->expect(T_BREAK)->loc;
     $peek = $this->peek();
     
@@ -1262,6 +1484,8 @@ class Parser
    */
   protected function parse_continue_stmt()
   {
+    Logger::debug('%s', 'parse_continue_stmt');
+
     $nloc = $this->expect(T_CONTINUE)->loc;
     $peek = $this->peek();
     
@@ -1280,6 +1504,8 @@ class Parser
    */
   protected function parse_throw_stmt()
   {
+    Logger::debug('%s', 'parse_throw_stmt');
+
     $nloc = $this->expect(T_THROW)->loc;
     $expr = $this->parse_expr();
     $node = new ast\ThrowStmt($nloc, $expr);
@@ -1291,6 +1517,8 @@ class Parser
    */
   protected function parse_while_stmt()
   {
+    Logger::debug('%s', 'parse_while_stmt');
+
     $nloc = $this->expect(T_WHILE)->loc;
     $expr = $this->parse_paren_expr();
     $stmt = $this->parse_stmt();
@@ -1303,6 +1531,8 @@ class Parser
    */
   protected function parse_assert_stmt()
   {
+    Logger::debug('%s', 'parse_assert_stmt');
+
     $nloc = $this->expect(T_ASSERT)->loc;
     $expr = $this->parse_expr();
     
@@ -1319,6 +1549,8 @@ class Parser
    */
   protected function parse_switch_stmt()
   {
+    Logger::debug('%s', 'parse_switch_stmt');
+
     $nloc = $this->expect(T_SWITCH)->loc;
     $expr = $this->parse_paren_expr();
     $this->expect(T_LBRACE);
@@ -1344,6 +1576,8 @@ class Parser
    */
   protected function parse_switch_case()
   {
+    Logger::debug('%s', 'parse_switch_case');
+
     $fold = [];
     $body = [];
     
@@ -1391,6 +1625,8 @@ class Parser
    */
   protected function parse_return_stmt()
   {
+    Logger::debug('%s', 'parse_return_stmt');
+
     $nloc = $this->expect(T_RETURN)->loc;
     $expr = null;
     
@@ -1409,6 +1645,8 @@ class Parser
    */
   protected function parse_expr_stmt()
   {
+    Logger::debug('%s', 'parse_expr_stmt');
+
     if ($tok = $this->consume(T_SEMI)) {
       $this->consume_semis();
       $node = new ast\ExprStmt($tok->loc, null);
@@ -1439,6 +1677,8 @@ class Parser
   protected function parse_expr($allow_in = true, 
                                 $allow_call = true)
   {
+    Logger::debug('%s', 'parse_expr');
+
     // start precedence climbing
     $expr = $this->parse_expr_ops(0, $allow_in, $allow_call);
     return $expr;
@@ -1548,25 +1788,23 @@ class Parser
   protected function parse_primary_expr($allow_in = true, 
                                         $allow_call = true)
   {
+    Logger::debug('%s', 'parse_primary_expr');
+
     $peek = $this->peek();
     $expr = null;
     
     // prefix
     switch ($peek->type) {
-      case T_INC:
-      case T_DEC:
+      case T_INC: case T_DEC:
         $this->next();
         $expr = $this->parse_primary_expr($allow_in, $allow_call);
         $this->check_lval($expr);
         return new ast\UpdateExpr($peek->loc, true, $peek->type, $expr);
         
-      case T_EXCL:
-      case T_PLUS:
-      case T_MINUS:
-      case T_BIT_NOT:
-      case T_BIT_AND:
+      case T_EXCL:    case T_PLUS:    case T_MINUS:
+      case T_BIT_NOT: case T_BIT_AND:
         $this->next();           
-        // note: do not recur in parse_primary_expr() here,
+        // note: we do not directly recur in parse_primary_expr() here,
         // because there are operators with higher precedence 
         // than unary (e.g. T_POW)
         $prec = self::$op_table[T_EXCL]; // %prec '!'
@@ -1601,6 +1839,8 @@ class Parser
   protected function parse_member_expr($allow_in = true,
                                        $allow_call = true)
   {
+    Logger::debug('%s', 'parse_member_expr');
+
     $expr = $this->parse_expr_atom($allow_in, $allow_call);
     $loc = $expr->loc;
     
@@ -1611,10 +1851,10 @@ class Parser
         if ($this->consume(T_LBRACE)) {
           $mkey = $this->parse_expr();
           $this->expect(T_RBRACE);
-          $expr = new ast\MemberExpr($loc, true, $expr, $memx);
+          $expr = new ast\MemberExpr($loc, $expr, $memx, true);
         } else {
           $mkey = $this->parse_ident(true);
-          $expr = new ast\MemberExpr($loc, false, $expr, $mkey);
+          $expr = new ast\MemberExpr($loc, $expr, $mkey, false);
         }
       }
       
@@ -1645,6 +1885,8 @@ class Parser
   protected function parse_expr_atom($allow_in = true,
                                      $allow_call = true)
   {
+    Logger::debug('%s', 'parse_expr_atom');
+
     $peek = $this->peek();
     
     $lex = $this->lex;
@@ -1698,18 +1940,65 @@ class Parser
           case T_CLINE: return new ast\LNumLit($loc, $loc->line);
           case T_CCOLN: return new ast\LNumLit($loc, $loc->coln);
           
-          // engine constants
+          // engine constants   
+          case T_CCLASS:  case T_CTRAIT:
+          case T_CMETHOD: case T_CMODULE: 
           case T_CFN:
-          case T_CCLASS:
-          case T_CTRAIT:
-          case T_CMETHOD:
-          case T_CMODULE: return new ast\EngineConst($loc, $type);
+            return new ast\EngineConst($loc, $type);
           
           // error
           default:
             $this->abort($peek);
         }
     }
+  }
+  
+  /**
+   * @param  boolean $open  require a '(' at the beginning
+   * @return array<ast\NamedArg|ast\Expr>
+   */
+  protected function parse_arg_list($open = true)
+  {
+    Logger::debug('%s', 'parse_arg_list');
+
+    if ($open) $this->expect(T_LPAREN);
+    $list = [];
+    // parse list
+    if (!$this->consume(T_RPAREN)) {
+      for (;;) {
+        $list[] = $this->parse_arg();
+        // no more ',' => end of list
+        if (!$this->consume(T_COMMA))
+          break;
+        // allow trailing ','
+        if ($this->consume(T_RPAREN))
+          goto out;
+      }
+      // pop-off ')'
+      $this->expect(T_RPAREN);
+    }
+    out:
+    return $list;
+  }
+  
+  /**
+   * @return ast\NamedArg|ast\Expr
+   */
+  protected function parse_arg()
+  {
+    Logger::debug('%s', 'parse_arg');
+
+    // ident: expr
+    if ($this->peek(1)->type === T_IDENT &&
+        $this->peek(2)->type === T_DDOT) {
+      $name = $this->parse_ident();
+      $this->expect(T_DDOT);
+      $expr = $this->parse_expr();
+      $node = new ast\NamedArg($name->loc, $name, $expr);
+      return $node;
+    }
+    // otherwise
+    return $this->parse_expr();
   }
   
   /**
@@ -1720,6 +2009,8 @@ class Parser
    */
   protected function parse_rxp_lit()
   {
+    Logger::debug('%s', 'parse_rxp_lit');
+
     $div = $this->expect(T_DIV);
     $tok = $this->lex->scan_regexp($div);
     return new ast\RegexpLit($div->loc, $tok->value);
@@ -1730,8 +2021,10 @@ class Parser
    */
   protected function parse_str_lit()
   {
+    Logger::debug('%s', 'parse_str_lit');
+
     $tok = $this->expect(T_STRING);
-    $node = new ast\StrLit($tok->loc, $tok->value);
+    $node = new ast\StrLit($tok->loc, $tok);
     
     while ($this->consume(T_SUBST)) {
       if ($this->consume(T_LBRACE)) {
@@ -1739,7 +2032,7 @@ class Parser
         $this->expect(T_RBRACE);
       } else {
         $tok = $this->expect(T_STRING);
-        $sub = new ast\StrLit($tok->loc, $tok->value);
+        $sub = new ast\StrLit($tok->loc, $tok);
       }
       
       $node->add($sub);
@@ -1753,6 +2046,8 @@ class Parser
    */
   protected function parse_arr_lit()
   {
+    Logger::debug('%s', 'parse_arr_lit');
+
     $tok = $this->expect(T_LBRACKET);
     
     if ($this->consume(T_RBRACKET))
@@ -1791,6 +2086,8 @@ class Parser
    */
   protected function parse_tup_lit()
   {
+    Logger::debug('%s', 'parse_tup_lit');
+
     $tok = $this->expect(T_LPAREN);
     $item = $this->parse_expr();
     
@@ -1818,6 +2115,8 @@ class Parser
    */
   protected function parse_obj_lit()
   {
+    Logger::debug('%s', 'parse_obj_lit');
+
     $tok = $this->expect(T_LBRACE);
     
     if ($this->consume(T_RBRACE))
@@ -1855,6 +2154,8 @@ class Parser
    */
   protected function parse_obj_pair()
   {
+    Logger::debug('%s', 'parse_obj_pair');
+
     $peek = $this->peek();
     $key = null;
     
@@ -1879,20 +2180,22 @@ class Parser
   protected function parse_fn_expr($allow_in = true, 
                                    $allow_call = true)
   {
-    $tok = $this->expect(T_FN);
+    Logger::debug('%s', 'parse_fn_expr');
+
+    $nloc = $this->expect(T_FN)->loc;
     $peek = $this->peek();
     $name = null;
     
     if ($peek->type === T_IDENT)
       $name = $this->parse_ident();
     
-    $param = $this->parse_fn_params();
-    $hint = $this->parse_maybe_fn_hint();
+    $params = $this->parse_fn_params();
+    $hint = $this->parse_maybe_hint();
     
     $this->enter(new FnScope);
     $body = $this->parse_fn_body();
     
-    $node = new ast\FnExpr($name, $params, $hint, $body);
+    $node = new ast\FnExpr($nloc, $name, $params, $hint, $body);
     $node->scope = $this->leave();
     return $node;
   }
@@ -1905,15 +2208,25 @@ class Parser
   protected function parse_new_expr($allow_in = true,
                                     $allow_call = true)
   {
-    $tok = $this->expect(T_NEW);
+    Logger::debug('%s', 'parse_new_expr');
+
+    $nloc = $this->expect(T_NEW)->loc;
     $peek = $this->peek();
     $expr = null;
-    
-    if ($peek->type !== T_LPAREN)
+    $args = null;
+    // optional type-name
+    if ($peek->type === T_IDENT ||
+        $peek->type === T_DDDOT ||
+        $peek->type === T_SELF) {
       $expr = $this->parse_type_name();
-    
-    $args = $this->parse_arg_list();
-    return new ast\NewExpr($tok->loc, $expr, $args);
+      $peek = $this->peek();
+    }
+    // optional arg-list
+    if ($peek->type === T_LPAREN)
+      $args = $this->parse_arg_list();
+    // note: "new" alone is already a valid new-expression
+    $node = new ast\NewExpr($nloc, $expr, $args);
+    return $node;
   }
   
   /**
@@ -1924,6 +2237,8 @@ class Parser
   protected function parse_del_expr($allow_in = true,
                                     $allow_call = true)
   {
+    Logger::debug('%s', 'parse_del_expr');
+
     $tok = $this->expect(T_DEL);
     $expr = $this->parse_member_expr($allow_in, $allow_call);
     return new ast\DelExpr($tok->loc, $expr);
@@ -1937,6 +2252,8 @@ class Parser
   protected function parse_yield_expr($allow_in = true,
                                       $allow_call = true)
   {
+    Logger::debug('%s', 'parse_yield_expr');
+
     $tok = $this->expect(T_YIELD);
     $expr = $this->parse_expr($allow_in, $allow_call);
     return new ast\YieldExpr($tok->loc, $expr);
@@ -1947,6 +2264,8 @@ class Parser
    */
   protected function parse_name()
   {
+    Logger::debug('%s', 'parse_name');
+
     $self = $this->consume(T_SELF);
     $root = null;
     
@@ -1968,6 +2287,8 @@ class Parser
       $node->add($id);
     }
     
+    // @TODO: lookup name and parse generic arguments if acceptable
+    
     return $node;
   }
   
@@ -1976,13 +2297,33 @@ class Parser
    */
   protected function parse_type_name()
   {
+    Logger::debug('%s', 'parse_type_name');
+
     $name = $this->parse_type();
     $gens = [];
-    while ($this->consume(T_LBRACE)) {
-      $gens[] = $this->parse_type();
-      $this->expect(T_RBRACE);
+    $dims = [];
+    // generic args
+    if ($this->consume(T_LT)) {
+      for (;;) {
+        $gens[] = $this->parse_type_name();
+        // no comma -> end of list
+        if (!$this->consume(T_COMMA))
+          break;
+      }
+      $this->expect(T_GT);
     }
-    return new ast\TypeName($name->loc, $name, $gens);
+    // array dims
+    while ($this->consume(T_LBRACKET)) {
+      $peek = $this->peek();
+      // fixed size (const_expr)
+      if ($peek->type !== T_RBRACKET)
+        $dims[] = $this->parse_expr();
+      else
+        $dims[] = null; // unknown size
+      $this->expect(T_RBRACKET);
+    }
+    $node = new ast\TypeName($name->loc, $name, $gens, $dims);
+    return $node;
   }
   
   /**
@@ -1990,6 +2331,8 @@ class Parser
    */
   protected function parse_type()
   {
+    Logger::debug('%s', 'parse_type');
+
     $peek = $this->peek();
     switch ($peek->type) {
       case T_TINT: case T_TFLOAT:
@@ -2007,7 +2350,9 @@ class Parser
    * @return ast\Ident
    */
   protected function parse_ident($allow_rid = false)  
-  {
+  {  
+    Logger::debug('%s', 'parse_ident');
+
     $peek = $this->peek();
     
     if (($peek->type === T_IDENT) || 

@@ -2,24 +2,45 @@
 
 namespace phs\ast;
 
+use phs\Token;
+use phs\Scope;
+use phs\Location;
+
 class TraitDecl extends Decl
 {
+  // @var array<Token>
   public $mods;
+  
+  // @var Ident
   public $id;
+  
+  // @var array<TraitUse>
   public $traits;
+  
+  // @var array<FnDecl|VarDecl>
   public $members;
-  public $incomp;
   
   // @var Scope  member-scope
   public $scope;
   
-  public function __construct($mods, $id, $traits, $members, $incomp = false)
+  /**
+   * constructor
+   *
+   * @param Location   $loc
+   * @param array|null $mods
+   * @param Ident      $id
+   * @param array|null $traits
+   * @param array|null $members
+   */
+  public function __construct(Location $loc, array $mods = null, Ident $id, 
+                              array $traits = null, array $members = null)
   {
+    parent::__construct($loc);
+    
     $this->mods = $mods;
     $this->id = $id;
     $this->traits = $traits;
     $this->members = $members;
-    $this->incomp = $incomp;
   }
 
   public function __clone()

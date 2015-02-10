@@ -2,13 +2,28 @@
 
 namespace phs\ast;
 
+use phs\Token;
+use phs\Location;
+
 class UnaryExpr extends Expr
 {
+  // @var int
   public $op;
+  
+  // @var Expr
   public $expr;
   
-  public function __construct($op, $expr)
+  /**
+   * constructor
+   *
+   * @param Location $loc
+   * @param int      $op
+   * @param Expr     $expr
+   */
+  public function __construct(Location $loc, $op, Expr $expr)
   {
+    parent::__construct($loc);
+    
     $this->op = $op;
     $this->expr = $expr;
   }

@@ -2,17 +2,34 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class UpdateExpr extends Expr
 {
+  // @var bool  prefix or postfix
   public $prefix;
+  
+  // @var Expr
   public $expr;
+  
+  // @var int
   public $op;
   
-  public function __construct($prefix, $expr, $op)
+  /**
+   * constructor
+   *
+   * @param Location $loc
+   * @param bool     $prefix
+   * @param int      $op
+   * @param Expr     $expr
+   */
+  public function __construct(Location $loc, $prefix, $op, Expr $expr)
   {
+    parent::__construct($loc);
+    
     $this->prefix = $prefix;
-    $this->expr = $expr;
     $this->op = $op;
+    $this->expr = $expr;
   }
 
   public function __clone()

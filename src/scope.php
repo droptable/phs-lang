@@ -529,6 +529,8 @@ class Scope extends SymbolMap
   }
 }
 
+class FnScope extends Scope {}
+
 /** inner scope */
 class InnerScope extends Scope
 {

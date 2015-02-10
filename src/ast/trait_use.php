@@ -2,13 +2,27 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class TraitUse extends Node
 {
+  // @var Name
   public $name;
+  
+  // @var array<TraitUseItem>
   public $items;
   
-  public function __construct($name, $items)
+  /**
+   * constructor
+   *
+   * @param Location   $loc 
+   * @param Name       $name
+   * @param array|null $items
+   */
+  public function __construct(Location $loc, Name $name, array $items = null)
   {    
+    parent::__construct($loc);
+    
     $this->name = $name;
     $this->items = $items;
   }  

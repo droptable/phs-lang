@@ -2,14 +2,32 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class TryStmt extends Stmt
 {
+  // @var Block
   public $body;
+  
+  // @var array<CatchItem>
   public $catches;
+  
+  // @var array<FinallyItem>
   public $finalizer;
   
-  public function __construct($body, $catches, $finalizer)
+  /**
+   * constructor
+   *
+   * @param Location         $loc
+   * @param Block            $body
+   * @param array|null       $catches
+   * @param FinallyItem|null $finalizer
+   */
+  public function __construct(Location $loc, Block $body, array $catches = null, 
+                              FinallyItem $finalizer = null)
   {
+    parent::__construct($loc);
+    
     $this->body = $body;
     $this->catches = $catches;
     $this->finalizer = $finalizer;

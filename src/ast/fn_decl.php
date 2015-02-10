@@ -14,6 +14,9 @@ class FnDecl extends Decl
   // @var Ident
   public $id;
   
+  // @var array<Ident>
+  public $gdef;
+  
   // @var array<ParamDecl>
   public $params;
   
@@ -29,21 +32,23 @@ class FnDecl extends Decl
   /**
    * constructor
    *
-   * @param Location       $loc
-   * @param array          $mods
-   * @param Ident          $id
-   * @param array          $params
-   * @param TypeName|null  $hint
-   * @param Node|null      $body
+   * @param Location           $loc
+   * @param array              $mods
+   * @param Ident              $id
+   * @param array<Ident>|null  $gdef
+   * @param array              $params
+   * @param TypeName|null      $hint
+   * @param Node|null          $body
    */
-  public function __construct(Location $loc, array $mods, Ident $id, 
-                              array $params, TypeName $hint = null, 
-                              Node $body = null)
+  public function __construct(Location $loc, array $mods = null, Ident $id, 
+                              array $gdef = null, array $params, 
+                              TypeName $hint = null, Node $body = null)
   {
     parent::__construct($loc);
     
     $this->mods = $mods;
     $this->id = $id;
+    $this->gdef = $gdef;
     $this->params = $params;
     $this->hint = $hint;
     $this->body = $body;

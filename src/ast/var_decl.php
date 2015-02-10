@@ -2,13 +2,27 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class VarDecl extends Decl
 {
+  // @var array<Token>
   public $mods;
+  
+  // @var array<VarItem>
   public $vars;
   
-  public function __construct($mods, $vars)
+  /**
+   * constructor
+   *
+   * @param Location       $loc
+   * @param array|null     $mods
+   * @param array<VarItem> $vars
+   */
+  public function __construct(Location $loc, array $mods = null, array $vars)
   {
+    parent::__construct($loc);
+    
     $this->mods = $mods;
     $this->vars = $vars;
   }

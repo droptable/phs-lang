@@ -5,7 +5,7 @@ namespace phs\ast;
 use phs\Symbol;
 use phs\Location;
 
-class Name extends Node
+class Name extends Expr
 {
   // @var Ident
   public $base;

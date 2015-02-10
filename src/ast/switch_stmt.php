@@ -2,13 +2,27 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class SwitchStmt extends Stmt
 {
+  // @var Expr
   public $test;
+  
+  // @var array<CaseItem>
   public $cases;
   
-  public function __construct($test, $cases)
+  /**
+   * constructor
+   *
+   * @param Location $loc
+   * @param Expr     $test
+   * @param array    $cases
+   */
+  public function __construct(Location $loc, Expr $test, array $cases)
   {
+    parent::__construct($loc);
+    
     $this->test = $test;
     $this->cases = $cases;
   }

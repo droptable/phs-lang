@@ -2,13 +2,27 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class VarList extends Decl
 {
+  // @var array<Ident>
   public $vars;
+  
+  // @var Expr
   public $expr;
   
-  public function __construct($vars, $expr)
+  /**
+   * constructor
+   *
+   * @param Location      $loc
+   * @param array<Ident>  $vars
+   * @param Expr          $expr
+   */
+  public function __construct(Location $loc, array $vars, Expr $expr)
   {
+    parent::__construct($loc);
+    
     $this->vars = $vars;
     $this->expr = $expr;
   }
