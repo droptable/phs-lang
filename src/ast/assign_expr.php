@@ -23,7 +23,7 @@ class AssignExpr extends Expr
    * @param int      $op
    * @param Expr     $right
    */
-  public function __construct(Location $loc, Expr $left, $op, Expr $right)
+  public function __construct(Location $loc, $op, Expr $left, Expr $right)
   {
     parent::__construct($loc);
     

@@ -15,7 +15,7 @@ class ExprStmt extends Stmt
    * @param Location $loc
    * @param array    $seq
    */
-  public function __construct(Location $loc, array $seq)
+  public function __construct(Location $loc, array $seq = null)
   {
     parent::__construct($loc);
     $this->seq = $seq;

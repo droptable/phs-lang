@@ -19,6 +19,9 @@ class Name extends Expr
   // @var array<Ident>
   public $parts;
   
+  // @var array<TypeName> 
+  public $gens;
+  
   // @var Symbol
   public $sym;
   

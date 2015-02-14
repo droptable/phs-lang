@@ -14,8 +14,8 @@ class Param extends Node
   // @var array<Token>  modifiers
   public $mods;
   
-  // @var TypeName  
-  public $type;
+  // @var array<TypeName>
+  public $types;
   
   // @var Ident
   public $id;
@@ -32,16 +32,16 @@ class Param extends Node
   /**
    * constructor
    *
-   * @param Location  $loc
-   * @param bool      $ref
-   * @param array     $mods
-   * @param Ident     $id 
-   * @param TypeName  $type
-   * @param Expr|null $init
-   * @param bool      $opt
+   * @param Location         $loc
+   * @param bool             $ref
+   * @param array            $mods
+   * @param Ident            $id 
+   * @param array<TypeName>  $type
+   * @param Expr|null        $init
+   * @param bool             $opt
    */
   public function __construct(Location $loc, $mods, $ref, Ident $id = null, 
-                              TypeName $type = null, Expr $init = null, 
+                              array $types = null, Expr $init = null, 
                               $opt = false)
   {
     parent::__construct($loc);
@@ -49,7 +49,7 @@ class Param extends Node
     $this->mods = $mods;
     $this->ref = $ref;
     $this->id = $id;
-    $this->type = $type;
+    $this->types = $types;
     $this->init = $init;
     $this->opt = $opt;
   }

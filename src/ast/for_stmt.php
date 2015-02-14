@@ -30,8 +30,9 @@ class ForStmt extends Stmt
    * @param Expr     $each
    * @param Stmt     $stmt
    */
-  public function __construct(Location $loc, Node $init, Expr $test, 
-                              Expr $each, Stmt $stmt)
+  public function __construct(Location $loc, Node $init = null, 
+                              Expr $test = null, Expr $each = null, 
+                              Stmt $stmt)
   {
     parent::__construct($loc);
     

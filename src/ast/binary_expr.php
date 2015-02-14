@@ -4,7 +4,7 @@ namespace phs\ast;
 
 use phs\Location;
 
-class BinExpr extends Expr
+class BinaryExpr extends Expr
 {
   // @var Expr  left-hand-side
   public $left;
@@ -23,7 +23,7 @@ class BinExpr extends Expr
    * @param int      $op
    * @param Expr     $right
    */
-  public function __construct(Location $loc, Expr $left, $op, Expr $right)
+  public function __construct(Location $loc, $op, Expr $left, Expr $right)
   {
     parent::__construct($loc);
     

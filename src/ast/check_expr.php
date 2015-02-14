@@ -23,7 +23,7 @@ class CheckExpr extends Expr
    * @param int      $op
    * @param TypeName $right
    */
-  public function __construct(Location $loc, Expr $left, $op, TypeName $right)
+  public function __construct(Location $loc, $op, Expr $left, TypeName $right)
   {
     parent::__construct($loc);
     

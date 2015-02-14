@@ -31,7 +31,8 @@ class VarItem extends Node
    * @param bool          $ref
    */
   public function __construct(Location $loc, Ident $id, 
-                              TypeName $type = null, Expr $init, $ref)
+                              TypeName $type = null, Expr $init = null, 
+                              $ref)
   {
     parent::__construct($loc);
     

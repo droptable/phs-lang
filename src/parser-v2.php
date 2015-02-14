@@ -5,13 +5,6 @@ namespace phs;
 /**
  * the grammar got too complex and context-sensitive (to look reasonable)
  * so i decided to implement the grammar in a recursive-descent way.
- * 
- * this parser does the following things:
- * 
- *   - parse the grammar
- *   - build scopes
- *   - collect symbols
- *   - collect usage
  */
 
 // exception-classes used to break-out of recursion
@@ -20,9 +13,7 @@ class SyntaxError extends ParseError {}
 
 require_once 'ast.php';
 require_once 'lexer.php';
-require_once 'scope.php';
 require_once 'logger.php';
-require_once 'symbols.php';
 
 use phs\ast;
 use phs\ast\Node;
@@ -45,11 +36,11 @@ class Parser
   // @var Session
   private $sess;
   
-  // @var Scope  current scope
-  private $scope;
+  // @var array<Token>
+  private $capt;
   
-  // @var array  scope stack
-  private $stack;
+  // @var array<array>
+  private $cstk;
   
   // @var array  operator precedence table
   private static $op_table = [
@@ -125,8 +116,8 @@ class Parser
   public function parse(Source $src)
   {
     $this->lex = new Lexer($src);
-    $this->scope = $this->sess->scope;
-    $this->stack = [];
+    $this->capt = [];
+    $this->cstk = [];
     $unit = null;
     // main try/catch parse block
     try {
@@ -135,6 +126,7 @@ class Parser
       /* noop */
     }
     unset ($this->lex);
+    #var_dump($unit); exit;
     return $unit;
   }
   
@@ -146,6 +138,7 @@ class Parser
   protected function next()
   {
     $tok = $this->lex->next();
+    $this->capt[] = $tok;
     return $tok;
   }
   
@@ -230,10 +223,8 @@ class Parser
   protected function consume(... $tids)
   {
     $peek = $this->peek();
-      
     if (!in_array($peek->type, $tids, true))
       return null;
-    
     return $this->next();
   }
   
@@ -245,60 +236,73 @@ class Parser
   {
     for (;;) {
       $peek = $this->peek();
-      
       if ($peek->type !== T_SEMI)
         break;
-      
       $this->next();
     }
   }
   
-  /* ------------------------------------ */
-  
-  /**
-   * enters a new scope
-   *
-   * @param  Scope  $scope
-   */
-  protected function enter(Scope $scope)
+  protected function check_lval(Node $node)
   {
-    array_push($this->stack, $this->scope);
-    $this->scope = $scope;
+    if ($node instanceof ast\Ident ||
+        $node instanceof ast\Name || 
+        $node instanceof ast\MemberExpr)
+      return true;
+    
+    Logger::error_at($node->loc, 'expected a lval');
+    // continue parsing
+    return false;
   }
-  
-  /**
-   * leaves a scope
-   *
-   * @return Scope  the previous scope
-   */
-  protected function leave()
-  {
-    $prev = $this->scope;
-    $this->scope = array_pop($this->stack);
-    return $prev;
-  }
-  
   
   /* ------------------------------------ */
   
   /**
-   * checks class modifiers
-   *
-   * @param  array $mods
+   * begins a new token-capture stack.
+   * 
+   * all tokens via next() are captured by a list and can be
+   *   - discarded
+   *   - reverted (and re-parsed if needed)
    */
-  protected function check_class_mods($mods)
+  protected function begin_token_capture() 
   {
-    foreach ($mods as $mod) 
-      switch ($mod->type) {
-        case T_PUBLIC: 
-        case T_FINAL: 
-        case T_STATIC:
-          // @TODO: add "abstract" ?
-          break;
-        default:
-          Logger::warn_at($mod->loc, 'illegal class-modifier \\');
-          Logger::warn('`%s`', $mod->value);
-      }
+    Logger::debug('begin new token capture');
+    
+    $this->cstk[] = $this->capt;
+    $this->capt = [];
+  }
+  
+  /**
+   * removes a token-capture list.
+   * all captured tokens are discarded.
+   */
+  protected function end_token_capture() 
+  {
+    Logger::debug('remove token capture');
+    
+    unset ($this->capt);
+    $this->capt = array_pop($this->cstk);
+  }
+  
+  /**
+   * removes a token-capture list.
+   * all captured tokens are pushed back to the queue.
+   */
+  protected function undo_token_capture() 
+  {
+    Logger::debug('reverting token capture');
+    
+    // clear queue/look-ahead
+    $lqu = $this->lex->get_queue();
+    $this->lex->set_queue($this->capt);
+    $this->lex->add_queue($lqu);
+    
+    foreach ($this->capt as $tok)
+      Logger::debug('- undo: %s', $this->lex->lookup($tok));
+    
+    // pre-fetch look-ahead
+    $this->lex->peek();
+    // end capture
+    $this->end_token_capture();
   }
   
   /* ------------------------------------ */
@@ -309,12 +313,10 @@ class Parser
   protected function parse_unit() 
   { 
     Logger::debug('%s', 'parse_unit');
-
-    $this->enter(new UnitScope($this->scope));
+    
     $nloc = $this->peek()->loc;
     $body = $this->parse_unit_decls();
     $node = new ast\Unit($nloc, $body);
-    $node->scope = $this->leave();
     return $node;
   }
   
@@ -378,6 +380,12 @@ class Parser
         case T_USE:
           $decl = $this->parse_use_decl($mods);
           break;
+        case T_ENUM:
+          $decl = $this->parse_enum_decl($mods);
+          break;
+        case T_TYPE:
+          $decl = $thus->parse_type_decl($mods);
+          break; 
         case T_CLASS:
           $decl = $this->parse_class_decl($mods);
           break;
@@ -437,8 +445,6 @@ class Parser
 
     $nloc = $this->expect(T_MODULE)->loc;
     $name = null;
-    $this->enter(new ModuleScope($this->scope));
-    
     // optional name
     if (!$this->consume(T_LBRACE))
       $name = $this->parse_name();    
@@ -452,9 +458,7 @@ class Parser
       while (!$this->consume(T_RBRACE))
         $body[] = $this->parse_decl();
     }
-    
     $node = new ast\Module($nloc, $name, $body);
-    $node->scope = $this->leave();
     return $node;
   }
   
@@ -468,10 +472,8 @@ class Parser
 
     $nloc = null;
     
-    if ($mods !== null) {
-      $this->check_use_decl_mods($mods);
+    if ($mods !== null)
       $nloc = $mods[0]->loc;
-    }
     
     $tok = $this->expect(T_USE);
     // use "use" token location
@@ -528,6 +530,87 @@ class Parser
   }
   
   /**
+   * @param  array|null $mods
+   * @return ast\EnumDecl
+   */
+  protected function parse_enum_decl(array $mods = null)
+  {
+    Logger::debug('%s', 'parse_enum_decl');
+    
+    $nloc = null;
+    if ($mods !== null)
+      $nloc = $mods[0]->loc;
+    
+    $tok = $this->expect(T_ENUM);
+    if ($nloc === null) $nloc = $tok->loc;
+    
+    $name = null;
+    if ($this->peek()->type === T_IDENT)
+      // optional name
+      $name = $this->parse_ident();   
+    // array of items (if any) 
+    $items = null;
+    // forward declaration
+    if ($name === null || !$this->consume(T_SEMI)) {
+      $this->expect(T_LBRACE);
+      $items = [];
+      for (;;) {
+        $items[] = $this->parse_enum_decl_item();
+        // halt if no more ','
+        if (!$this->consume(T_COMMA))
+          break;
+        // allow trailing ','
+        if ($this->peek()->type === T_RBRACE)
+          break;
+      }
+      $this->expect(T_RBRACE);
+    }
+    
+    $this->consume_semis();
+    $node = new ast\EnumDecl($nloc, $mods, $name, $items);
+    return $node;
+  }
+  
+  /**
+   * @return ast\EnumItem
+   */
+  protected function parse_enum_decl_item()
+  {
+    Logger::debug('%s', 'parse_enum_decl_item');
+    
+    $id = $this->parse_ident();
+    $init = null;
+    if ($this->consume(T_ASSIGN))
+      $init = $this->parse_expr();
+    $node = new ast\EnumItem($id->loc, $id, $init);
+    return $node;
+  }
+  
+  /**
+   * @param  array|null $mods
+   * @return ast\TypeDecl
+   */
+  protected function parse_type_decl(array $mods = null)
+  {
+    $nloc = null;
+    
+    if ($mods !== null)
+      $nloc = $mods[0]->loc;
+    
+    $tok = $this->expect(T_TYPE);
+    if ($nloc === null) $nloc = $tok->loc;
+    
+    $name = $this->parse_ident();
+    $this->expect(T_ASSIGN);
+    $decl = $this->parse_type_name();
+    $this->expect(T_SEMI);
+    $this->consume_semis();
+    
+    $node = new ast\TypeDecl($nloc, $mods, $name, $decl);
+    return $node;
+  }
+  
+  /**
    * @param  array  $mods
    * @return ast\ClassDecl
    */
@@ -536,11 +619,8 @@ class Parser
     Logger::debug('%s', 'parse_class_decl');
 
     $nloc = null;
-    
-    if ($mods !== null) {
-      $this->check_class_mods($mods);
+    if ($mods !== null)
       $nloc = $mods[0]->loc;
-    }
     
     $tok = $this->expect(T_CLASS);
     // use token location
@@ -551,13 +631,10 @@ class Parser
     $gdef = $this->parse_maybe_generic_def();
     $cext = $this->parse_maybe_class_ext();
     $cimp = $this->parse_maybe_class_impl();
-    
-    $this->add_class_sym($name, $gdef, $cext, $cimp);
-    
     $uses = null;
     $body = null;
-    $this->enter(new MemberScope($this->scope));
     
+    // parse body
     if (!$this->consume(T_SEMI)) {
       $this->expect(T_LBRACE);
       $uses = $this->parse_maybe_trait_uses();
@@ -568,7 +645,6 @@ class Parser
     $this->consume_semis();
     $node = new ast\ClassDecl($nloc, $mods, $name, $gdef, 
                               $cext, $cimp, $uses, $body);
-    $node->scope = $this->leave();
     return $node;
   }
   
@@ -582,10 +658,8 @@ class Parser
 
     $nloc = null;
     
-    if ($mods !== null) {
-      $this->check_trait_mods($mods);
+    if ($mods !== null)
       $nloc = $mods[0]->loc;
-    }
     
     $tok = $this->expect(T_TRAIT);
     // use token location
@@ -595,13 +669,10 @@ class Parser
     
     $name = $this->parse_ident();
     $gdef = $this->parse_maybe_generic_def();
-    
-    $this->add_trait_sym($name, $gdef);
-    
     $uses = null;
     $body = null;
-    $this->enter(new MemberScope($this->scope));
     
+    // parse body
     if (!$this->consume(T_SEMI)) {
       $this->expect(T_LBRACE);
       $uses = $this->parse_maybe_trait_uses();
@@ -612,7 +683,6 @@ class Parser
     $this->consume_semis();
     $node = new ast\TraitDecl($nloc, $mods, $name, $gdef, 
                               $uses, $body);
-    $node->scope = $this->leave();
     return $node;
   }
   
@@ -626,10 +696,8 @@ class Parser
 
     $nloc = null;
     
-    if ($mods !== null) {
-      $this->check_iface_mods($mods);
+    if ($mods !== null)
       $loc = $mods[0]->loc;
-    }
     
     $tok = $this->expect(T_IFACE);
     // use token location
@@ -638,12 +706,9 @@ class Parser
     $name = $this->parse_ident();
     $gdef = $this->parse_maybe_generic_def();
     $iext = $this->parse_maybe_iface_ext();
-    
-    $this->add_iface_sym($name, $gdef, $iext);
-    
     $body = null;
-    $this->enter(new MemberScope($this->scope));
     
+    // parse body
     if (!$this->consume(T_SEMI)) {
       $this->expect(T_LBRACE);
       $body = $this->parse_maybe_iface_members();
@@ -653,7 +718,6 @@ class Parser
     $this->consume_semis();
     $node = new ast\IfaceDecl($mods, $name, $gdef, 
                               $iext, $body);
-    $node->scope = $this->leave();
     return $node;
   }
   
@@ -740,19 +804,25 @@ class Parser
 
     $mods = $this->parse_maybe_mods();
     // check mods
-    if ($mods !== null) {
-      $this->check_class_member_mods($mods);
+    if ($mods !== null)
       // nested modifiers
       if ($this->consume(T_LBRACE)) {
         $nloc = $mods[0]->loc;
         $body = $this->parse_maybe_class_members();
-        $this->expect(T_RBACE);
+        $this->expect(T_RBRACE);
         $node = new ast\NestedMods($nloc, $mods, $body);
         return $node;
       }
+    // parse declaration
+    switch ($this->peek()->type) {
+      case T_ENUM:
+        return $this->parse_enum_decl($mods);
+      case T_TYPE:
+        return $this->parse_type_decl($mods);
+      // allow nested classes?
+      default:
+        return $this->parse_value_decl($mods);
     }
-    // variable / function declaration
-    return $this->parse_value_decl($mods);
   }
   
   /**
@@ -880,10 +950,8 @@ class Parser
 
     $nloc = null;
     
-    if ($mods !== null) {
-      $this->check_fn_mods($mods);
+    if ($mods !== null)
       $nloc = $mods[0]->loc;
-    }
     
     $tok = $this->expect(T_FN);
     // use token location
@@ -893,19 +961,15 @@ class Parser
     $gdef = $this->parse_maybe_generic_def();
     $params = $this->parse_fn_params();
     $hint = $this->parse_maybe_hint();
-    
-    //$this->add_fn_sym($name, $gdef);
-    
     $body = null;
-    $this->enter(new FnScope);
     
+    // parse body
     if (!$this->consume(T_SEMI))
       $body = $this->parse_fn_body();
     
     $this->consume_semis();
     $node = new ast\FnDecl($nloc, $mods, $name, $gdef, 
                            $params, $hint, $body);
-    $node->scope = $this->leave();
     return $node;
   }
   
@@ -963,15 +1027,18 @@ class Parser
     if ($peek->type === T_IDENT ||
         $peek->type === T_DDOT) {
       $name = null;
-      $hint = null;
+      $hints = null;
       $init = null;
       $popt = false;
       // name
       if ($peek->type === T_IDENT)
         $name = $this->parse_ident();
       // hint
-      if ($this->consume(T_DDOT))
-        $hint = $this->parse_type_name();
+      if ($this->consume(T_DDOT)) {
+        $hints = [ $this->parse_type_name() ];
+        while ($this->consume(T_BIT_OR))
+          $hints[] = $this->parse_type_name();        
+      }
       // init ...
       if ($this->consume(T_ASSIGN))
         $init = $this->parse_expr();
@@ -980,7 +1047,7 @@ class Parser
         $popt = true;
       // done
       $node = new ast\Param($nloc, $mods, $aref, $name, 
-                            $hint, $init, $popt);
+                            $hints, $init, $popt);
       return $node;
     } 
     
@@ -1063,10 +1130,9 @@ class Parser
 
     $loc = null;
     
-    if ($mods !== null) {
-      $this->check_var_mods($mods);
+    if ($mods !== null)
       $loc = $mods[0]->loc;
-    } else
+    else
       $loc = $this->expect(T_LET)->loc;
     
     $peek = $this->peek();
@@ -1245,6 +1311,9 @@ class Parser
     // function
     if ($peek->type === T_FN)
       return $this->parse_fn_decl($mods);
+    // use
+    if ($peek->type === T_USE)
+      return $this->parse_use_decl($mods);
     // variable
     if ($mods !== null)
       return $this->parse_var_decl($mods);
@@ -1304,13 +1373,13 @@ class Parser
     while ($tok = $this->consume(T_ELIF)) {      
       $elif_expr = $this->parse_paren_expr();
       $elif_stmt = $this->parse_stmt();
-      $elif_[] = new ast\ElifStmt($tok->loc, $elif_expr, $elif_stmt);
+      $elif_[] = new ast\ElifItem($tok->loc, $elif_expr, $elif_stmt);
     }
     
     // else
     if ($tok = $this->consume(T_ELSE)) {
       $else_stmt = $this->parse_stmt();
-      $else_ = new ast\ElseStmt($tok->loc, $else_stmt);
+      $else_ = new ast\ElseItem($tok->loc, $else_stmt);
     }
     
     $node = new ast\IfStmt($nloc, $expr, $stmt, $elif_, $else_);
@@ -1663,6 +1732,10 @@ class Parser
     
     $this->expect(T_SEMI);
     $this->consume_semis();
+    
+    if (!$list[0]->loc)
+      var_dump($list);
+    
     $node = new ast\ExprStmt($list[0]->loc, $list);
     return $node;
   }
@@ -1682,6 +1755,18 @@ class Parser
     // start precedence climbing
     $expr = $this->parse_expr_ops(0, $allow_in, $allow_call);
     return $expr;
+  }
+  
+  /**
+   * @return ast\ParenExpr
+   */
+  protected function parse_paren_expr()
+  {
+    $nloc = $this->expect(T_LPAREN)->loc;
+    $expr = $this->parse_expr();
+    $this->expect(T_RPAREN);
+    $node = new ast\ParenExpr($nloc, $expr);
+    return $node;
   }
   
   /**
@@ -1744,7 +1829,7 @@ class Parser
         
         $lhs = new ast\CondExpr($loc, $lhs, $then, $altn);
       }
-              
+      
       // expr T_IS type_name
       // expr T_NIS type_name
       elseif ($peek->type === T_IS ||
@@ -1919,7 +2004,7 @@ class Parser
         // fall through
         
       case T_IDENT:
-      case T_DDDOT: return $this->parse_name();
+      case T_DDDOT: return $this->parse_name_ref();
       
       default:
         $this->next();
@@ -2071,7 +2156,7 @@ class Parser
       $peek = $this->peek();
       
       // allow trailing comma
-      if ($peek->type === T_RBACKET)
+      if ($peek->type === T_RBRACKET)
         break;
       
       $items[] = $this->parse_expr();
@@ -2191,12 +2276,8 @@ class Parser
     
     $params = $this->parse_fn_params();
     $hint = $this->parse_maybe_hint();
-    
-    $this->enter(new FnScope);
     $body = $this->parse_fn_body();
-    
     $node = new ast\FnExpr($nloc, $name, $params, $hint, $body);
-    $node->scope = $this->leave();
     return $node;
   }
   
@@ -2287,9 +2368,67 @@ class Parser
       $node->add($id);
     }
     
-    // @TODO: lookup name and parse generic arguments if acceptable
-    
     return $node;
+  }
+  
+  /**
+   * parses a name and tries to apply generic arguments to it.
+   * this is a little hack to make the grammar context-free.
+   * 
+   * there a two outputs of this method:
+   *   1. a generic name
+   *   2. a ordinary name
+   *   
+   * a generic name gets created if:
+   *   1. a '<' token is on the top of the stack after the name was parsed.
+   *   2. the sequence inside the '<' '>' tokens are valid type-names.
+   *   3. after the '>' token comes a '(' token.
+   *   
+   * if the generic-parse fails, all tokens, including the '<' token,
+   * are pushed back to the token-queue and the original name gets returned.
+   *
+   * @return ast\Name
+   */
+  protected function parse_name_ref()
+  {
+    Logger::debug('%s', 'parse_name_ref');
+    
+    $name = $this->parse_name();
+    if ($this->peek()->type === T_LT) {
+      // try to parse generic arguments    
+      $gens = [];
+      $this->begin_token_capture();
+      $this->consume(T_LT);
+      try {
+        for (;;) {
+          $gens[] = $this->parse_type_name();
+          // halt if no more ','
+          if (!$this->consume(T_COMMA))
+            break;
+          // allow trailing ','
+          if ($this->peek()->type === T_GT)
+            break;
+        }
+        // no '>' '(' 
+        // not a generic name
+        if (!$this->do_generic_end(/* expect */false) ||
+            $this->peek()->type !== T_LPAREN)
+          goto err;       
+        // we have a generic name!
+        $name->gens = $gens;
+        // remove token-capture
+        $this->end_token_capture();
+        goto out;
+      } catch (ParseError $e) {
+        // noop
+      }
+      err:
+      // invalid generic name
+      $this->undo_token_capture();
+    }
+    out:
+    // return name as-is
+    return $name;
   }
   
   /**
@@ -2310,7 +2449,7 @@ class Parser
         if (!$this->consume(T_COMMA))
           break;
       }
-      $this->expect(T_GT);
+      $this->do_generic_end(/* expect */true);
     }
     // array dims
     while ($this->consume(T_LBRACKET)) {
@@ -2324,6 +2463,37 @@ class Parser
     }
     $node = new ast\TypeName($name->loc, $name, $gens, $dims);
     return $node;
+  }
+  
+  /**
+   * handles the end of generic-arguments
+   *
+   * @param  boolean $ex
+   * @return bool
+   */
+  protected function do_generic_end($ex = true)
+  {
+    $peek = $this->peek();
+    
+    if ($peek->type === T_SR) {
+      // remove one '>' and push it back to the queue
+      $this->consume(T_SR);
+      $dtok = new Token(T_GT, '>');
+      $dtok->loc = clone $peek->loc;
+      $dtok->loc->pos->coln += 1;
+      $this->lex->push($dtok);
+      return true;
+    }
+    
+    if ($peek->type === T_GT) {
+      if ($ex)
+        $this->expect(T_GT);
+      else
+        $this->consume(T_GT);
+      return true;
+    }
+    
+    return false;
   }
   
   /**

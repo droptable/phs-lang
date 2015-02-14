@@ -348,6 +348,37 @@ class Lexer
   }
   
   /**
+   * returns the current look-ahead queue
+   *
+   * @return array
+   */
+  public function get_queue()
+  {
+    return $this->queue;
+  }
+  
+  /**
+   * sets the look-ahead queue
+   *
+   * @param array $nq
+   */
+  public function set_queue(array $nq) 
+  {
+    $this->queue = $nq;
+  }
+  
+  /**
+   * adds a array-of-tokens to the current look-ahead queue
+   *
+   * @param array $aq
+   */
+  public function add_queue(array $aq)
+  {
+    foreach ($aq as $tok)
+      $this->queue[] = $tok;
+  }
+  
+  /**
    * returns a string-representation of a token-id
    *
    * @param  Token|int  $tok

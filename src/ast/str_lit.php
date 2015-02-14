@@ -27,6 +27,8 @@ class StrLit extends Expr
    */
   public function __construct(Location $loc, Token $tok)
   {
+    parent::__construct($loc);
+    
     $this->data = $tok->value;
     $this->flag = $tok->flag;
     $this->delim = $tok->delim;

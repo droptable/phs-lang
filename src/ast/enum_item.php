@@ -2,24 +2,14 @@
 
 namespace phs\ast;
 
-use phs\Location;
-
-class EnumItem extends Node
+class EnumVar extends Node
 {
   public $id;
   public $init;
   
-  /**
-   * constructor
-   *
-   * @param Location  $loc
-   * @param Ident     $id  
-   * @param Expr|null $init
-   */
-  public function __construct(Location $loc, Ident $id, Expr $init = null)
+  public function __construct($id, $init)
   {
-    parent::__construct($loc);
-    
+    throw new \Exception('TODO: implement enums');
     $this->id = $id;
     $this->init = $init;
   }

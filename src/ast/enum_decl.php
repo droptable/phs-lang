@@ -2,17 +2,30 @@
 
 namespace phs\ast;
 
+use phs\Location;
+
 class EnumDecl extends Decl
 {
   public $mods;
-  public $vars;
+  public $id;
+  public $items;
   
-  public function __construct($mods, $vars)
+  /**
+   * constructor
+   *
+   * @param Location   $loc
+   * @param array|null $mods
+   * @param Ident|null $id
+   * @param array|null $items
+   */
+  public function __construct(Location $loc, array $mods = null, 
+                              Ident $id = null, array $items = null)
   {
-    throw new \Exception('TODO: implement enums');
+    parent::__construct($loc);
     
     $this->mods = $mods;
-    $this->vars = $vars;
+    $this->id = $id;
+    $this->items = $items;
   }
 
   public function __clone()
@@ -25,11 +38,16 @@ class EnumDecl extends Decl
         $this->mods[] = clone $mod;  
     }
     
-    $vars = $this->vars;
-    $this->vars = [];
+    if ($this->id)
+      $this->id = clone $this->id;
     
-    foreach ($vars as $var)
-      $this->vars[] = clone $var;
+    if ($this->items) {
+      $items = $this->items;
+      $this->items = [];
+      
+      foreach ($items as $item)
+        $this->items[] = clone $item;
+    }
     
     parent::__clone();
   }
