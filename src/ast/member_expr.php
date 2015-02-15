@@ -16,6 +16,9 @@ class MemberExpr extends Expr
   // @var bool
   public $computed;
   
+  // @var array<TypeName>  generic arguments in a member-call expression
+  public $gens;
+  
   // @var Symbol
   public $sym;
   

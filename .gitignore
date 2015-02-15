@@ -1,14 +1,10 @@
-bin/test.bat
-bin/test.log
-bin/test.phs
-bin/test.php
 bin/out.log
-src/flow.txt
 src_/
 src/old/
-src/front/yacc/y.output
-src/front/yacc/parser-tmp.y
-src/front/yacc/parser-tmp.php
-src/front/yacc/kmyacc.exe
+src/ast - Kopie
+src/yacc/y.output
+src/yacc/parser-tmp.y
+src/yacc/parser-tmp.php
+src/yacc/kmyacc.exe
 test/
 out/

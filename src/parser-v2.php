@@ -246,7 +246,8 @@ class Parser
   {
     if ($node instanceof ast\Ident ||
         $node instanceof ast\Name || 
-        $node instanceof ast\MemberExpr)
+        $node instanceof ast\MemberExpr ||
+        $node instanceof ast\OffsetExpr)
       return true;
     
     Logger::error_at($node->loc, 'expected a lval');
@@ -384,7 +385,7 @@ class Parser
           $decl = $this->parse_enum_decl($mods);
           break;
         case T_TYPE:
-          $decl = $thus->parse_type_decl($mods);
+          $decl = $this->parse_type_decl($mods);
           break; 
         case T_CLASS:
           $decl = $this->parse_class_decl($mods);
@@ -1439,9 +1440,14 @@ class Parser
       
       _forsq:      
       $this->expect(T_SEMI);
-      $test = $this->parse_expr_stmt();
-      $each = $this->parse_expr();
-      $this->expect(T_RPAREN);
+      if (!$this->consume(T_SEMI)) {
+        $test = $this->parse_expr();
+        $this->expect(T_SEMI);
+      }
+      if (!$this->consume(T_RPAREN)) {
+        $each = $this->parse_expr();
+        $this->expect(T_RPAREN);
+      }
       $stmt = $this->parse_stmt();
     } else
       $stmt = $this->parse_block();
@@ -1927,8 +1933,27 @@ class Parser
     Logger::debug('%s', 'parse_member_expr');
 
     $expr = $this->parse_expr_atom($allow_in, $allow_call);
-    $loc = $expr->loc;
+    $nloc = $expr->loc;
     
+    // first '.' constant member expression call can be generic
+    if ($this->peek(1)->type === T_DOT &&
+        $this->peek(2)->type === T_IDENT) {
+      $this->consume(T_DOT);
+      $mkey = $this->parse_ident();
+      $expr = new ast\MemberExpr($nloc, $expr, $mkey, false);
+      // handle '<'
+      if ($this->peek()->type === T_LT) {
+        // start generic-argument parser
+        $gens = $this->parse_generic_args();
+        if ($gens !== null) {
+          $expr->gens = $gens;
+          // next token is '('
+          assert($this->peek()->type === T_LPAREN);
+        }
+      }
+    }
+    
+    // parse follow-up members
     for (;;) {
       // | member_expr '.' aid
       // | member_expr '.' '{' expr '}'
@@ -1936,23 +1961,24 @@ class Parser
         if ($this->consume(T_LBRACE)) {
           $mkey = $this->parse_expr();
           $this->expect(T_RBRACE);
-          $expr = new ast\MemberExpr($loc, $expr, $memx, true);
+          $expr = new ast\MemberExpr($nloc, $expr, $memx, true);
         } else {
           $mkey = $this->parse_ident(true);
-          $expr = new ast\MemberExpr($loc, $expr, $mkey, false);
+          $expr = new ast\MemberExpr($nloc, $expr, $mkey, false);
         }
       }
       
       // | member_expr '[' expr ']'
       elseif ($this->consume(T_LBRACKET)) {
         $moff = $this->parse_expr();
-        $expr = new ast\OffsetExpr($loc, $expr, $moff);
+        $expr = new ast\OffsetExpr($nloc, $expr, $moff);
+        $this->expect(T_RBRACKET);
       }
       
       // | member_expr pargs
       elseif ($allow_call && $this->consume(T_LPAREN)) {
         $args = $this->parse_arg_list(false);
-        $expr = new ast\CallExpr($loc, $expr, $args);
+        $expr = new ast\CallExpr($nloc, $expr, $args);
       }
       
       else
@@ -2396,37 +2422,9 @@ class Parser
     $name = $this->parse_name();
     if ($this->peek()->type === T_LT) {
       // try to parse generic arguments    
-      $gens = [];
-      $this->begin_token_capture();
-      $this->consume(T_LT);
-      try {
-        for (;;) {
-          $gens[] = $this->parse_type_name();
-          // halt if no more ','
-          if (!$this->consume(T_COMMA))
-            break;
-          // allow trailing ','
-          if ($this->peek()->type === T_GT)
-            break;
-        }
-        // no '>' '(' 
-        // not a generic name
-        if (!$this->do_generic_end(/* expect */false) ||
-            $this->peek()->type !== T_LPAREN)
-          goto err;       
-        // we have a generic name!
-        $name->gens = $gens;
-        // remove token-capture
-        $this->end_token_capture();
-        goto out;
-      } catch (ParseError $e) {
-        // noop
-      }
-      err:
-      // invalid generic name
-      $this->undo_token_capture();
+      $gens = $this->parse_generic_args();
+      if ($gens !== null) $name->gens = $gens;
     }
-    out:
     // return name as-is
     return $name;
   }
@@ -2449,7 +2447,7 @@ class Parser
         if (!$this->consume(T_COMMA))
           break;
       }
-      $this->do_generic_end(/* expect */true);
+      $this->parse_generic_end(/* expect */true);
     }
     // array dims
     while ($this->consume(T_LBRACKET)) {
@@ -2466,17 +2464,56 @@ class Parser
   }
   
   /**
-   * handles the end of generic-arguments
-   *
+   * @return array<ast\TypeName>|null
+   */
+  protected function parse_generic_args() 
+  {
+    Logger::debug('%s', 'parse_generic_args');
+    
+    $gens = [];
+    $this->begin_token_capture();
+    $this->consume(T_LT);
+    try {
+      for (;;) {
+        $gens[] = $this->parse_type_name();
+        // halt if no more ','
+        if (!$this->consume(T_COMMA))
+          break;
+        // allow trailing ','
+        if ($this->peek()->type === T_GT)
+          break;
+      }
+      // no '>' '(' 
+      // not a generic name
+      if (!$this->parse_generic_end(/* expect */false) ||
+          $this->peek()->type !== T_LPAREN)
+        goto err;       
+      // we have a generic name!
+      // remove token-capture
+      $this->end_token_capture();
+      return $gens;
+    } catch (ParseError $e) {
+      // noop
+    }
+    err:
+    // invalid generic name
+    $this->undo_token_capture();
+    return null;
+  }
+  
+  /**
    * @param  boolean $ex
    * @return bool
    */
-  protected function do_generic_end($ex = true)
+  protected function parse_generic_end($ex = true)
   {
+    Logger::debug('%s(ex=%s)', 'parse_generic_end', $ex ? 'true' : 'false');
+    
     $peek = $this->peek();
     
     if ($peek->type === T_SR) {
       // remove one '>' and push it back to the queue
+      // @TODO: restore correct tokens after a failed parse_generic_arg()
       $this->consume(T_SR);
       $dtok = new Token(T_GT, '>');
       $dtok->loc = clone $peek->loc;
@@ -2510,6 +2547,8 @@ class Parser
       case T_TSTR: case T_TDEC:
         $tok = $this->next();
         return new ast\TypeId($tok->loc, $tok);
+      case T_TYPE:
+        return $this->parse_type_ref();
       default:
         return $this->parse_name();
     }

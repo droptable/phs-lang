@@ -27,7 +27,7 @@ class ForInStmt extends Stmt
    * @param Expr     $rhs
    * @param Stmt     $stmt
    */
-  public function __construct(Location $loc, Expr $lhs, Expr $rhs, Stmt $stmt)
+  public function __construct(Location $loc, Ident $lhs, Expr $rhs, Stmt $stmt)
   {
     parent::__construct($loc);
     
