@@ -3,8 +3,7 @@
 namespace phs;
 
 /**
- * the grammar got too complex and context-sensitive (to look reasonable)
- * so i decided to implement the grammar in a recursive-descent way.
+ * recursive-descent phs parser
  */
 
 // exception-classes used to break-out of recursion
